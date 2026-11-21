@@ -17,7 +17,6 @@ const {
 async function listLicenses(req, res) {
   try {
     const {
-      company_id,
       license_type_id,
       region,
       mineral_type,
@@ -25,6 +24,11 @@ async function listLicenses(req, res) {
       search,
       is_active,
     } = req.query;
+
+    const company_id =
+      req.query.company_id ||
+      req.params.company_id ||
+      req.params.id;
 
     const where = {};
 

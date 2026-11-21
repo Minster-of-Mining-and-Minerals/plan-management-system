@@ -217,34 +217,41 @@ export function AppSidebar() {
                   return (
                     <Collapsible
                       key={item.title}
-                      asChild
                       defaultOpen={isNavSectionActive(pathname, item)}
                       className="group/collapsible"
                     >
                       <SidebarMenuItem className="group-data-[collapsible=icon]:w-fit">
-                        <CollapsibleTrigger asChild>
+                        <div className="flex items-center w-full">
                           <SidebarMenuButton
+                            asChild
                             tooltip={item.title}
                             isActive={isNavSectionActive(pathname, item)}
-                            className={sidebarTopNavCollapsibleClasses}
+                            className={`${sidebarTopNavCollapsibleClasses} flex-1`}
                           >
                             <Link
                               href={item.url}
-                              onClick={() => router.push(item.url)}
-                              className="flex-1 flex items-center gap-4 group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:items-center"
+                              className="flex items-center gap-4 group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:items-center"
                             >
                               <item.icon className="group-data-[collapsible=icon]:size-5 shrink-0" />
                               <span className="text-base whitespace-nowrap truncate group-data-[collapsible=icon]:hidden">
                                 {item.title}
                               </span>
                             </Link>
-                            <ChevronRight
-                              className="ml-auto transition-transform duration-200
-                              group-data-[state=open]/collapsible:rotate-90
-                              group-data-[collapsible=icon]:hidden"
-                            />
                           </SidebarMenuButton>
-                        </CollapsibleTrigger>
+
+                          <CollapsibleTrigger asChild>
+                            <button
+                              type="button"
+                              className="p-2 ml-1 text-primary/70 hover:text-primary hover:bg-sidebar-nav-hover rounded-md transition-colors group-data-[collapsible=icon]:hidden focus:outline-none cursor-pointer"
+                              aria-label={`Toggle ${item.title}`}
+                            >
+                              <ChevronRight
+                                className="h-4 w-4 transition-transform duration-200
+                                group-data-[state=open]/collapsible:rotate-90"
+                              />
+                            </button>
+                          </CollapsibleTrigger>
+                        </div>
 
                         <CollapsibleContent>
                           {hasConfigChildren ? (

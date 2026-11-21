@@ -147,11 +147,13 @@ export const licenseApi = baseApi.injectEndpoints({
     }),
 
     getCompanyLicenses: builder.query<CompanyLicense[], string>({
-      query: (companyId) => `/companies/${companyId}/licenses`,
+      query: (companyId) => ({
+        url: `/companies/${companyId}/licenses`,
+        params: { company_id: companyId },
+      }),
       transformResponse: (res: { data: CompanyLicense[] }) => res.data,
       providesTags: (_res, _err, companyId) => [
         { type: "CompanyLicenses", id: `COMPANY_${companyId}` },
-        { type: "CompanyLicenses", id: "LIST" },
       ],
     }),
   }),

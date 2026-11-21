@@ -44,15 +44,19 @@ export function CompanyLicenseMapTab({
   const { data: licenses = [], isLoading } = useGetCompanyLicensesQuery(companyId);
   const [selectedLicense, setSelectedLicense] = useState<CompanyLicense | null>(null);
 
+  const companyLicenses = React.useMemo(() => {
+    return licenses.filter((l) => !l.company_id || l.company_id === companyId);
+  }, [licenses, companyId]);
+
   if (isLoading) {
     return <Loading01 />;
   }
 
-  const miningCount = licenses.filter((l) =>
+  const miningCount = companyLicenses.filter((l) =>
     (l.licenseType?.name || "").toLowerCase().includes("mining")
   ).length;
-  const explorationCount = licenses.length - miningCount;
-  const withGisCount = licenses.filter(
+  const explorationCount = companyLicenses.length - miningCount;
+  const withGisCount = companyLicenses.filter(
     (l) => l.boundary_geojson?.coordinates?.[0]?.length || (l.latitude && l.longitude)
   ).length;
 
@@ -92,7 +96,7 @@ export function CompanyLicenseMapTab({
             GIS Mapped Boundaries
           </div>
           <div className="text-xl font-bold text-blue-700 dark:text-blue-400 mt-0.5">
-            {withGisCount} / {licenses.length}
+            {withGisCount} / {companyLicenses.length}
           </div>
         </div>
       </div>
@@ -106,7 +110,7 @@ export function CompanyLicenseMapTab({
             <span className="text-[11px] text-slate-400 font-normal">Click to focus</span>
           </div>
 
-          {licenses.map((lic) => {
+          {companyLicenses.map((lic) => {
             const isSelected = selectedLicense?.license_id === lic.license_id;
             const isMining = (lic.licenseType?.name || "").toLowerCase().includes("mining");
 
@@ -168,7 +172,7 @@ export function CompanyLicenseMapTab({
         {/* Right Side: Leaflet Interactive Map */}
         <div className="lg:col-span-3">
           <LeafletMap
-            licenses={licenses}
+            licenses={companyLicenses}
             selectedLicenseId={selectedLicense?.license_id}
             onSelectLicense={(lic) => setSelectedLicense(lic)}
             height="560px"

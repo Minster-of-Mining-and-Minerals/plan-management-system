@@ -149,19 +149,34 @@ export const NAVIGATION: NavItem[] = [
     title: "Companies & Licenses",
     url: "/admin/companies",
     icon: Building2,
-    anyPermissions: ["COMPANIES:READ", "COMPANIES:MANAGE"],
+    anyPermissions: [
+      "COMPANIES:READ",
+      "COMPANIES:MANAGE",
+      "COMPANY_LICENSES:READ",
+      "COMPANY_LICENSES:MANAGE",
+    ],
     children: [
       {
         title: "Company Directory",
         url: "/admin/companies",
         icon: Building2,
-        anyPermissions: ["COMPANIES:READ", "COMPANIES:MANAGE"],
+        anyPermissions: [
+          "COMPANIES:READ",
+          "COMPANIES:MANAGE",
+          "COMPANY_LICENSES:READ",
+          "COMPANY_LICENSES:MANAGE",
+        ],
       },
       {
         title: "Mining Licenses & GIS",
         url: "/admin/licenses",
         icon: FileText,
-        anyPermissions: ["COMPANIES:READ", "COMPANIES:MANAGE"],
+        anyPermissions: [
+          "COMPANIES:READ",
+          "COMPANIES:MANAGE",
+          "COMPANY_LICENSES:READ",
+          "COMPANY_LICENSES:MANAGE",
+        ],
       },
     ],
   },

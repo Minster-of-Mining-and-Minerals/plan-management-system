@@ -168,11 +168,13 @@ export function CompanyLicenseList({
 
   const filteredLicenses = useMemo(() => {
     return licenses.filter((lic) => {
+      // Strictly ensure the license belongs to this company
+      if (lic.company_id && lic.company_id !== companyId) return false;
       if (statusFilter && lic.status !== statusFilter) return false;
       if (typeFilter && lic.license_type_id !== typeFilter) return false;
       return true;
     });
-  }, [licenses, statusFilter, typeFilter]);
+  }, [licenses, companyId, statusFilter, typeFilter]);
 
   const columns = useMemo<ColumnDef<CompanyLicense>[]>(() => {
     return [
@@ -370,30 +372,31 @@ export function CompanyLicenseList({
   }, [router, onViewOnMap]);
 
   const stats = useMemo(() => {
+    const compLicenses = licenses.filter((l) => !l.company_id || l.company_id === companyId);
     return [
       {
         title: "Total Licenses",
-        value: licenses.length,
+        value: compLicenses.length,
         icon: FileText,
         color: "text-blue-600",
         bgColor: "bg-blue-50 dark:bg-blue-900/20",
       },
       {
         title: "Active Licenses",
-        value: licenses.filter((l) => l.status === "active").length,
+        value: compLicenses.filter((l) => l.status === "active").length,
         icon: CheckCircle2,
         color: "text-emerald-600",
         bgColor: "bg-emerald-50 dark:bg-emerald-900/20",
       },
       {
         title: "Mining Concessions",
-        value: licenses.filter((l) => (l.licenseType?.name || "").toLowerCase().includes("mining")).length,
+        value: compLicenses.filter((l) => (l.licenseType?.name || "").toLowerCase().includes("mining")).length,
         icon: Factory,
         color: "text-amber-600",
         bgColor: "bg-amber-50 dark:bg-amber-900/20",
       },
     ];
-  }, [licenses]);
+  }, [licenses, companyId]);
 
   const filterFields = useMemo<FilterField[]>(() => {
     return [

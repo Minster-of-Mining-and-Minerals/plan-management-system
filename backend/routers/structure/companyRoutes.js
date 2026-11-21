@@ -126,7 +126,7 @@ router.get(
   "/:id/licenses",
   authorizeCompanyRead,
   (req, res) => {
-    req.query.company_id = req.params.id;
+    req.query = { ...req.query, company_id: req.params.id };
     return companyLicenseController.listLicenses(req, res);
   }
 );
