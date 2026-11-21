@@ -146,10 +146,24 @@ export const NAVIGATION: NavItem[] = [
     ],
   },
   {
-    title: "Companies",
+    title: "Companies & Licenses",
     url: "/admin/companies",
     icon: Building2,
     anyPermissions: ["COMPANIES:READ", "COMPANIES:MANAGE"],
+    children: [
+      {
+        title: "Company Directory",
+        url: "/admin/companies",
+        icon: Building2,
+        anyPermissions: ["COMPANIES:READ", "COMPANIES:MANAGE"],
+      },
+      {
+        title: "Mining Licenses & GIS",
+        url: "/admin/licenses",
+        icon: FileText,
+        anyPermissions: ["COMPANIES:READ", "COMPANIES:MANAGE"],
+      },
+    ],
   },
   {
     title: "Production",

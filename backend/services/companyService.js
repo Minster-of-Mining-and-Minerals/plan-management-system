@@ -1,7 +1,7 @@
 "use strict";
 
 const { Op } = require("sequelize");
-const { Company, CompanyStructure, CompanyBrandingSetting, User, sequelize } = require("../models");
+const { Company, CompanyStructure, CompanyBrandingSetting, CompanyLicense, LicenseType, User, sequelize } = require("../models");
 const companyPlanService = require("./companyPlanService");
 
 async function listCompanies(query = {}) {
@@ -42,8 +42,20 @@ async function listCompanies(query = {}) {
   const companyIds = companies.map((c) => c.company_id);
   let structureCounts = new Map();
   let userCounts = new Map();
+  let licenseCounts = new Map();
 
   if (companyIds.length > 0) {
+    const [licRows] = await sequelize.query(`
+      SELECT company_id, COUNT(*) as count 
+      FROM company_licenses 
+      WHERE company_id IN (:companyIds) AND deleted_at IS NULL AND is_active = true 
+      GROUP BY company_id;
+    `, { replacements: { companyIds } });
+
+    for (const row of licRows) {
+      licenseCounts.set(row.company_id, parseInt(row.count, 10));
+    }
+
     const [structRows] = await sequelize.query(`
       SELECT company_id, COUNT(*) as count 
       FROM company_structures 
@@ -71,6 +83,7 @@ async function listCompanies(query = {}) {
     const plain = company.toJSON ? company.toJSON() : { ...company };
     return {
       ...plain,
+      licenses_count: licenseCounts.get(plain.company_id) || 0,
       structures_count: structureCounts.get(plain.company_id) || 0,
       active_users_count: userCounts.get(plain.company_id) || 0,
     };
@@ -89,6 +102,13 @@ async function getCompanyById(companyId) {
         as: "structures",
         where: { is_active: true },
         required: false,
+      },
+      {
+        model: CompanyLicense,
+        as: "licenses",
+        where: { is_active: true },
+        required: false,
+        include: [{ model: LicenseType, as: "licenseType" }],
       },
     ],
   });
@@ -111,7 +131,19 @@ async function getCompanyById(companyId) {
 }
 
 async function createCompany(payload) {
-  const { name, code, description, logo_path } = payload;
+  const {
+    name,
+    code,
+    description,
+    logo_path,
+    abbreviation,
+    registration_number,
+    contact_person,
+    email,
+    phone,
+    address,
+    company_status,
+  } = payload;
 
   if (!name || !name.trim()) {
     const error = new Error("Company name is required.");
@@ -156,6 +188,13 @@ async function createCompany(payload) {
         code: cleanCode,
         description: description?.trim() || null,
         logo_path: logo_path || null,
+        abbreviation: abbreviation?.trim() || null,
+        registration_number: registration_number?.trim() || null,
+        contact_person: contact_person?.trim() || null,
+        email: email?.trim() || null,
+        phone: phone?.trim() || null,
+        address: address?.trim() || null,
+        company_status: company_status || "active",
         is_active: true,
       },
       { transaction: t }
@@ -195,7 +234,20 @@ async function updateCompany(companyId, payload) {
     throw error;
   }
 
-  const { name, code, description, logo_path, is_active } = payload;
+  const {
+    name,
+    code,
+    description,
+    logo_path,
+    is_active,
+    abbreviation,
+    registration_number,
+    contact_person,
+    email,
+    phone,
+    address,
+    company_status,
+  } = payload;
   const updates = {};
 
   if (name !== undefined) {
@@ -255,6 +307,14 @@ async function updateCompany(companyId, payload) {
   if (is_active !== undefined) {
     updates.is_active = Boolean(is_active);
   }
+
+  if (abbreviation !== undefined) updates.abbreviation = abbreviation?.trim() || null;
+  if (registration_number !== undefined) updates.registration_number = registration_number?.trim() || null;
+  if (contact_person !== undefined) updates.contact_person = contact_person?.trim() || null;
+  if (email !== undefined) updates.email = email?.trim() || null;
+  if (phone !== undefined) updates.phone = phone?.trim() || null;
+  if (address !== undefined) updates.address = address?.trim() || null;
+  if (company_status !== undefined) updates.company_status = company_status || "active";
 
   await company.update(updates);
   return getCompanyById(companyId);

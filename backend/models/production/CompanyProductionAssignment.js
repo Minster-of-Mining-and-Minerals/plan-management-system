@@ -10,6 +10,11 @@ module.exports = (sequelize, DataTypes) => {
         as: "company",
       });
 
+      CompanyProductionAssignment.belongsTo(models.CompanyLicense, {
+        foreignKey: "license_id",
+        as: "license",
+      });
+
       CompanyProductionAssignment.belongsTo(models.ProductionItem, {
         foreignKey: "production_item_id",
         as: "productionItem",
@@ -54,6 +59,10 @@ module.exports = (sequelize, DataTypes) => {
       company_id: {
         type: DataTypes.UUID,
         allowNull: false,
+      },
+      license_id: {
+        type: DataTypes.UUID,
+        allowNull: true,
       },
       production_item_id: {
         type: DataTypes.UUID,

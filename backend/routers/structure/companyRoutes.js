@@ -3,6 +3,7 @@
 const express = require("express");
 const router = express.Router();
 const companyController = require("../../controllers/structure/companyController");
+const companyLicenseController = require("../../controllers/structure/companyLicenseController");
 const { authenticateToken, checkPermission } = require("../../middlewares/authMiddleware");
 const { isSuperAdminActor } = require("../../utils/structureScopeUtils");
 
@@ -118,6 +119,25 @@ router.delete(
   "/:id",
   checkPermission("COMPANIES", "DELETE"),
   companyController.deleteCompany
+);
+
+// Nested License Routes for Company
+router.get(
+  "/:id/licenses",
+  authorizeCompanyRead,
+  (req, res) => {
+    req.query.company_id = req.params.id;
+    return companyLicenseController.listLicenses(req, res);
+  }
+);
+
+router.post(
+  "/:id/licenses",
+  checkPermission("COMPANIES", "UPDATE"),
+  (req, res) => {
+    req.body.company_id = req.params.id;
+    return companyLicenseController.createLicense(req, res);
+  }
 );
 
 module.exports = router;

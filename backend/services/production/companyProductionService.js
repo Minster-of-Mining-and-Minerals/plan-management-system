@@ -3,6 +3,8 @@
 const { Op } = require("sequelize");
 const {
   Company,
+  CompanyLicense,
+  LicenseType,
   ProductionItem,
   ProductionItemUnit,
   ProductionReportingFrequency,
@@ -25,6 +27,7 @@ const {
 async function listAssignments(query = {}) {
   const where = {};
   if (query.company_id) where.company_id = query.company_id;
+  if (query.license_id) where.license_id = query.license_id;
   if (query.production_item_id) where.production_item_id = query.production_item_id;
   if (query.is_active !== undefined) {
     where.is_active = query.is_active === "true" || query.is_active === true;
@@ -37,6 +40,23 @@ async function listAssignments(query = {}) {
         model: Company,
         as: "company",
         attributes: ["company_id", "name", "code"],
+      },
+      {
+        model: CompanyLicense,
+        as: "license",
+        attributes: [
+          "license_id",
+          "license_number",
+          "license_name",
+          "mineral_type",
+          "region",
+          "zone",
+          "woreda",
+          "status",
+          "effective_start_date",
+          "effective_end_date",
+        ],
+        include: [{ model: LicenseType, as: "licenseType", attributes: ["name", "code"] }],
       },
       {
         model: ProductionItem,
@@ -83,6 +103,23 @@ async function getAssignmentById(assignmentId) {
         attributes: ["company_id", "name", "code"],
       },
       {
+        model: CompanyLicense,
+        as: "license",
+        attributes: [
+          "license_id",
+          "license_number",
+          "license_name",
+          "mineral_type",
+          "region",
+          "zone",
+          "woreda",
+          "status",
+          "effective_start_date",
+          "effective_end_date",
+        ],
+        include: [{ model: LicenseType, as: "licenseType", attributes: ["name", "code"] }],
+      },
+      {
         model: ProductionItem,
         as: "productionItem",
         include: [
@@ -127,6 +164,7 @@ async function getAssignmentById(assignmentId) {
 async function createAssignment(data, userId) {
   const {
     company_id,
+    license_id,
     production_item_id,
     reporting_frequency_id,
     target_allocation_depth,
@@ -151,6 +189,42 @@ async function createAssignment(data, userId) {
     throw err;
   }
 
+  // If license is specified, verify it and enforce strict validation
+  if (license_id) {
+    const license = await CompanyLicense.findByPk(license_id);
+    if (!license) {
+      const err = new Error("Company license not found.");
+      err.status = 404;
+      throw err;
+    }
+    if (license.company_id !== company_id) {
+      const err = new Error("The specified license does not belong to this company.");
+      err.status = 400;
+      throw err;
+    }
+    if (license.status !== "active") {
+      const err = new Error(
+        `Cannot configure production reporting on license '${license.license_number}' with status '${license.status}'. Only active licenses can receive production reporting configurations.`
+      );
+      err.status = 400;
+      throw err;
+    }
+    if (license.effective_start_date && new Date(effective_from) < new Date(license.effective_start_date)) {
+      const err = new Error(
+        `Assignment effective from date (${effective_from}) cannot be earlier than license effective start date (${license.effective_start_date}).`
+      );
+      err.status = 400;
+      throw err;
+    }
+    if (license.effective_end_date && effective_to && new Date(effective_to) > new Date(license.effective_end_date)) {
+      const err = new Error(
+        `Assignment effective to date (${effective_to}) cannot exceed license effective end date (${license.effective_end_date}).`
+      );
+      err.status = 400;
+      throw err;
+    }
+  }
+
   // Verify production item exists
   const item = await ProductionItem.findByPk(production_item_id);
   if (!item) {
@@ -160,21 +234,32 @@ async function createAssignment(data, userId) {
   }
 
   // Check duplicate active assignment
+  const duplicateWhere = {
+    production_item_id,
+    is_active: true,
+  };
+  if (license_id) {
+    duplicateWhere.license_id = license_id;
+  } else {
+    duplicateWhere.company_id = company_id;
+  }
+
   const existing = await CompanyProductionAssignment.findOne({
-    where: {
-      company_id,
-      production_item_id,
-      is_active: true,
-    },
+    where: duplicateWhere,
   });
   if (existing) {
-    const err = new Error("An active assignment for this company and production item already exists.");
+    const err = new Error(
+      license_id
+        ? "An active assignment for this production item already exists on this license."
+        : "An active assignment for this company and production item already exists."
+    );
     err.status = 409;
     throw err;
   }
 
   const assignment = await CompanyProductionAssignment.create({
     company_id,
+    license_id: license_id || null,
     production_item_id,
     reporting_frequency_id,
     target_allocation_depth: target_allocation_depth || "quarterly",

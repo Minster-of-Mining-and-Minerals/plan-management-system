@@ -34,6 +34,8 @@ const regionalBrandingRoutes = require("./routers/config/regionalBrandingRoutes"
 const regionalOperationalRoutes = require("./routers/structure/regionalOperationalRoutes");
 const regionalPlanRoutes = require("./routers/plan/regionalPlanRoutes");
 const companyRoutes = require("./routers/structure/companyRoutes");
+const companyLicenseRoutes = require("./routers/structure/companyLicenseRoutes");
+const licenseTypeRoutes = require("./routers/structure/licenseTypeRoutes");
 const companyStructureRoutes = require("./routers/structure/companyStructureRoutes");
 const companyBrandingRoutes = require("./routers/config/companyBrandingRoutes");
 const companyOperationalRoutes = require("./routers/structure/companyOperationalRoutes");
@@ -188,6 +190,8 @@ app.use("/api/regional/plans", regionalPlanRoutes);
 app.use("/api/regional/issues", regionalIssueRoutes);
 app.use("/api/regional", regionalOperationalRoutes);
 app.use("/api/companies", companyRoutes);
+app.use("/api/licenses", companyLicenseRoutes);
+app.use("/api/license-types", licenseTypeRoutes);
 app.use("/api/company-structures", companyStructureRoutes);
 app.use("/api/company-branding", companyBrandingRoutes);
 app.use("/api/company/plans", companyPlanRoutes);

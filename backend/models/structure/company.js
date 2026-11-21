@@ -64,6 +64,13 @@ module.exports = (sequelize, DataTypes) => {
         onDelete: "CASCADE",
       });
 
+      // 📜 Mining & Exploration Licenses
+      Company.hasMany(models.CompanyLicense, {
+        foreignKey: "company_id",
+        as: "licenses",
+        onDelete: "CASCADE",
+      });
+
       // ⛏️ Production Reporting
       Company.hasMany(models.CompanyProductionAssignment, {
         foreignKey: "company_id",
@@ -103,6 +110,35 @@ module.exports = (sequelize, DataTypes) => {
       logo_path: {
         type: DataTypes.STRING(500),
         allowNull: true,
+      },
+      abbreviation: {
+        type: DataTypes.STRING(100),
+        allowNull: true,
+      },
+      registration_number: {
+        type: DataTypes.STRING(100),
+        allowNull: true,
+      },
+      contact_person: {
+        type: DataTypes.STRING(150),
+        allowNull: true,
+      },
+      email: {
+        type: DataTypes.STRING(150),
+        allowNull: true,
+      },
+      phone: {
+        type: DataTypes.STRING(50),
+        allowNull: true,
+      },
+      address: {
+        type: DataTypes.TEXT,
+        allowNull: true,
+      },
+      company_status: {
+        type: DataTypes.STRING(50),
+        allowNull: true,
+        defaultValue: "active",
       },
       is_active: {
         type: DataTypes.BOOLEAN,

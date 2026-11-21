@@ -18,6 +18,7 @@ import {
   Shield,
   ExternalLink,
   Factory,
+  FileText,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ActiveStatusBadge } from "@/components/ui/active-status-badge";
@@ -29,11 +30,13 @@ import { CompanyDepartmentManagement } from "./CompanyDepartmentManagement";
 import { CompanyUserManagement } from "./CompanyUserManagement";
 import { CompanySettingsAndBranding } from "./CompanySettingsAndBranding";
 import { CompanyProductionDetailTab } from "@/features/production/CompanyProductionDetailTab";
+import { CompanyLicenseList } from "./CompanyLicenseList";
+import { CompanyLicenseMapTab } from "./CompanyLicenseMapTab";
 import CompanyRoleList from "@/features/template/component/roleList/CompanyRoleList";
 import PermissionList from "@/features/template/component/permissionList/permissionList";
 import Loading01 from "@/features/template/component/Loading/Loading01";
 
-type TabType = "departments" | "users" | "roles" | "permissions" | "branding" | "production";
+type TabType = "departments" | "users" | "roles" | "permissions" | "branding" | "production" | "licenses" | "map";
 
 export function CompanyDetail({ companyId }: { companyId: string }) {
   const router = useRouter();
@@ -41,9 +44,9 @@ export function CompanyDetail({ companyId }: { companyId: string }) {
   const tabParam = searchParams.get("tab") as TabType | null;
 
   const [activeTab, setActiveTabState] = useState<TabType>(
-    tabParam && ["departments", "users", "roles", "permissions", "branding", "production"].includes(tabParam)
+    tabParam && ["departments", "users", "roles", "permissions", "branding", "production", "licenses", "map"].includes(tabParam)
       ? tabParam
-      : "departments"
+      : "licenses"
   );
 
   const {
@@ -60,6 +63,18 @@ export function CompanyDetail({ companyId }: { companyId: string }) {
   };
 
   const sideActionTabs: ActionButton[] = [
+    {
+      label: "Licenses",
+      icon: <FileText className="h-4 w-4" />,
+      variant: activeTab === "licenses" ? "default" : "outline",
+      onClick: () => setTab("licenses"),
+    },
+    {
+      label: "GIS Map",
+      icon: <MapPin className="h-4 w-4" />,
+      variant: activeTab === "map" ? "default" : "outline",
+      onClick: () => setTab("map"),
+    },
     {
       label: "Departments",
       icon: <Building2 className="h-4 w-4" />,
@@ -215,6 +230,55 @@ export function CompanyDetail({ companyId }: { companyId: string }) {
 
       {/* ===================== TAB CONTENT ===================== */}
       <div>
+        {activeTab === "licenses" && (
+          <div className="space-y-6">
+            <div className="flex flex-wrap items-center justify-end gap-2 bg-card p-3 rounded-lg border shadow-xs">
+              {sideActionTabs.map((action, idx) => (
+                <Button
+                  key={idx}
+                  type="button"
+                  variant={action.variant || "default"}
+                  size={action.size || "default"}
+                  onClick={action.onClick}
+                  disabled={action.disabled || action.loading}
+                  className="flex items-center space-x-2"
+                >
+                  {action.icon && <span className="h-4 w-4">{action.icon}</span>}
+                  <span>{action.label}</span>
+                </Button>
+              ))}
+            </div>
+            <CompanyLicenseList
+              companyId={company.company_id}
+              companyName={company.name}
+              onViewOnMap={() => setTab("map")}
+            />
+          </div>
+        )}
+        {activeTab === "map" && (
+          <div className="space-y-6">
+            <div className="flex flex-wrap items-center justify-end gap-2 bg-card p-3 rounded-lg border shadow-xs">
+              {sideActionTabs.map((action, idx) => (
+                <Button
+                  key={idx}
+                  type="button"
+                  variant={action.variant || "default"}
+                  size={action.size || "default"}
+                  onClick={action.onClick}
+                  disabled={action.disabled || action.loading}
+                  className="flex items-center space-x-2"
+                >
+                  {action.icon && <span className="h-4 w-4">{action.icon}</span>}
+                  <span>{action.label}</span>
+                </Button>
+              ))}
+            </div>
+            <CompanyLicenseMapTab
+              companyId={company.company_id}
+              companyName={company.name}
+            />
+          </div>
+        )}
         {activeTab === "departments" && (
           <CompanyDepartmentManagement
             companyId={company.company_id}

@@ -156,7 +156,7 @@ export const productionApi = baseApi.injectEndpoints({
     // ------------------------------------------------------------------
     getAssignments: builder.query<
       CompanyProductionAssignment[],
-      { company_id?: string; production_item_id?: string; is_active?: boolean | string } | void
+      { company_id?: string; license_id?: string; production_item_id?: string; is_active?: boolean | string } | void
     >({
       query: (params) => ({
         url: "/production/company/assignments",

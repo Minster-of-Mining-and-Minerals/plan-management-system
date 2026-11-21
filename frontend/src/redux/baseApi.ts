@@ -127,6 +127,8 @@ export const baseApi = createApi({
     "RegionalIssueEscalations",
     "FederalRegionalEscalations",
     "Companies",
+    "CompanyLicenses",
+    "LicenseTypes",
     "CompanyStructures",
     "CompanyBranding",
     "CompanyDashboard",

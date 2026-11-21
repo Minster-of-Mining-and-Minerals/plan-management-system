@@ -3,6 +3,7 @@
 
 import { useMemo, useState } from "react";
 import Image from "next/image";
+import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { ColumnDef } from "@tanstack/react-table";
 import {
@@ -20,6 +21,7 @@ import {
   Phone,
   MapPin,
   ExternalLink,
+  FileText,
 } from "lucide-react";
 import { DataTable } from "@/features/template/component/tableList/DataTable";
 import { TableLayout } from "@/features/template/component/tableList/TableLayout";
@@ -229,6 +231,22 @@ export function CompanyList() {
                 )}
               </div>
             </div>
+          );
+        },
+      },
+      {
+        accessorKey: "licenses_count",
+        header: "Licenses",
+        cell: ({ row }) => {
+          const count = (row.original as any).licenses_count ?? 0;
+          return (
+            <Link
+              href={`/admin/companies/${row.original.company_id}?tab=licenses`}
+              className="flex items-center gap-1.5 text-sm font-semibold text-emerald-600 hover:underline"
+            >
+              <FileText className="w-4 h-4 text-emerald-600" />
+              <span>{count}</span>
+            </Link>
           );
         },
       },

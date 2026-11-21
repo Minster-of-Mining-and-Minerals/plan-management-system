@@ -78,6 +78,7 @@ export interface CompanyProductionTarget {
 export interface CompanyProductionAssignment {
   assignment_id: string;
   company_id: string;
+  license_id?: string | null;
   production_item_id: string;
   reporting_frequency_id: string;
   target_allocation_depth: "annual" | "semi_annual" | "quarterly" | "monthly" | "daily";
