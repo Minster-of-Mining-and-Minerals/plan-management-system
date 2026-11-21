@@ -7,7 +7,7 @@ WORKDIR /app
 RUN apk add --no-cache libc6-compat
 
 COPY backend/package.json backend/package-lock.json* ./
-RUN npm ci
+RUN npm ci || npm install
 
 COPY backend/ ./
 
