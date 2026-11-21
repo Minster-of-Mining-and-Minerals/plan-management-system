@@ -175,8 +175,8 @@ async function createAssignment(data, userId) {
     notes,
   } = data;
 
-  if (!company_id || !production_item_id || !reporting_frequency_id || !effective_from) {
-    const err = new Error("Company ID, production item, reporting frequency, and effective from date are required.");
+  if (!company_id || !license_id || !production_item_id || !reporting_frequency_id || !effective_from) {
+    const err = new Error("Company ID, License, production item, reporting frequency, and effective start date are required.");
     err.status = 400;
     throw err;
   }
@@ -322,6 +322,20 @@ async function updateAssignment(assignmentId, data) {
     assignment.reporting_frequency_id = data.reporting_frequency_id;
   }
 
+  if (data.license_id) {
+    const license = await CompanyLicense.findByPk(data.license_id);
+    if (!license) {
+      const err = new Error("The specified license does not exist.");
+      err.status = 404;
+      throw err;
+    }
+    if (license.company_id !== assignment.company_id) {
+      const err = new Error("The specified license does not belong to this company.");
+      err.status = 400;
+      throw err;
+    }
+    assignment.license_id = data.license_id;
+  }
   if (data.target_allocation_depth) assignment.target_allocation_depth = data.target_allocation_depth;
   if (data.effective_from) assignment.effective_from = data.effective_from;
   if (data.effective_to !== undefined) assignment.effective_to = data.effective_to;

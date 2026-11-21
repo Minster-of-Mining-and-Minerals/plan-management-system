@@ -240,10 +240,10 @@ export function LicenseProductionAssignModal({
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="annual">Annual Only</SelectItem>
-                  <SelectItem value="semi_annual">Semi-Annual</SelectItem>
-                  <SelectItem value="quarterly">Quarterly (Default)</SelectItem>
-                  <SelectItem value="monthly">Monthly</SelectItem>
+                  <SelectItem value="annual" className="text-xs">Annual Target Only</SelectItem>
+                  <SelectItem value="semi_annual" className="text-xs">Annual → Semiannual</SelectItem>
+                  <SelectItem value="quarterly" className="text-xs">Annual → Quarterly</SelectItem>
+                  <SelectItem value="monthly" className="text-xs">Annual → Monthly</SelectItem>
                 </SelectContent>
               </Select>
             </div>

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import {
   Building2,
   Plus,
@@ -31,6 +31,7 @@ import {
   useGetTargetPeriodsQuery,
 } from "@/redux/api/productionApi";
 import { useGetCompaniesQuery } from "@/redux/api/companyApi";
+import { useGetCompanyLicensesQuery } from "@/redux/api/licenseApi";
 import type { CompanyProductionAssignment, TargetPeriodNode } from "@/redux/types/production";
 
 export function CompanyProductionAssignmentsView() {
@@ -41,14 +42,19 @@ export function CompanyProductionAssignmentsView() {
   // Assignment Modal
   const [isAssignModalOpen, setIsAssignModalOpen] = useState(false);
   const [selectedCompanyId, setSelectedCompanyId] = useState("");
+  const [selectedLicenseId, setSelectedLicenseId] = useState("");
   const [selectedItemId, setSelectedItemId] = useState("");
   const [selectedFrequencyId, setSelectedFrequencyId] = useState("");
   const [allocationDepth, setAllocationDepth] = useState<string>("quarterly");
-  const [effectiveFrom, setEffectiveFrom] = useState(`${new Date().getFullYear()}-01-01`);
-  const [effectiveTo, setEffectiveTo] = useState(`${new Date().getFullYear()}-12-31`);
+  const [effectiveFrom, setEffectiveFrom] = useState("2026-07-08");
+  const [effectiveTo, setEffectiveTo] = useState("2027-07-07");
   const [requiresReview, setRequiresReview] = useState(false);
   const [notes, setNotes] = useState("");
   const [assignError, setAssignError] = useState("");
+
+  const { data: assignCompanyLicenses = [] } = useGetCompanyLicensesQuery(selectedCompanyId, {
+    skip: !selectedCompanyId,
+  });
 
   // Target Hierarchy Configuration Modal
   const [targetModalAssignment, setTargetModalAssignment] = useState<CompanyProductionAssignment | null>(null);
@@ -61,6 +67,8 @@ export function CompanyProductionAssignmentsView() {
   // Edit Assignment Modal
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [editingAssignment, setEditingAssignment] = useState<CompanyProductionAssignment | null>(null);
+  const [editLicenseId, setEditLicenseId] = useState("");
+  const [editAllocationDepth, setEditAllocationDepth] = useState<string>("quarterly");
   const [editFrequencyId, setEditFrequencyId] = useState("");
   const [editDefaultUnitId, setEditDefaultUnitId] = useState("");
   const [editEffectiveFrom, setEditEffectiveFrom] = useState("");
@@ -69,6 +77,10 @@ export function CompanyProductionAssignmentsView() {
   const [editNotes, setEditNotes] = useState("");
   const [editIsActive, setEditIsActive] = useState(true);
   const [editError, setEditError] = useState("");
+
+  const { data: editCompanyLicenses = [] } = useGetCompanyLicensesQuery(editingAssignment?.company_id || "", {
+    skip: !editingAssignment?.company_id,
+  });
 
   const { data: assignments = [], isLoading, isError, refetch } = useGetAssignmentsQuery();
   const { data: companies = [] } = useGetCompaniesQuery();
@@ -98,14 +110,27 @@ export function CompanyProductionAssignmentsView() {
     });
   }, [assignments, searchQuery, companyFilter]);
 
+  // Synchronize assign license default when company or its licenses load
+  useEffect(() => {
+    if (assignCompanyLicenses.length > 0) {
+      const active = assignCompanyLicenses.find((l) => l.status === "active") || assignCompanyLicenses[0];
+      setSelectedLicenseId(active.license_id);
+      if (active.effective_start_date) setEffectiveFrom(active.effective_start_date);
+      if (active.effective_end_date) setEffectiveTo(active.effective_end_date);
+    } else {
+      setSelectedLicenseId("");
+    }
+  }, [assignCompanyLicenses]);
+
   const handleOpenAssignModal = () => {
-    setSelectedCompanyId(companies[0]?.company_id || "");
+    const firstCompany = companies[0]?.company_id || "";
+    setSelectedCompanyId(firstCompany);
     setSelectedItemId(items[0]?.production_item_id || "");
     const daily = frequencies.find((f) => f.code === "daily") || frequencies[0];
     setSelectedFrequencyId(daily?.frequency_id || "");
     setAllocationDepth("quarterly");
-    setEffectiveFrom(`${new Date().getFullYear()}-01-01`);
-    setEffectiveTo(`${new Date().getFullYear()}-12-31`);
+    setEffectiveFrom("2026-07-08");
+    setEffectiveTo("2027-07-07");
     setRequiresReview(false);
     setNotes("");
     setAssignError("");
@@ -116,6 +141,11 @@ export function CompanyProductionAssignmentsView() {
     e.preventDefault();
     setAssignError("");
 
+    if (!selectedLicenseId) {
+      setAssignError("Please select a mining or exploration license owned by this company.");
+      return;
+    }
+
     if (!selectedCompanyId || !selectedItemId || !selectedFrequencyId || !effectiveFrom) {
       setAssignError("Please fill out all required fields.");
       return;
@@ -124,6 +154,7 @@ export function CompanyProductionAssignmentsView() {
     try {
       await createAssignment({
         company_id: selectedCompanyId,
+        license_id: selectedLicenseId,
         production_item_id: selectedItemId,
         reporting_frequency_id: selectedFrequencyId,
         target_allocation_depth: allocationDepth as any,
@@ -142,6 +173,8 @@ export function CompanyProductionAssignmentsView() {
 
   const handleOpenEditModal = (assignment: CompanyProductionAssignment) => {
     setEditingAssignment(assignment);
+    setEditLicenseId(assignment.license_id || "");
+    setEditAllocationDepth(assignment.target_allocation_depth || "quarterly");
     setEditFrequencyId(assignment.reporting_frequency_id || "");
     setEditDefaultUnitId(assignment.default_reporting_unit_id || "");
     setEditEffectiveFrom(assignment.effective_from || "");
@@ -172,7 +205,9 @@ export function CompanyProductionAssignmentsView() {
       await updateAssignment({
         id: editingAssignment.assignment_id,
         data: {
+          license_id: editLicenseId || null,
           reporting_frequency_id: editFrequencyId,
+          target_allocation_depth: editAllocationDepth as any,
           default_reporting_unit_id: editDefaultUnitId || null,
           effective_from: editEffectiveFrom,
           effective_to: editEffectiveTo || null,
@@ -295,9 +330,19 @@ export function CompanyProductionAssignmentsView() {
             <Building2 className="h-3.5 w-3.5 text-teal-600 shrink-0" />
             {row.original.company?.name}
           </div>
-          <span className="text-[11px] font-mono text-muted-foreground">
-            {row.original.company?.code}
-          </span>
+          <div className="flex flex-wrap items-center gap-1.5 mt-0.5">
+            <span className="text-[11px] font-mono text-muted-foreground">
+              {row.original.company?.code}
+            </span>
+            {row.original.license && (
+              <a
+                href={`/admin/licenses/${row.original.license.license_id}`}
+                className="text-[10px] font-semibold text-blue-600 dark:text-blue-400 hover:underline bg-blue-50 dark:bg-blue-950/40 px-1.5 py-0.2 rounded"
+              >
+                Lic: {row.original.license.license_number}
+              </a>
+            )}
+          </div>
         </div>
       ),
     },
@@ -471,7 +516,7 @@ export function CompanyProductionAssignmentsView() {
 
             <form onSubmit={handleCreateAssignment} className="space-y-4 text-sm">
               <div>
-                <label className="block text-xs font-medium mb-1">Company *</label>
+                <label className="block text-xs font-semibold mb-1">Company *</label>
                 <select
                   value={selectedCompanyId}
                   onChange={(e) => setSelectedCompanyId(e.target.value)}
@@ -486,7 +531,34 @@ export function CompanyProductionAssignmentsView() {
               </div>
 
               <div>
-                <label className="block text-xs font-medium mb-1">Production Item *</label>
+                <label className="block text-xs font-semibold mb-1">Company Mining License *</label>
+                {assignCompanyLicenses.length === 0 ? (
+                  <div className="rounded-lg bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 p-2.5 text-xs text-amber-800 dark:text-amber-300">
+                    This company has no registered licenses. Please register a mining license first before assigning production reporting.
+                  </div>
+                ) : (
+                  <select
+                    value={selectedLicenseId}
+                    onChange={(e) => {
+                      const licId = e.target.value;
+                      setSelectedLicenseId(licId);
+                      const matched = assignCompanyLicenses.find((l) => l.license_id === licId);
+                      if (matched?.effective_start_date) setEffectiveFrom(matched.effective_start_date);
+                      if (matched?.effective_end_date) setEffectiveTo(matched.effective_end_date);
+                    }}
+                    className="w-full rounded-md border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500"
+                  >
+                    {assignCompanyLicenses.map((lic) => (
+                      <option key={lic.license_id} value={lic.license_id}>
+                        {lic.license_number} — {lic.licenseType?.name || "License"} ({lic.mineral_type || "Concession"})
+                      </option>
+                    ))}
+                  </select>
+                )}
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold mb-1">Production Item *</label>
                 <select
                   value={selectedItemId}
                   onChange={(e) => setSelectedItemId(e.target.value)}
@@ -777,9 +849,24 @@ export function CompanyProductionAssignmentsView() {
                 </div>
               </div>
 
+              <div>
+                <label className="block text-xs font-semibold mb-1">Company License *</label>
+                <select
+                  value={editLicenseId}
+                  onChange={(e) => setEditLicenseId(e.target.value)}
+                  className="w-full rounded-md border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500"
+                >
+                  {editCompanyLicenses.map((lic) => (
+                    <option key={lic.license_id} value={lic.license_id}>
+                      {lic.license_number} — {lic.licenseType?.name || "License"} ({lic.mineral_type || "Concession"})
+                    </option>
+                  ))}
+                </select>
+              </div>
+
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-xs font-medium mb-1">Reporting Frequency *</label>
+                  <label className="block text-xs font-semibold mb-1">Reporting Frequency *</label>
                   <select
                     value={editFrequencyId}
                     onChange={(e) => setEditFrequencyId(e.target.value)}
@@ -794,20 +881,34 @@ export function CompanyProductionAssignmentsView() {
                 </div>
 
                 <div>
-                  <label className="block text-xs font-medium mb-1">Default Reporting Unit</label>
+                  <label className="block text-xs font-semibold mb-1">Target Allocation Depth *</label>
                   <select
-                    value={editDefaultUnitId}
-                    onChange={(e) => setEditDefaultUnitId(e.target.value)}
+                    value={editAllocationDepth}
+                    onChange={(e) => setEditAllocationDepth(e.target.value)}
                     className="w-full rounded-md border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500"
                   >
-                    <option value="">Standard (Base Unit)</option>
-                    {(editingAssignment.productionItem?.supportedUnits || []).map((u: any) => (
-                      <option key={u.unit_id} value={u.unit_id}>
-                        {u.measurementUnit?.name || u.unit?.name || "Unit"} ({u.measurementUnit?.symbol || u.unit?.symbol || ""})
-                      </option>
-                    ))}
+                    <option value="annual">Annual Target Only</option>
+                    <option value="semi_annual">Annual → Semiannual</option>
+                    <option value="quarterly">Annual → Quarterly</option>
+                    <option value="monthly">Annual → Monthly</option>
                   </select>
                 </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-medium mb-1">Default Reporting Unit</label>
+                <select
+                  value={editDefaultUnitId}
+                  onChange={(e) => setEditDefaultUnitId(e.target.value)}
+                  className="w-full rounded-md border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500"
+                >
+                  <option value="">Standard (Base Unit)</option>
+                  {(editingAssignment.productionItem?.supportedUnits || []).map((u: any) => (
+                    <option key={u.unit_id} value={u.unit_id}>
+                      {u.measurementUnit?.name || u.unit?.name || "Unit"} ({u.measurementUnit?.symbol || u.unit?.symbol || ""})
+                    </option>
+                  ))}
+                </select>
               </div>
 
               <div className="grid grid-cols-2 gap-3">

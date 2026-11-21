@@ -93,6 +93,22 @@ export interface CompanyProductionAssignment {
     name: string;
     code: string;
   };
+  license?: {
+    license_id: string;
+    license_number: string;
+    license_name?: string | null;
+    mineral_type?: string | null;
+    region?: string | null;
+    zone?: string | null;
+    woreda?: string | null;
+    status: string;
+    effective_start_date?: string | null;
+    effective_end_date?: string | null;
+    licenseType?: {
+      name: string;
+      code?: string;
+    };
+  } | null;
   productionItem?: ProductionItem;
   reportingFrequency?: ProductionReportingFrequency;
   defaultReportingUnit?: GoldMeasurementUnit;
@@ -121,6 +137,22 @@ export interface CompanyProductionReport {
     name: string;
     code: string;
   };
+  license?: {
+    license_id: string;
+    license_number: string;
+    license_name?: string | null;
+    mineral_type?: string | null;
+    region?: string | null;
+    zone?: string | null;
+    woreda?: string | null;
+    status: string;
+    effective_start_date?: string | null;
+    effective_end_date?: string | null;
+    licenseType?: {
+      name: string;
+      code?: string;
+    };
+  } | null;
   productionItem?: ProductionItem;
   reportedUnit?: GoldMeasurementUnit;
   submittedByUser?: {

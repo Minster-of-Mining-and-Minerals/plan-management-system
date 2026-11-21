@@ -255,17 +255,6 @@ export function LicenseDetailView({ licenseId }: { licenseId: string }) {
             Back to {license.company?.name || "Company"}
           </Link>
         </Button>
-
-        <div className="flex items-center gap-2">
-          <Button
-            size="sm"
-            onClick={() => setIsProductionModalOpen(true)}
-            className="bg-emerald-600 hover:bg-emerald-700 text-white text-xs gap-1.5"
-          >
-            <Factory className="h-3.5 w-3.5" />
-            Assign Production Item
-          </Button>
-        </div>
       </div>
 
       {/* Main License Header Card */}

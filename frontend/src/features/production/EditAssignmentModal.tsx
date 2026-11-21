@@ -171,11 +171,10 @@ export function EditAssignmentModal({
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="annual" className="text-xs">Annual</SelectItem>
-                  <SelectItem value="semi_annual" className="text-xs">Semi-Annual</SelectItem>
-                  <SelectItem value="quarterly" className="text-xs">Quarterly</SelectItem>
-                  <SelectItem value="monthly" className="text-xs">Monthly</SelectItem>
-                  <SelectItem value="daily" className="text-xs">Daily</SelectItem>
+                  <SelectItem value="annual" className="text-xs">Annual Target Only</SelectItem>
+                  <SelectItem value="semi_annual" className="text-xs">Annual → Semiannual</SelectItem>
+                  <SelectItem value="quarterly" className="text-xs">Annual → Quarterly</SelectItem>
+                  <SelectItem value="monthly" className="text-xs">Annual → Monthly</SelectItem>
                 </SelectContent>
               </Select>
             </div>

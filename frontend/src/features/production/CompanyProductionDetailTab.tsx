@@ -11,6 +11,8 @@ import {
   CheckCircle2,
   Calendar,
   Settings2,
+  FileText,
+  Factory,
 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -27,12 +29,15 @@ import {
   useGetFrequenciesQuery,
   useGetTargetPeriodsQuery,
 } from "@/redux/api/productionApi";
+import { useGetCompanyLicensesQuery } from "@/redux/api/licenseApi";
 import type { CompanyProductionAssignment, TargetPeriodNode } from "@/redux/types/production";
+import type { CompanyLicense } from "@/redux/types/license";
 
 export function CompanyProductionDetailTab({ companyId }: { companyId: string }) {
   const { data: assignments = [], isLoading, refetch } = useGetAssignmentsQuery({ company_id: companyId });
   const { data: items = [] } = useGetProductionItemsQuery();
   const { data: frequencies = [] } = useGetFrequenciesQuery();
+  const { data: companyLicenses = [] } = useGetCompanyLicensesQuery(companyId);
 
   const [createAssignment, { isLoading: isCreating }] = useCreateAssignmentMutation();
   const [updateAssignment, { isLoading: isUpdating }] = useUpdateAssignmentMutation();
@@ -41,6 +46,8 @@ export function CompanyProductionDetailTab({ companyId }: { companyId: string })
   // Edit Assignment Modal State
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [editingAssignment, setEditingAssignment] = useState<CompanyProductionAssignment | null>(null);
+  const [editLicenseId, setEditLicenseId] = useState("");
+  const [editAllocationDepth, setEditAllocationDepth] = useState<string>("quarterly");
   const [editFrequencyId, setEditFrequencyId] = useState("");
   const [editDefaultUnitId, setEditDefaultUnitId] = useState("");
   const [editEffectiveFrom, setEditEffectiveFrom] = useState("");
@@ -52,11 +59,12 @@ export function CompanyProductionDetailTab({ companyId }: { companyId: string })
 
   // New Assignment Modal State
   const [isAssignModalOpen, setIsAssignModalOpen] = useState(false);
+  const [selectedLicenseId, setSelectedLicenseId] = useState("");
   const [selectedItemId, setSelectedItemId] = useState("");
   const [selectedFrequencyId, setSelectedFrequencyId] = useState("");
   const [allocationDepth, setAllocationDepth] = useState<string>("quarterly");
-  const [effectiveFrom, setEffectiveFrom] = useState(`${new Date().getFullYear()}-01-01`);
-  const [effectiveTo, setEffectiveTo] = useState(`${new Date().getFullYear()}-12-31`);
+  const [effectiveFrom, setEffectiveFrom] = useState("2026-07-08");
+  const [effectiveTo, setEffectiveTo] = useState("2027-07-07");
   const [requiresReview, setRequiresReview] = useState(false);
   const [notes, setNotes] = useState("");
   const [assignError, setAssignError] = useState("");
@@ -78,12 +86,14 @@ export function CompanyProductionDetailTab({ companyId }: { companyId: string })
   );
 
   const handleOpenAssignModal = () => {
+    const defaultLic = companyLicenses.find((l) => l.status === "active") || companyLicenses[0];
+    setSelectedLicenseId(defaultLic?.license_id || "");
     setSelectedItemId(items[0]?.production_item_id || "");
     const daily = frequencies.find((f) => f.code === "daily") || frequencies[0];
     setSelectedFrequencyId(daily?.frequency_id || "");
     setAllocationDepth("quarterly");
-    setEffectiveFrom(`${new Date().getFullYear()}-01-01`);
-    setEffectiveTo(`${new Date().getFullYear()}-12-31`);
+    setEffectiveFrom(defaultLic?.effective_start_date || "2026-07-08");
+    setEffectiveTo(defaultLic?.effective_end_date || "2027-07-07");
     setRequiresReview(false);
     setNotes("");
     setAssignError("");
@@ -94,14 +104,20 @@ export function CompanyProductionDetailTab({ companyId }: { companyId: string })
     e.preventDefault();
     setAssignError("");
 
+    if (!selectedLicenseId) {
+      setAssignError("Please select a mining or exploration license owned by this company.");
+      return;
+    }
+
     if (!selectedItemId || !selectedFrequencyId || !effectiveFrom) {
-      setAssignError("Item, Frequency, and Effective date are required.");
+      setAssignError("License, Item, Frequency, and Effective date are required.");
       return;
     }
 
     try {
       await createAssignment({
         company_id: companyId,
+        license_id: selectedLicenseId,
         production_item_id: selectedItemId,
         reporting_frequency_id: selectedFrequencyId,
         target_allocation_depth: allocationDepth as any,
@@ -120,6 +136,8 @@ export function CompanyProductionDetailTab({ companyId }: { companyId: string })
 
   const handleOpenEditModal = (assignment: CompanyProductionAssignment) => {
     setEditingAssignment(assignment);
+    setEditLicenseId(assignment.license_id || companyLicenses[0]?.license_id || "");
+    setEditAllocationDepth(assignment.target_allocation_depth || "quarterly");
     setEditFrequencyId(assignment.reporting_frequency_id || "");
     setEditDefaultUnitId(assignment.default_reporting_unit_id || "");
     setEditEffectiveFrom(assignment.effective_from || "");
@@ -150,7 +168,9 @@ export function CompanyProductionDetailTab({ companyId }: { companyId: string })
       await updateAssignment({
         id: editingAssignment.assignment_id,
         data: {
+          license_id: editLicenseId || null,
           reporting_frequency_id: editFrequencyId,
+          target_allocation_depth: editAllocationDepth as any,
           default_reporting_unit_id: editDefaultUnitId || null,
           effective_from: editEffectiveFrom,
           effective_to: editEffectiveTo || null,
@@ -314,7 +334,21 @@ export function CompanyProductionDetailTab({ companyId }: { companyId: string })
                         {a.productionItem?.code}
                       </span>
                     </h3>
-                    <div className="flex items-center gap-2 mt-1">
+                    <div className="flex flex-wrap items-center gap-2 mt-1.5">
+                      {a.license ? (
+                        <a
+                          href={`/admin/licenses/${a.license.license_id}`}
+                          className="inline-flex items-center gap-1 text-xs font-semibold px-2 py-0.5 rounded-md bg-blue-50 text-blue-700 border border-blue-200 dark:bg-blue-950/40 dark:text-blue-300 dark:border-blue-800 hover:underline"
+                        >
+                          <FileText className="h-3 w-3" />
+                          License: {a.license.license_number}
+                          {a.license.licenseType?.name ? ` (${a.license.licenseType.name})` : ""}
+                        </a>
+                      ) : (
+                        <span className="text-xs text-amber-600 dark:text-amber-400 font-medium">
+                          No License Linked
+                        </span>
+                      )}
                       <Badge variant="outline" className="text-xs capitalize bg-muted/40">
                         {a.reportingFrequency?.name} Reporting
                       </Badge>
@@ -406,7 +440,34 @@ export function CompanyProductionDetailTab({ companyId }: { companyId: string })
 
             <form onSubmit={handleCreateAssignment} className="space-y-4 text-sm">
               <div>
-                <label className="block text-xs font-medium mb-1">Production Item *</label>
+                <label className="block text-xs font-semibold mb-1">Company Mining / Exploration License *</label>
+                {companyLicenses.length === 0 ? (
+                  <div className="rounded-lg bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 p-3 text-xs text-amber-800 dark:text-amber-300">
+                    This company has no registered licenses. Please issue or register a mining license in the Licenses tab before assigning production reporting.
+                  </div>
+                ) : (
+                  <select
+                    value={selectedLicenseId}
+                    onChange={(e) => {
+                      const licId = e.target.value;
+                      setSelectedLicenseId(licId);
+                      const matched = companyLicenses.find((l) => l.license_id === licId);
+                      if (matched?.effective_start_date) setEffectiveFrom(matched.effective_start_date);
+                      if (matched?.effective_end_date) setEffectiveTo(matched.effective_end_date);
+                    }}
+                    className="w-full rounded-md border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500"
+                  >
+                    {companyLicenses.map((lic) => (
+                      <option key={lic.license_id} value={lic.license_id}>
+                        {lic.license_number} — {lic.licenseType?.name || "License"} ({lic.mineral_type || "Concession"}) • {lic.region || "Ethiopia"}
+                      </option>
+                    ))}
+                  </select>
+                )}
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold mb-1">Production Item *</label>
                 <select
                   value={selectedItemId}
                   onChange={(e) => setSelectedItemId(e.target.value)}
@@ -637,19 +698,45 @@ export function CompanyProductionDetailTab({ companyId }: { companyId: string })
             )}
 
             <form onSubmit={handleUpdateAssignment} className="space-y-4 text-sm">
-              <div className="bg-muted/30 p-3 rounded-lg border">
-                <span className="text-[10px] text-muted-foreground uppercase font-bold tracking-wider block">Production Item</span>
-                <span className="text-xs font-semibold text-foreground mt-0.5 block">
-                  {editingAssignment.productionItem?.name} ({editingAssignment.productionItem?.code})
-                </span>
-                <span className="text-[10px] text-muted-foreground">
-                  Base Unit: {editingAssignment.productionItem?.baseUnit?.name || "Standard"}
-                </span>
+              <div className="grid grid-cols-2 gap-3 bg-muted/30 p-3 rounded-lg border">
+                <div>
+                  <span className="text-[10px] text-muted-foreground uppercase font-bold tracking-wider block">Production Item</span>
+                  <span className="text-xs font-semibold text-foreground mt-0.5 block">
+                    {editingAssignment.productionItem?.name} ({editingAssignment.productionItem?.code})
+                  </span>
+                  <span className="text-[10px] text-muted-foreground">
+                    Base: {editingAssignment.productionItem?.baseUnit?.name || "Standard"}
+                  </span>
+                </div>
+                <div>
+                  <span className="text-[10px] text-muted-foreground uppercase font-bold tracking-wider block">Current License</span>
+                  <span className="text-xs font-semibold text-foreground mt-0.5 block font-mono">
+                    {editingAssignment.license?.license_number || "Unlinked"}
+                  </span>
+                  <span className="text-[10px] text-muted-foreground">
+                    {editingAssignment.license?.licenseType?.name || "Concession"}
+                  </span>
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold mb-1">Company Mining License *</label>
+                <select
+                  value={editLicenseId}
+                  onChange={(e) => setEditLicenseId(e.target.value)}
+                  className="w-full rounded-md border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500"
+                >
+                  {companyLicenses.map((lic) => (
+                    <option key={lic.license_id} value={lic.license_id}>
+                      {lic.license_number} — {lic.licenseType?.name || "License"} ({lic.mineral_type || "Concession"})
+                    </option>
+                  ))}
+                </select>
               </div>
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-xs font-medium mb-1">Reporting Frequency *</label>
+                  <label className="block text-xs font-semibold mb-1">Reporting Frequency *</label>
                   <select
                     value={editFrequencyId}
                     onChange={(e) => setEditFrequencyId(e.target.value)}
@@ -664,20 +751,34 @@ export function CompanyProductionDetailTab({ companyId }: { companyId: string })
                 </div>
 
                 <div>
-                  <label className="block text-xs font-medium mb-1">Default Reporting Unit</label>
+                  <label className="block text-xs font-semibold mb-1">Target Allocation Depth *</label>
                   <select
-                    value={editDefaultUnitId}
-                    onChange={(e) => setEditDefaultUnitId(e.target.value)}
+                    value={editAllocationDepth}
+                    onChange={(e) => setEditAllocationDepth(e.target.value)}
                     className="w-full rounded-md border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500"
                   >
-                    <option value="">Standard (Base Unit)</option>
-                    {(editingAssignment.productionItem?.supportedUnits || []).map((u: any) => (
-                      <option key={u.unit_id} value={u.unit_id}>
-                        {u.measurementUnit?.name || u.unit?.name || "Unit"} ({u.measurementUnit?.symbol || u.unit?.symbol || ""})
-                      </option>
-                    ))}
+                    <option value="annual">Annual Target Only</option>
+                    <option value="semi_annual">Annual → Semiannual</option>
+                    <option value="quarterly">Annual → Quarterly</option>
+                    <option value="monthly">Annual → Monthly</option>
                   </select>
                 </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-medium mb-1">Default Reporting Unit</label>
+                <select
+                  value={editDefaultUnitId}
+                  onChange={(e) => setEditDefaultUnitId(e.target.value)}
+                  className="w-full rounded-md border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500"
+                >
+                  <option value="">Standard (Base Unit)</option>
+                  {(editingAssignment.productionItem?.supportedUnits || []).map((u: any) => (
+                    <option key={u.unit_id} value={u.unit_id}>
+                      {u.measurementUnit?.name || u.unit?.name || "Unit"} ({u.measurementUnit?.symbol || u.unit?.symbol || ""})
+                    </option>
+                  ))}
+                </select>
               </div>
 
               <div className="grid grid-cols-2 gap-3">
