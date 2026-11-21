@@ -174,11 +174,132 @@ async function runSeed() {
     mining: miningType.license_type_id,
   };
 
-  // 3. Process each license row
+  // 3. Load Measurement Units and Reporting Frequencies
+  let unitKg = await db.GoldMeasurementUnit.findOne({
+    where: {
+      [db.Sequelize.Op.or]: [
+        { symbol: "kg" },
+        { code: "kg" },
+        db.sequelize.where(db.sequelize.fn("LOWER", db.sequelize.col("name")), "kilogram"),
+      ],
+    },
+  });
+  if (!unitKg) {
+    unitKg = await db.GoldMeasurementUnit.create({
+      name: "Kilogram",
+      code: "kg",
+      symbol: "kg",
+      conversion_factor: 1000,
+      is_canonical_base: false,
+      is_active: true,
+    });
+  }
+
+  let unitTon = await db.GoldMeasurementUnit.findOne({
+    where: {
+      [db.Sequelize.Op.or]: [
+        { symbol: "t" },
+        { code: "tonne" },
+        db.sequelize.where(db.sequelize.fn("LOWER", db.sequelize.col("name")), {
+          [db.Sequelize.Op.like]: "%ton%",
+        }),
+      ],
+    },
+  });
+  if (!unitTon) {
+    unitTon = await db.GoldMeasurementUnit.create({
+      name: "Metric Tonne",
+      code: "tonne",
+      symbol: "t",
+      conversion_factor: 1000000,
+      is_canonical_base: false,
+      is_active: true,
+    });
+  }
+
+  let freqDaily = await db.ProductionReportingFrequency.findOne({ where: { code: "daily" } });
+  let freqMonthly = await db.ProductionReportingFrequency.findOne({ where: { code: "monthly" } });
+  let freqQuarterly = await db.ProductionReportingFrequency.findOne({ where: { code: "quarterly" } });
+
+  function categorizeMineral(rawMineral) {
+    if (!rawMineral) {
+      return {
+        name: "Industrial Minerals",
+        code: "PROD-IND-MINERALS",
+        unit: unitTon,
+        category: "Industrial Minerals",
+        frequency: freqQuarterly,
+      };
+    }
+    const cleanName = rawMineral.trim();
+    const low = cleanName.toLowerCase();
+    const isGold = low.includes("gold");
+    const isGemstone =
+      low.includes("gem") ||
+      low.includes("opal") ||
+      low.includes("emerald") ||
+      low.includes("ruby") ||
+      low.includes("sapphire") ||
+      low.includes("beryll");
+    const isPreciousOrRare =
+      isGold ||
+      isGemstone ||
+      low.includes("tantal") ||
+      low.includes("rare earth") ||
+      low.includes("lithium");
+
+    const safeCode = (
+      "PROD-" + cleanName.toUpperCase().replace(/[^A-Z0-9]/g, "-").replace(/-+/g, "-")
+    ).slice(0, 48);
+
+    if (isGold) {
+      return {
+        name: cleanName,
+        code: safeCode,
+        unit: unitKg,
+        category: "Precious Metals",
+        frequency: freqDaily || freqMonthly,
+      };
+    } else if (isGemstone) {
+      return {
+        name: cleanName,
+        code: safeCode,
+        unit: unitKg,
+        category: "Gemstones",
+        frequency: freqMonthly,
+      };
+    } else if (isPreciousOrRare) {
+      return {
+        name: cleanName,
+        code: safeCode,
+        unit: unitKg,
+        category: "Strategic Minerals",
+        frequency: freqMonthly,
+      };
+    } else {
+      return {
+        name: cleanName,
+        code: safeCode,
+        unit: unitTon,
+        category:
+          low.includes("cement") || low.includes("limestone") || low.includes("gypsum")
+            ? "Cement & Construction"
+            : "Industrial Minerals",
+        frequency: freqQuarterly || freqMonthly,
+      };
+    }
+  }
+
+  // Cache for created/ensured production items
+  const productionItemCache = new Map();
+
+  // 4. Process each license row
   let createdCompanies = 0;
   let createdLicenses = 0;
   let updatedLicenses = 0;
   let matchedGis = 0;
+  let createdAssignments = 0;
+  let updatedAssignments = 0;
 
   for (let i = 0; i < rowsA.length; i++) {
     const r = rowsA[i];
@@ -203,15 +324,12 @@ async function runSeed() {
     const issuedDateStr = issuedDate.toISOString().slice(0, 10);
 
     const isMining = rawType.includes("mining");
-    const validYears = isMining ? 10 : 3;
 
-    const effectiveStartDateStr = issuedDateStr;
-    const effectiveEndDate = new Date(issuedDate.getTime());
-    effectiveEndDate.setUTCFullYear(effectiveEndDate.getUTCFullYear() + validYears);
-    const effectiveEndDateStr = effectiveEndDate.toISOString().slice(0, 10);
-
-    const yearFrom = issuedDate.getUTCFullYear();
-    const yearTo = effectiveEndDate.getUTCFullYear();
+    // Standardized validity date range: 2026-07-08 - 2027-07-07 (EFY 2019)
+    const effectiveStartDateStr = "2026-07-08";
+    const effectiveEndDateStr = "2027-07-07";
+    const yearFrom = 2019;
+    const yearTo = 2019;
 
     // 4. Match or create Company
     let company = await db.Company.findOne({
@@ -320,8 +438,81 @@ async function runSeed() {
       await license.update(licenseData);
       updatedLicenses++;
     } else {
-      await db.CompanyLicense.create(licenseData);
+      license = await db.CompanyLicense.create(licenseData);
       createdLicenses++;
+    }
+
+    // 7. Configure Production Item and Assignment
+    const minMeta = categorizeMineral(mineralType);
+    let prodItem = productionItemCache.get(minMeta.code);
+    if (!prodItem) {
+      prodItem = await db.ProductionItem.findOne({
+        where: { code: minMeta.code },
+      });
+      if (!prodItem) {
+        prodItem = await db.ProductionItem.findOne({
+          where: db.sequelize.where(
+            db.sequelize.fn("LOWER", db.sequelize.col("name")),
+            minMeta.name.toLowerCase()
+          ),
+        });
+      }
+      if (!prodItem) {
+        prodItem = await db.ProductionItem.create({
+          name: minMeta.name,
+          code: minMeta.code,
+          description: `Production reporting for ${minMeta.name}`,
+          category: minMeta.category,
+          base_unit_id: minMeta.unit ? minMeta.unit.unit_id : null,
+          default_reporting_unit_id: minMeta.unit ? minMeta.unit.unit_id : null,
+          is_active: true,
+        });
+      }
+      productionItemCache.set(minMeta.code, prodItem);
+    }
+
+    if (minMeta.frequency) {
+      const existingAssign = await db.CompanyProductionAssignment.findOne({
+        where: {
+          company_id: company.company_id,
+          license_id: license.license_id,
+          production_item_id: prodItem.production_item_id,
+        },
+      });
+
+      const depth =
+        minMeta.frequency.code === "daily"
+          ? "daily"
+          : minMeta.frequency.code === "monthly"
+          ? "monthly"
+          : "quarterly";
+
+      if (!existingAssign) {
+        await db.CompanyProductionAssignment.create({
+          company_id: company.company_id,
+          license_id: license.license_id,
+          production_item_id: prodItem.production_item_id,
+          reporting_frequency_id: minMeta.frequency.frequency_id,
+          default_reporting_unit_id: minMeta.unit ? minMeta.unit.unit_id : null,
+          target_allocation_depth: depth,
+          effective_from: "2026-07-08",
+          effective_to: "2027-07-07",
+          is_active: true,
+          requires_review: false,
+          notes: `Assigned for license ${standardLicNo} (${minMeta.name})`,
+        });
+        createdAssignments++;
+      } else {
+        await existingAssign.update({
+          reporting_frequency_id: minMeta.frequency.frequency_id,
+          default_reporting_unit_id: minMeta.unit ? minMeta.unit.unit_id : null,
+          target_allocation_depth: depth,
+          effective_from: "2026-07-08",
+          effective_to: "2027-07-07",
+          is_active: true,
+        });
+        updatedAssignments++;
+      }
     }
   }
 
@@ -330,6 +521,9 @@ async function runSeed() {
   console.log(`📜 Licenses Created: ${createdLicenses}`);
   console.log(`📜 Licenses Updated: ${updatedLicenses}`);
   console.log(`🗺️  GIS Boundaries Successfully Matched: ${matchedGis} / ${rowsA.length} (100%)`);
+  console.log(`⚙️  Production Items Configured: ${productionItemCache.size}`);
+  console.log(`📋 Production Assignments Created: ${createdAssignments}`);
+  console.log(`📋 Production Assignments Updated: ${updatedAssignments}`);
   console.log("==============================================\n");
 }
 

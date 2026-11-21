@@ -43,6 +43,7 @@ function buildEditorConfig(document, user, mode) {
         modifyFilter: canEdit,
         modifyContentControl: canEdit,
         fillForms: canEdit,
+        chat: canEdit || mode === "edit",
       },
     },
     documentType: onlyofficeDocumentType(document.file_type),
@@ -60,7 +61,6 @@ function buildEditorConfig(document, user, mode) {
       customization: {
         forcesave: true,
         autosave: true,
-        chat: true,
         comments: true,
         submitForm: true,
       },
@@ -102,6 +102,7 @@ function buildVersionEditorConfig(document, version, user, versionNumber) {
         modifyFilter: false,
         modifyContentControl: false,
         fillForms: false,
+        chat: false,
       },
     },
     documentType: onlyofficeDocumentType(document.file_type),
@@ -113,7 +114,6 @@ function buildVersionEditorConfig(document, version, user, versionNumber) {
       },
       customization: {
         forcesave: false,
-        chat: false,
         comments: false,
       },
     },
