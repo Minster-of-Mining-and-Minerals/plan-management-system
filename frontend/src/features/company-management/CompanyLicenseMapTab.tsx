@@ -45,7 +45,7 @@ export function CompanyLicenseMapTab({
   const [selectedLicense, setSelectedLicense] = useState<CompanyLicense | null>(null);
 
   const companyLicenses = React.useMemo(() => {
-    return licenses.filter((l) => !l.company_id || l.company_id === companyId);
+    return licenses.filter((l) => l.company_id === companyId);
   }, [licenses, companyId]);
 
   if (isLoading) {

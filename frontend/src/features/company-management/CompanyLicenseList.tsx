@@ -169,7 +169,7 @@ export function CompanyLicenseList({
   const filteredLicenses = useMemo(() => {
     return licenses.filter((lic) => {
       // Strictly ensure the license belongs to this company
-      if (lic.company_id && lic.company_id !== companyId) return false;
+      if (lic.company_id !== companyId) return false;
       if (statusFilter && lic.status !== statusFilter) return false;
       if (typeFilter && lic.license_type_id !== typeFilter) return false;
       return true;
@@ -372,7 +372,7 @@ export function CompanyLicenseList({
   }, [router, onViewOnMap]);
 
   const stats = useMemo(() => {
-    const compLicenses = licenses.filter((l) => !l.company_id || l.company_id === companyId);
+    const compLicenses = licenses.filter((l) => l.company_id === companyId);
     return [
       {
         title: "Total Licenses",

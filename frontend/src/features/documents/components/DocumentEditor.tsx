@@ -8,7 +8,6 @@ import { cn } from "@/lib/utils";
 import type { EditorSession } from "@/redux/types/document";
 import {
   buildOnlyofficeStartupMessage,
-  checkOnlyofficeHealth,
   resolveOnlyofficeUrl,
 } from "../utils/onlyofficeHealth";
 
@@ -47,12 +46,16 @@ export function DocumentEditor({
   showFullscreenToggle = true,
 }: DocumentEditorProps) {
   const containerRef = useRef<HTMLDivElement>(null);
-  const [error, setError] = useState<string | null>(null);
-  const [isCheckingOnlyoffice, setIsCheckingOnlyoffice] = useState(true);
-  const [isOnlyofficeReady, setIsOnlyofficeReady] = useState(false);
-  const [isFullscreen, setIsFullscreen] = useState(false);
-
   const documentServerUrl = resolveOnlyofficeUrl(session.documentServerUrl);
+  const isValidUrl = /^https?:\/\//i.test(documentServerUrl);
+
+  const [error, setError] = useState<string | null>(
+    isValidUrl
+      ? null
+      : `Invalid ONLYOFFICE URL "${documentServerUrl}". Expected an absolute http(s) URL (e.g. http://10.0.71.213:8081).`
+  );
+  const [isEditorLoaded, setIsEditorLoaded] = useState(false);
+  const [isFullscreen, setIsFullscreen] = useState(false);
 
   const config = useMemo((): OnlyOfficeConfig => {
     const editorConfig = (session.config.editorConfig || {}) as Record<string, unknown>;
@@ -103,43 +106,6 @@ export function DocumentEditor({
 
     return baseConfig as unknown as OnlyOfficeConfig;
   }, [session.config, documentServerUrl]);
-
-  useEffect(() => {
-    let cancelled = false;
-
-    async function verifyOnlyoffice() {
-      setIsCheckingOnlyoffice(true);
-      setIsOnlyofficeReady(false);
-      setError(null);
-
-      if (!/^https?:\/\//i.test(documentServerUrl)) {
-        setError(
-          `Invalid ONLYOFFICE URL "${documentServerUrl}". Expected an absolute http(s) URL (e.g. http://10.0.71.213:8081).`
-        );
-        setIsOnlyofficeReady(false);
-        setIsCheckingOnlyoffice(false);
-        return;
-      }
-
-      const health = await checkOnlyofficeHealth(documentServerUrl);
-      if (cancelled) return;
-
-      if (!health.ok) {
-        setError(health.message);
-        setIsOnlyofficeReady(false);
-      } else {
-        setIsOnlyofficeReady(true);
-      }
-
-      setIsCheckingOnlyoffice(false);
-    }
-
-    void verifyOnlyoffice();
-
-    return () => {
-      cancelled = true;
-    };
-  }, [documentServerUrl]);
 
   useEffect(() => {
     const handleFullscreenChange = () => {
@@ -195,25 +161,32 @@ export function DocumentEditor({
           </Button>
         ) : null}
         <div className="h-full w-full">
-          {isCheckingOnlyoffice ? (
-            <div className="flex h-full items-center justify-center text-sm text-muted-foreground">
-              Checking ONLYOFFICE at {documentServerUrl}…
-            </div>
-          ) : isOnlyofficeReady ? (
-            <OnlyOfficeEditor
-              key={`${editorId}:${documentServerUrl}`}
-              id={editorId}
-              documentServerUrl={documentServerUrl}
-              config={config}
-              onLoadComponentError={(errorCode, errorDescription) => {
-                setError(
-                  formatOnlyofficeError(errorCode, errorDescription, documentServerUrl)
-                );
-              }}
-            />
-          ) : (
+          {!isValidUrl ? (
             <div className="flex h-full items-center justify-center px-6 text-center text-sm text-muted-foreground">
-              Start ONLYOFFICE, then refresh this page.
+              Invalid ONLYOFFICE URL: {documentServerUrl}
+            </div>
+          ) : (
+            <div className="relative h-full w-full">
+              {!isEditorLoaded && !error && (
+                <div className="absolute inset-0 z-10 flex flex-col items-center justify-center bg-background/80 backdrop-blur-xs">
+                  <div className="h-6 w-6 animate-spin rounded-full border-2 border-primary border-t-transparent mb-2" />
+                  <p className="text-xs text-muted-foreground">Loading document in ONLYOFFICE…</p>
+                </div>
+              )}
+              <OnlyOfficeEditor
+                key={`${editorId}:${documentServerUrl}`}
+                id={editorId}
+                documentServerUrl={documentServerUrl}
+                config={config}
+                events_onAppReady={() => setIsEditorLoaded(true)}
+                events_onDocumentReady={() => setIsEditorLoaded(true)}
+                onLoadComponentError={(errorCode, errorDescription) => {
+                  setIsEditorLoaded(true);
+                  setError(
+                    formatOnlyofficeError(errorCode, errorDescription, documentServerUrl)
+                  );
+                }}
+              />
             </div>
           )}
         </div>

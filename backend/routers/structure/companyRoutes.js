@@ -125,10 +125,7 @@ router.delete(
 router.get(
   "/:id/licenses",
   authorizeCompanyRead,
-  (req, res) => {
-    req.query = { ...req.query, company_id: req.params.id };
-    return companyLicenseController.listLicenses(req, res);
-  }
+  companyLicenseController.listLicenses
 );
 
 router.post(
