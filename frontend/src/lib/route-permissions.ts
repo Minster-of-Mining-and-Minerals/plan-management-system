@@ -267,12 +267,6 @@ export const ROUTE_PERMISSION_RULES: RoutePermissionRule[] = [
   { pattern: "/regional", anyPermissions: ["REGIONAL_DASHBOARD:VIEW", "REGIONAL_STRUCTURES:READ", "REGIONAL_USERS:READ", "REGIONAL_BRANDING:READ"] },
 
   // Dynamic Company Workspace
-  { pattern: "/companies/[id]/plans/configuration", anyPermissions: ["COMPANY_PLANNING_CONFIG:READ", "COMPANY_PLANNING_CONFIG:UPDATE", "COMPANY_PLANS:MANAGE"] },
-  { pattern: "/companies/[id]/plans/rules", anyPermissions: ["COMPANY_PLAN_RULES:READ", "COMPANY_PLAN_RULES:CREATE", "COMPANY_PLAN_RULES:UPDATE", "COMPANY_PLAN_RULES:DELETE"] },
-  { pattern: "/companies/[id]/plans/dashboard", anyPermissions: ["COMPANY_PLANS:READ", "COMPANY_DASHBOARD:VIEW"] },
-  { pattern: "/companies/[id]/plans/[versionId]/hierarchy", anyPermissions: ["COMPANY_PLANS:READ", "COMPANY_PLANS:MANAGE"] },
-  { pattern: "/companies/[id]/plans/[versionId]", anyPermissions: ["COMPANY_PLANS:READ", "COMPANY_PLANS:MANAGE"] },
-  { pattern: "/companies/[id]/plans", anyPermissions: ["COMPANY_PLANS:READ", "COMPANY_PLANS:MANAGE"] },
   { pattern: "/companies/[id]/production/submit", anyPermissions: ["COMPANY_PRODUCTION_REPORTS:CREATE", "COMPANY_PRODUCTION_REPORTS:UPDATE", "COMPANY_PRODUCTION_REPORTS:MANAGE"] },
   { pattern: "/companies/[id]/production/reports", anyPermissions: ["COMPANY_PRODUCTION_REPORTS:READ", "COMPANY_PRODUCTION_REPORTS:MANAGE"] },
   { pattern: "/companies/[id]/production", anyPermissions: ["COMPANY_PRODUCTION:READ", "COMPANY_PRODUCTION_REPORTS:READ", "COMPANY_DASHBOARD:VIEW"] },
@@ -292,12 +286,6 @@ export const ROUTE_PERMISSION_RULES: RoutePermissionRule[] = [
   { pattern: "/companies/[id]", anyPermissions: ["COMPANY_DASHBOARD:VIEW"] },
 
   // Company Workspace fallback aliases
-  { pattern: "/company/plans/configuration", anyPermissions: ["COMPANY_PLANNING_CONFIG:READ", "COMPANY_PLANNING_CONFIG:UPDATE", "COMPANY_PLANS:MANAGE"] },
-  { pattern: "/company/plans/rules", anyPermissions: ["COMPANY_PLAN_RULES:READ", "COMPANY_PLAN_RULES:CREATE", "COMPANY_PLAN_RULES:UPDATE", "COMPANY_PLAN_RULES:DELETE"] },
-  { pattern: "/company/plans/dashboard", anyPermissions: ["COMPANY_PLANS:READ", "COMPANY_DASHBOARD:VIEW"] },
-  { pattern: "/company/plans/[versionId]/hierarchy", anyPermissions: ["COMPANY_PLANS:READ", "COMPANY_PLANS:MANAGE"] },
-  { pattern: "/company/plans/[versionId]", anyPermissions: ["COMPANY_PLANS:READ", "COMPANY_PLANS:MANAGE"] },
-  { pattern: "/company/plans", anyPermissions: ["COMPANY_PLANS:READ", "COMPANY_PLANS:MANAGE"] },
   { pattern: "/company/production/submit", anyPermissions: ["COMPANY_PRODUCTION_REPORTS:CREATE", "COMPANY_PRODUCTION_REPORTS:UPDATE", "COMPANY_PRODUCTION_REPORTS:MANAGE"] },
   { pattern: "/company/production/reports", anyPermissions: ["COMPANY_PRODUCTION_REPORTS:READ", "COMPANY_PRODUCTION_REPORTS:MANAGE"] },
   { pattern: "/company/production", anyPermissions: ["COMPANY_PRODUCTION:READ", "COMPANY_PRODUCTION_REPORTS:READ", "COMPANY_DASHBOARD:VIEW"] },

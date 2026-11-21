@@ -7,7 +7,6 @@ import {
   Shield,
   Key,
   Paintbrush,
-  Layers,
   Factory,
   FilePlus2,
   ClipboardList,
@@ -30,46 +29,6 @@ export const COMPANY_NAVIGATION: NavItem[] = [
     url: "/company/dashboard",
     icon: LayoutDashboard,
     anyPermissions: ["COMPANY_DASHBOARD:VIEW"],
-  },
-  {
-    title: "Plan Management",
-    url: "/company/plans",
-    icon: Layers,
-    anyPermissions: [
-      "COMPANY_PLANS:READ",
-      "COMPANY_PLANS:MANAGE",
-    ],
-    children: [
-      {
-        title: "Plans",
-        url: "/company/plans",
-        icon: Layers,
-        anyPermissions: [
-          "COMPANY_PLANS:READ",
-          "COMPANY_PLANS:MANAGE",
-        ],
-      },
-      {
-        title: "Plan Rules",
-        url: "/company/plans/rules",
-        icon: Shield,
-        anyPermissions: [
-          "COMPANY_PLAN_RULES:READ",
-          "COMPANY_PLANS:UPDATE",
-          "COMPANY_PLANS:MANAGE",
-        ],
-      },
-      {
-        title: "Planning Configuration",
-        url: "/company/plans/configuration",
-        icon: Paintbrush,
-        anyPermissions: [
-          "COMPANY_PLANNING_CONFIG:READ",
-          "COMPANY_PLANS:READ",
-          "COMPANY_PLANS:MANAGE",
-        ],
-      },
-    ],
   },
   {
     title: "Production Reporting",

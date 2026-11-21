@@ -5,6 +5,20 @@ const withNextIntl = createNextIntlPlugin();
 
 const nextConfig: NextConfig = {
   output: "standalone",
+  async redirects() {
+    return [
+      {
+        source: "/:locale/companies/:id/plans",
+        destination: "/:locale/companies/:id/production",
+        permanent: false,
+      },
+      {
+        source: "/:locale/companies/:id/plans/:path*",
+        destination: "/:locale/companies/:id/production",
+        permanent: false,
+      },
+    ];
+  },
   async rewrites() {
     return [
       {

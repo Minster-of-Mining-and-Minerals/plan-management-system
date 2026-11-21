@@ -59,7 +59,7 @@ import { hexToRgba } from "@/features/plan-management/dashboard/utils/dashboardA
 
 import { CompanyProductionDashboardView } from "@/features/company-production/CompanyProductionDashboardView";
 
-type DashboardTab = "overview" | "planning-preview" | "compliance-preview" | "production";
+type DashboardTab = "overview" | "compliance-preview" | "production";
 
 export interface CompanyDashboardViewProps {
   overrideCompanyId?: string;
@@ -90,7 +90,7 @@ export function CompanyDashboardView({
   const requestedTab = searchParams.get("tab") as DashboardTab | null;
   const activeTab: DashboardTab = hideHeaderNavigation
     ? localTab
-    : requestedTab === "production" || requestedTab === "planning-preview"
+    : requestedTab === "production"
     ? "production"
     : requestedTab === "compliance-preview"
     ? "compliance-preview"
