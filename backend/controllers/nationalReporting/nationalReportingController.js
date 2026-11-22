@@ -273,6 +273,20 @@ async function createCategory(req, res) {
   }
 }
 
+async function deleteCategory(req, res) {
+  try {
+    const { id } = req.params;
+    const result = await nationalReportingService.deleteCategory(id);
+    return res.status(200).json(result);
+  } catch (error) {
+    console.error("Error deleting reporting category:", error);
+    return res.status(error.status || 500).json({
+      success: false,
+      message: error.message || "Failed to delete category.",
+    });
+  }
+}
+
 async function createCustomUnit(req, res) {
   try {
     const unit = await nationalReportingService.createCustomUnit(req.body, req.user?.user_id);
@@ -450,6 +464,7 @@ module.exports = {
   getUnitsCatalog,
   listCategories,
   createCategory,
+  deleteCategory,
   createCustomUnit,
   createMeasurementCategory,
   getRegionReportingConfig,

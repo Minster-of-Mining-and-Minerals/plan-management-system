@@ -27,6 +27,7 @@ import {
   useGetNationalRequirementsQuery,
   useGetNationalCategoriesQuery,
   useCreateNationalCategoryMutation,
+  useDeleteNationalCategoryMutation,
 } from "@/redux/api/nationalReportingApi";
 import { NationalUnitConfigTab } from "./NationalUnitConfigTab";
 import { NationalPeriodConfigTab } from "./NationalPeriodConfigTab";
@@ -48,10 +49,12 @@ import {
   Search,
   Plus,
   CalendarRange,
+  Trash2,
 } from "lucide-react";
 import { toast } from "sonner";
 
 export interface ReportingCategoryDefinition {
+  id?: string;
   code: string;
   label: string;
   icon: string;
@@ -80,6 +83,7 @@ export function NationalReportingConfigView() {
   const { data: requirements = [] } = useGetNationalRequirementsQuery({});
   const { data: customCategories = [] } = useGetNationalCategoriesQuery();
   const [createCategory, { isLoading: isCreatingCategory }] = useCreateNationalCategoryMutation();
+  const [deleteCategory, { isLoading: isDeletingCategory }] = useDeleteNationalCategoryMutation();
 
   // Real canonical categories from DB
   const allCategories = useMemo(() => {
@@ -89,6 +93,7 @@ export function NationalReportingConfigView() {
     customCategories.forEach((cat) => {
       if (!seen.has(cat.code.toLowerCase())) {
         combined.push({
+          id: (cat as any).category_id || (cat as any).id || cat.code,
           code: cat.code,
           label: cat.label,
           icon: cat.icon || "📊",
@@ -104,6 +109,27 @@ export function NationalReportingConfigView() {
 
     return combined;
   }, [customCategories]);
+
+  const handleDeleteCategory = async (cat: ReportingCategoryDefinition) => {
+    const assignedCount = categoryStats[cat.code] || 0;
+    if (assignedCount > 0) {
+      toast.error(
+        `Cannot delete category "${cat.label}" because ${assignedCount} indicator(s) are assigned to it.`
+      );
+      return;
+    }
+
+    if (!window.confirm(`Are you sure you want to delete reporting category "${cat.label}"?`)) {
+      return;
+    }
+
+    try {
+      await deleteCategory(cat.id || cat.code).unwrap();
+      toast.success(`Category "${cat.label}" deleted successfully`);
+    } catch (err: any) {
+      toast.error(err?.data?.message || err?.message || "Failed to delete category");
+    }
+  };
 
   // Count active requirements per category
   const categoryStats = useMemo(() => {
@@ -258,8 +284,40 @@ export function NationalReportingConfigView() {
           );
         },
       },
+      {
+        id: "actions",
+        header: () => <div className="text-right">Actions</div>,
+        cell: ({ row }) => {
+          const item = row.original;
+          const assignedCount = categoryStats[item.code] || 0;
+          const canDelete = assignedCount === 0;
+
+          return (
+            <div className="flex items-center justify-end">
+              <Button
+                variant="ghost"
+                size="sm"
+                disabled={!canDelete || isDeletingCategory}
+                onClick={() => handleDeleteCategory(item)}
+                title={
+                  canDelete
+                    ? "Delete category"
+                    : `Cannot delete: ${assignedCount} indicator(s) assigned`
+                }
+                className={`h-8 w-8 p-0 rounded-lg transition-colors ${
+                  canDelete
+                    ? "text-red-600 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-950/40"
+                    : "text-slate-300 dark:text-slate-600 cursor-not-allowed hover:bg-transparent"
+                }`}
+              >
+                <Trash2 className="h-4 w-4" />
+              </Button>
+            </div>
+          );
+        },
+      },
     ],
-    [categoryStats]
+    [categoryStats, isDeletingCategory]
   );
 
   return (

@@ -235,6 +235,14 @@ export const nationalReportingApi = baseApi.injectEndpoints({
       invalidatesTags: ["NationalCategories"],
     }),
 
+    deleteNationalCategory: builder.mutation<{ success: boolean; message: string }, string>({
+      query: (id) => ({
+        url: `/national-reporting/categories/${id}`,
+        method: "DELETE",
+      }),
+      invalidatesTags: ["NationalCategories"],
+    }),
+
     createNationalUnit: builder.mutation<any, CreateUnitPayload>({
       query: (body) => ({
         url: "/national-reporting/units-catalog/unit",
@@ -466,6 +474,7 @@ export const {
   useGetNationalUnitsCatalogQuery,
   useGetNationalCategoriesQuery,
   useCreateNationalCategoryMutation,
+  useDeleteNationalCategoryMutation,
   useCreateNationalUnitMutation,
   useCreateNationalMeasurementCategoryMutation,
   useGetRegionalAssignedRequirementsQuery,

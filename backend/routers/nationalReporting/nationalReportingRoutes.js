@@ -27,6 +27,11 @@ router.post(
   checkPermission("national_reporting", "create_requirement"),
   nationalReportingController.createCategory
 );
+router.delete(
+  "/categories/:id",
+  checkPermission("national_reporting", "create_requirement"),
+  nationalReportingController.deleteCategory
+);
 
 // Period Configuration & Custom Division Naming
 router.get("/period-configs", nationalReportingController.getPeriodConfigs);

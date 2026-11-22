@@ -28,62 +28,7 @@ const {
   normalizeUnit,
 } = require("../utils/nationalUnitCompatibilityUtils");
 
-const BUILT_IN_CATEGORIES = [
-  {
-    code: "mining_production",
-    label: "Mining Production & Output",
-    icon: "⛏️",
-    description: "Extraction of metallic, non-metallic, construction, and strategic minerals across provinces.",
-    mandate_level: "mandatory_default",
-    frequency_default: "monthly",
-    typical_units: ["ton", "kg", "quintal", "carat"],
-  },
-  {
-    code: "revenue_royalties",
-    label: "Revenue, Royalties & Financial",
-    icon: "💰",
-    description: "Royalty collection, license fees, surface rentals, and regional tax sharing performance.",
-    mandate_level: "mandatory_default",
-    frequency_default: "monthly",
-    typical_units: ["etb", "birr", "usd"],
-  },
-  {
-    code: "cadastre_licensing",
-    label: "Cadastre, Licenses & Concessions",
-    icon: "📜",
-    description: "Issuance, renewal, revocation, and transfer of artisanal and large-scale mining licenses.",
-    mandate_level: "mandatory_default",
-    frequency_default: "quarterly",
-    typical_units: ["license", "certificate", "count"],
-  },
-  {
-    code: "inspections_compliance",
-    label: "Inspections, HSE & Environment",
-    icon: "🛡️",
-    description: "Mine safety audits, environmental rehabilitation compliance, and hazardous material storage.",
-    mandate_level: "mandatory_default",
-    frequency_default: "quarterly",
-    typical_units: ["inspection", "site", "report", "occurrence"],
-  },
-  {
-    code: "artisanal_cooperatives",
-    label: "Artisanal Mining & Cooperatives",
-    icon: "👥",
-    description: "Formalization of ASM operators, legal cooperative creation, and women in mining programs.",
-    mandate_level: "optional_default",
-    frequency_default: "quarterly",
-    typical_units: ["cooperative", "person", "household", "site"],
-  },
-  {
-    code: "geological_exploration",
-    label: "Geological Survey & Data",
-    icon: "🗺️",
-    description: "Geological mapping coverage, reserve estimations, geophysics datasets, and core sample logs.",
-    mandate_level: "optional_default",
-    frequency_default: "semi_annual",
-    typical_units: ["sq_km", "sample", "dataset", "report"],
-  },
-];
+const BUILT_IN_CATEGORIES = [];
 
 /**
  * Federal National Reporting Service
@@ -1204,6 +1149,52 @@ class NationalReportingService {
     return {
       ...newCategory.toJSON(),
       is_custom: true,
+    };
+  }
+
+  /**
+   * Delete a reporting category if no indicators are assigned to it
+   */
+  async deleteCategory(idOrCode) {
+    if (!idOrCode) {
+      const err = new Error("Category ID or code is required");
+      err.status = 400;
+      throw err;
+    }
+
+    const cat = await NationalReportingCustomCategory.findOne({
+      where: {
+        [Op.or]: [
+          { category_id: idOrCode },
+          { code: idOrCode },
+        ],
+      },
+    });
+
+    if (!cat) {
+      const err = new Error("Category not found");
+      err.status = 404;
+      throw err;
+    }
+
+    // Check if any requirements are assigned to this category
+    const assignedCount = await NationalReportingRequirement.count({
+      where: { category: cat.code },
+    });
+
+    if (assignedCount > 0) {
+      const err = new Error(
+        `Cannot delete category '${cat.label}' because ${assignedCount} indicator(s) are assigned to it.`
+      );
+      err.status = 400;
+      throw err;
+    }
+
+    await cat.destroy();
+
+    return {
+      success: true,
+      message: `Category '${cat.label}' deleted successfully`,
     };
   }
 
