@@ -47,6 +47,11 @@ import {
   Calendar,
   Layers,
   Scale,
+  ChevronDown,
+  ChevronRight,
+  ChevronsUpDown,
+  FolderOpen,
+  CheckCircle2,
 } from "lucide-react";
 import { toast } from "sonner";
 import { NationalUnitConfigTab } from "./NationalUnitConfigTab";
@@ -55,15 +60,6 @@ import {
   validateAnnualDateRange,
   generateReportingPeriods,
 } from "@/utils/nationalReportingPeriodUtils";
-
-const CATEGORIES = [
-  { value: "all", label: "All Categories" },
-  { value: "mining_production", label: "Mining Production" },
-  { value: "mineral_exploration", label: "Mineral Exploration" },
-  { value: "industrial_capacity", label: "Industrial Capacity" },
-  { value: "revenue_generation", label: "Revenue & Royalty Generation" },
-  { value: "environmental_compliance", label: "Environmental & Community Compliance" },
-];
 
 export function NationalRequirementsTab() {
   const searchParams = useSearchParams();
@@ -78,6 +74,9 @@ export function NationalRequirementsTab() {
   const [editingReq, setEditingReq] = useState<NationalReportingRequirement | null>(null);
   const [assigningReq, setAssigningReq] = useState<NationalReportingRequirement | null>(null);
 
+  // Category Collapsible State
+  const [collapsedCategories, setCollapsedCategories] = useState<Record<string, boolean>>({});
+
   // Queries
   const {
     data: requirements = [],
@@ -90,29 +89,26 @@ export function NationalRequirementsTab() {
   const { data: customCategories = [] } = useGetNationalCategoriesQuery();
   const { data: regions = [] } = useGetRegionsQuery({ is_active: true });
 
+  // Map of category code -> category object for fast lookups
+  const categoryMap = useMemo(() => {
+    const map = new Map<string, (typeof customCategories)[0]>();
+    customCategories.forEach((cat) => {
+      map.set(cat.code, cat);
+    });
+    return map;
+  }, [customCategories]);
+
+  // Dynamic filter options based on real-world categories
   const dynamicCategories = useMemo(() => {
     const list: Array<{ value: string; label: string }> = [
       { value: "all", label: "All Categories" },
     ];
-    const seen = new Set<string>(["all"]);
-
-    CATEGORIES.forEach((c) => {
-      if (!seen.has(c.value)) {
-        list.push(c);
-        seen.add(c.value);
-      }
-    });
-
     customCategories.forEach((cat) => {
-      if (!seen.has(cat.code)) {
-        list.push({
-          value: cat.code,
-          label: `${cat.icon || "📊"} ${cat.label}`,
-        });
-        seen.add(cat.code);
-      }
+      list.push({
+        value: cat.code,
+        label: `${cat.icon || "📊"} ${cat.label}`,
+      });
     });
-
     return list;
   }, [customCategories]);
 
@@ -127,7 +123,7 @@ export function NationalRequirementsTab() {
     code: "",
     title: "",
     description: "",
-    category: "mining_production",
+    category: "cat_export_minerals",
     unit_category: "mass",
     expected_unit: "kg",
     frequency: "quarterly",
@@ -153,7 +149,7 @@ export function NationalRequirementsTab() {
       code: "",
       title: "",
       description: "",
-      category: "mining_production",
+      category: customCategories[0]?.code || "cat_export_minerals",
       unit_category: "mass",
       expected_unit: "kg",
       frequency: "quarterly",
@@ -302,15 +298,97 @@ export function NationalRequirementsTab() {
       if (statusFilter === "inactive" && req.is_active) return false;
       if (frequencyFilter !== "all" && req.frequency !== frequencyFilter) return false;
 
+      const catMeta = categoryMap.get(req.category);
       return matchesSearchQuery(searchQuery, [
         req.code,
         req.title,
         req.description,
         req.expected_unit,
         req.category,
+        catMeta?.label || "",
       ]);
     });
-  }, [requirements, categoryFilter, statusFilter, frequencyFilter, searchQuery]);
+  }, [requirements, categoryFilter, statusFilter, frequencyFilter, searchQuery, categoryMap]);
+
+  // Group filtered data by Global Category
+  const groupedCategories = useMemo(() => {
+    const map = new Map<string, NationalReportingRequirement[]>();
+    filteredData.forEach((req) => {
+      const catKey = req.category || "uncategorized";
+      if (!map.has(catKey)) map.set(catKey, []);
+      map.get(catKey)!.push(req);
+    });
+
+    const list: Array<{
+      code: string;
+      label: string;
+      icon: string;
+      description?: string;
+      frequency_default?: string;
+      requirements: NationalReportingRequirement[];
+      assignedRegionsCount: number;
+    }> = [];
+
+    // Prioritize categories from customCategories order
+    customCategories.forEach((cat) => {
+      const reqs = map.get(cat.code);
+      if (reqs && reqs.length > 0) {
+        const uniqueRegions = new Set<string>();
+        reqs.forEach((r) => r.assignments?.forEach((a) => uniqueRegions.add(a.region_id)));
+        list.push({
+          code: cat.code,
+          label: cat.label,
+          icon: cat.icon || "📊",
+          description: cat.description,
+          frequency_default: cat.frequency_default,
+          requirements: reqs,
+          assignedRegionsCount: uniqueRegions.size,
+        });
+        map.delete(cat.code);
+      }
+    });
+
+    // Any remaining categories not in customCategories
+    map.forEach((reqs, code) => {
+      const uniqueRegions = new Set<string>();
+      reqs.forEach((r) => r.assignments?.forEach((a) => uniqueRegions.add(a.region_id)));
+      list.push({
+        code,
+        label: code.replace(/^cat_/, "").replace(/_/g, " "),
+        icon: "📁",
+        requirements: reqs,
+        assignedRegionsCount: uniqueRegions.size,
+      });
+    });
+
+    return list;
+  }, [filteredData, customCategories]);
+
+  // Collapsible helper functions
+  const isCategoryExpanded = (code: string) => {
+    // If user is searching, auto-expand matching categories
+    if (searchQuery.trim().length > 0) return true;
+    return !collapsedCategories[code];
+  };
+
+  const toggleCategory = (code: string) => {
+    setCollapsedCategories((prev) => ({
+      ...prev,
+      [code]: !prev[code],
+    }));
+  };
+
+  const handleExpandAll = () => {
+    setCollapsedCategories({});
+  };
+
+  const handleCollapseAll = () => {
+    const allCollapsed: Record<string, boolean> = {};
+    groupedCategories.forEach((g) => {
+      allCollapsed[g.code] = true;
+    });
+    setCollapsedCategories(allCollapsed);
+  };
 
   // Table Columns
   const columns: ColumnDef<NationalReportingRequirement>[] = [
@@ -338,12 +416,20 @@ export function NationalRequirementsTab() {
     },
     {
       accessorKey: "category",
-      header: "Category",
-      cell: ({ row }) => (
-        <Badge variant="outline" className="capitalize text-xs bg-slate-100 dark:bg-slate-800">
-          {row.original.category?.replace(/_/g, " ")}
-        </Badge>
-      ),
+      header: "Global Category",
+      cell: ({ row }) => {
+        const catMeta = categoryMap.get(row.original.category);
+        return (
+          <Badge
+            variant="outline"
+            className="text-xs bg-slate-50 dark:bg-slate-800 border-slate-200 dark:border-slate-700 font-medium inline-flex items-center gap-1.5 max-w-xs truncate"
+            title={catMeta?.label || row.original.category}
+          >
+            <span>{catMeta?.icon || "📊"}</span>
+            <span className="truncate">{catMeta?.label || row.original.category}</span>
+          </Badge>
+        );
+      },
     },
     {
       accessorKey: "expected_unit",
@@ -454,12 +540,12 @@ export function NationalRequirementsTab() {
   const filters: FilterField[] = [
     {
       key: "category",
-      label: "Category",
+      label: "Global Category",
       type: "select",
       placeholder: "All Categories",
       value: categoryFilter,
       onChange: setCategoryFilter,
-      options: CATEGORIES.map((c) => ({ label: c.label, value: c.value })),
+      options: dynamicCategories,
     },
     {
       key: "status",
@@ -537,19 +623,167 @@ export function NationalRequirementsTab() {
       {subTab === "catalog" ? (
         <TableLayout
           title="National Reporting Requirements"
+          description="Manage national mining KPIs organized by Global Regulatory Categories with independent category tables and pagination."
           actions={actions}
           filters={filters}
           filterColumnsPerRow={3}
         >
-          <DataTable
-            columns={columns}
-            data={filteredData}
-            isLoading={isLoading}
-            isError={isError}
-            errorMessage="Failed to load national reporting requirements."
-            onRetry={refetch}
-            resetKey={`${searchQuery}-${categoryFilter}-${statusFilter}-${frequencyFilter}`}
-          />
+          <div className="space-y-4 pt-2">
+            {/* Global Category Master Controls & Statistics Header */}
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg">
+              <div className="flex items-center gap-3 text-xs text-slate-600 dark:text-slate-300">
+                <span className="font-semibold text-slate-800 dark:text-slate-100 flex items-center gap-1.5">
+                  <FolderOpen className="h-4 w-4 text-emerald-600" />
+                  {groupedCategories.length} Categories
+                </span>
+                <span className="text-slate-300 dark:text-slate-700">|</span>
+                <span>
+                  {filteredData.length} Total Indicators / KPIs
+                </span>
+                <span className="text-slate-300 dark:text-slate-700">|</span>
+                <span className="text-emerald-700 dark:text-emerald-400 font-medium">
+                  {filteredData.filter((r) => (r.assignments?.length || 0) > 0).length} Assigned
+                </span>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={handleExpandAll}
+                  className="h-7 text-xs px-2.5 text-slate-700 dark:text-slate-300 hover:bg-white dark:hover:bg-slate-800"
+                  title="Expand all categories"
+                >
+                  <ChevronsUpDown className="h-3.5 w-3.5 mr-1" />
+                  Expand All
+                </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={handleCollapseAll}
+                  className="h-7 text-xs px-2.5 text-slate-700 dark:text-slate-300 hover:bg-white dark:hover:bg-slate-800"
+                  title="Collapse all categories"
+                >
+                  Collapse All
+                </Button>
+              </div>
+            </div>
+
+            {/* Error or Loading State */}
+            {isLoading && (
+              <div className="p-8 text-center text-sm text-slate-500">
+                Loading national reporting requirements...
+              </div>
+            )}
+
+            {isError && (
+              <div className="p-8 text-center text-sm text-rose-600 bg-rose-50 dark:bg-rose-950/20 border border-rose-200 dark:border-rose-900 rounded-lg">
+                Failed to load national reporting requirements.{" "}
+                <Button variant="link" size="sm" onClick={() => refetch()} className="text-rose-700 underline">
+                  Retry
+                </Button>
+              </div>
+            )}
+
+            {!isLoading && !isError && groupedCategories.length === 0 && (
+              <div className="p-12 text-center border border-dashed border-slate-300 dark:border-slate-800 rounded-lg bg-slate-50/50 dark:bg-slate-900/50 space-y-2">
+                <div className="text-3xl">🔍</div>
+                <div className="font-medium text-slate-700 dark:text-slate-300">
+                  No national requirements found
+                </div>
+                <p className="text-xs text-slate-400 max-w-md mx-auto">
+                  Try adjusting your search query, selecting "All Categories", or creating a new national requirement.
+                </p>
+              </div>
+            )}
+
+            {/* Collapsible Category Sections with Independent Pagination */}
+            {!isLoading &&
+              !isError &&
+              groupedCategories.map((group) => {
+                const isExpanded = isCategoryExpanded(group.code);
+                return (
+                  <div
+                    key={group.code}
+                    className="border border-slate-200 dark:border-slate-800 rounded-xl overflow-hidden bg-white dark:bg-slate-900 shadow-sm transition-all"
+                  >
+                    {/* Collapsible Category Header Banner */}
+                    <div
+                      onClick={() => toggleCategory(group.code)}
+                      className="w-full flex items-center justify-between p-3.5 bg-slate-50/90 hover:bg-slate-100 dark:bg-slate-800/60 dark:hover:bg-slate-800 transition-colors cursor-pointer select-none border-b border-slate-200/80 dark:border-slate-800"
+                    >
+                      <div className="flex items-center gap-3 min-w-0">
+                        <div className="p-1 rounded-md bg-white dark:bg-slate-700 shadow-xs text-slate-500 shrink-0">
+                          {isExpanded ? (
+                            <ChevronDown className="h-4 w-4" />
+                          ) : (
+                            <ChevronRight className="h-4 w-4" />
+                          )}
+                        </div>
+                        <span className="text-xl shrink-0">{group.icon}</span>
+                        <div className="min-w-0">
+                          <div className="flex flex-wrap items-center gap-2">
+                            <h3 className="font-semibold text-sm sm:text-base text-slate-900 dark:text-slate-100 truncate">
+                              {group.label}
+                            </h3>
+                            <Badge
+                              variant="secondary"
+                              className="text-[11px] font-mono px-2 py-0.5 bg-emerald-50 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800 shrink-0"
+                            >
+                              {group.requirements.length}{" "}
+                              {group.requirements.length === 1 ? "KPI" : "KPIs"}
+                            </Badge>
+                            {group.assignedRegionsCount > 0 && (
+                              <Badge
+                                variant="outline"
+                                className="text-[11px] font-mono px-2 py-0.5 bg-blue-50 text-blue-700 dark:bg-blue-950 dark:text-blue-300 border-blue-200 dark:border-blue-800 shrink-0 flex items-center gap-1"
+                              >
+                                <CheckCircle2 className="h-3 w-3 text-blue-600" />
+                                {group.assignedRegionsCount}{" "}
+                                {group.assignedRegionsCount === 1 ? "Region" : "Regions"} Assigned
+                              </Badge>
+                            )}
+                          </div>
+                          {group.description && (
+                            <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5 line-clamp-1">
+                              {group.description}
+                            </p>
+                          )}
+                        </div>
+                      </div>
+
+                      <div className="flex items-center gap-2 shrink-0 ml-2">
+                        {group.frequency_default && (
+                          <Badge
+                            variant="outline"
+                            className="text-xs font-mono capitalize hidden md:inline-flex bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300"
+                          >
+                            {group.frequency_default.replace(/_/g, " ")}
+                          </Badge>
+                        )}
+                        <span className="text-xs text-slate-400 font-mono hidden lg:inline">
+                          {group.code}
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* Collapsible Sub-Table with Independent Pagination per Category */}
+                    {isExpanded && (
+                      <div className="p-2 sm:p-4 bg-white dark:bg-slate-900 border-t border-slate-100 dark:border-slate-800">
+                        <DataTable
+                          columns={columns}
+                          data={group.requirements}
+                          defaultPageSize={10}
+                          resetKey={`${searchQuery}-${categoryFilter}-${statusFilter}-${frequencyFilter}-${group.code}`}
+                        />
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+          </div>
         </TableLayout>
       ) : (
         <NationalUnitConfigTab />
@@ -578,7 +812,7 @@ export function NationalRequirementsTab() {
               </div>
 
               <div>
-                <Label htmlFor="req-category">Category *</Label>
+                <Label htmlFor="req-category">Global Regulatory Category *</Label>
                 <Select
                   value={formData.category}
                   onValueChange={(val) => setFormData({ ...formData, category: val })}
@@ -586,7 +820,7 @@ export function NationalRequirementsTab() {
                   <SelectTrigger id="req-category">
                     <SelectValue />
                   </SelectTrigger>
-                  <SelectContent>
+                  <SelectContent className="max-h-72">
                     {dynamicCategories.filter((c) => c.value !== "all").map((c) => (
                       <SelectItem key={c.value} value={c.value}>
                         {c.label}
