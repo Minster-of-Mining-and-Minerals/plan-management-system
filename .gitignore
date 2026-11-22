@@ -1,5 +1,7 @@
 # Node modules
 /backend/node_modules/
+/node_modules
+/scratch
 
 # Environment variables
 /.env

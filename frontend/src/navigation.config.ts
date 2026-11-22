@@ -37,127 +37,122 @@ export type NavItem = {
   children?: NavItem[];
 };
 
-export const NAVIGATION: NavItem[] = [
+export type NavCategory = {
+  category: string;
+  items: NavItem[];
+};
+
+export const PRIVATE_CATEGORIZED_NAVIGATION: NavCategory[] = [
   {
-    title: "Dashboard",
-    url: "/dashboard",
-    icon: LayoutDashboard,
-    anyPermissions: ["DASHBOARD:VIEW"],
+    category: "OVERVIEW",
+    items: [
+      {
+        title: "Dashboard",
+        url: "/dashboard",
+        icon: LayoutDashboard,
+        anyPermissions: ["DASHBOARD:VIEW"],
+      },
+    ],
   },
   {
-    title: "Gold Operations",
-    url: "/admin/gold-operations",
-    icon: Coins,
-    anyPermissions: [
-      "GOLD_OVERSIGHT:READ",
-      "GOLD_OVERSIGHT:MANAGE",
-      "PURCHASING_CENTERS:READ",
-      "PURCHASING_CENTERS:MANAGE",
-    ],
-    children: [
+    category: "MINING & OPERATIONS",
+    items: [
       {
-        title: "Oversight Dashboard",
+        title: "Gold Operations",
         url: "/admin/gold-operations",
-        icon: LayoutDashboard,
-        anyPermissions: ["GOLD_OVERSIGHT:READ", "GOLD_OVERSIGHT:MANAGE", "PURCHASING_CENTERS:READ"],
-      },
-      {
-        title: "Purchases Register",
-        url: "/admin/gold-operations/purchases",
-        icon: FileText,
-        anyPermissions: ["GOLD_OVERSIGHT:READ", "GOLD_OVERSIGHT:MANAGE"],
-      },
-      {
-        title: "Price Configuration",
-        url: "/admin/gold-operations/pricing",
         icon: Coins,
-        anyPermissions: ["GOLD_PRICES:READ", "GOLD_PRICES:MANAGE", "GOLD_OVERSIGHT:MANAGE"],
-      },
-      {
-        title: "Daily Report Monitoring",
-        url: "/admin/gold-operations/reports",
-        icon: ClipboardCheck,
-        anyPermissions: ["GOLD_OVERSIGHT:READ", "GOLD_OVERSIGHT:MANAGE"],
-      },
-      {
-        title: "ASM Sellers Registry",
-        url: "/admin/gold-operations/asm",
-        icon: HardHat,
-        anyPermissions: ["ASM:READ", "ASM:MANAGE"],
-      },
-      {
-        title: "Measurement Units",
-        url: "/admin/gold-operations/units",
-        icon: Scale,
-        anyPermissions: ["GOLD_UNITS:READ", "GOLD_UNITS:MANAGE"],
-      },
-    ],
-  },
-  {
-    title: "Regions",
-    url: "/admin/regions",
-    icon: Globe,
-    anyPermissions: ["REGIONS:READ", "REGIONS:MANAGE"],
-  },
-  {
-    title: "National Reporting",
-    url: "/national-reporting",
-    icon: BarChart3,
-    anyPermissions: [
-      "NATIONAL_REPORTING:READ_REQUIREMENT",
-      "NATIONAL_REPORTING:READ_DASHBOARD",
-      "NATIONAL_REPORTING:MANAGE",
-    ],
-    children: [
-      {
-        title: "National Dashboard",
-        url: "/national-reporting",
-        icon: LayoutDashboard,
-        anyPermissions: ["NATIONAL_REPORTING:READ_DASHBOARD", "NATIONAL_REPORTING:MANAGE"],
-      },
-      {
-        title: "Requirements Catalog",
-        url: "/national-reporting/catalog",
-        icon: Layers,
-        anyPermissions: ["NATIONAL_REPORTING:READ_REQUIREMENT", "NATIONAL_REPORTING:MANAGE"],
-      },
-      {
-        title: "Regional Assignments",
-        url: "/national-reporting/assignments",
-        icon: Share2,
-        anyPermissions: ["NATIONAL_REPORTING:READ_REQUIREMENT", "NATIONAL_REPORTING:MANAGE"],
-      },
-      {
-        title: "Published Submissions",
-        url: "/national-reporting/submissions",
-        icon: ClipboardCheck,
         anyPermissions: [
-          "NATIONAL_REPORTING:READ_REQUIREMENT",
-          "NATIONAL_REPORTING:READ_DASHBOARD",
-          "NATIONAL_REPORTING:MANAGE",
+          "GOLD_OVERSIGHT:READ",
+          "GOLD_OVERSIGHT:MANAGE",
+          "PURCHASING_CENTERS:READ",
+          "PURCHASING_CENTERS:MANAGE",
+        ],
+        children: [
+          {
+            title: "Oversight Dashboard",
+            url: "/admin/gold-operations",
+            icon: LayoutDashboard,
+            anyPermissions: ["GOLD_OVERSIGHT:READ", "GOLD_OVERSIGHT:MANAGE", "PURCHASING_CENTERS:READ"],
+          },
+          {
+            title: "Purchases Register",
+            url: "/admin/gold-operations/purchases",
+            icon: FileText,
+            anyPermissions: ["GOLD_OVERSIGHT:READ", "GOLD_OVERSIGHT:MANAGE"],
+          },
+          {
+            title: "Price Configuration",
+            url: "/admin/gold-operations/pricing",
+            icon: Coins,
+            anyPermissions: ["GOLD_PRICES:READ", "GOLD_PRICES:MANAGE", "GOLD_OVERSIGHT:MANAGE"],
+          },
+          {
+            title: "Daily Report Monitoring",
+            url: "/admin/gold-operations/reports",
+            icon: ClipboardCheck,
+            anyPermissions: ["GOLD_OVERSIGHT:READ", "GOLD_OVERSIGHT:MANAGE"],
+          },
+          {
+            title: "ASM Sellers Registry",
+            url: "/admin/gold-operations/asm",
+            icon: HardHat,
+            anyPermissions: ["ASM:READ", "ASM:MANAGE"],
+          },
+          {
+            title: "Measurement Units",
+            url: "/admin/gold-operations/units",
+            icon: Scale,
+            anyPermissions: ["GOLD_UNITS:READ", "GOLD_UNITS:MANAGE"],
+          },
         ],
       },
       {
-        title: "Reporting Configuration",
-        url: "/national-reporting/configuration",
-        icon: Settings,
-        anyPermissions: ["NATIONAL_REPORTING:MANAGE", "NATIONAL_REPORTING:READ_REQUIREMENT"],
+        title: "Production",
+        url: "/admin/production",
+        icon: Factory,
+        anyPermissions: [
+          "PRODUCTION_DASHBOARD:READ",
+          "PRODUCTION_ITEMS:READ",
+          "PRODUCTION_FREQUENCIES:READ",
+          "COMPANY_PRODUCTION:READ",
+          "COMPANY_PRODUCTION:MANAGE",
+          "COMPANY_PRODUCTION_REPORTS:READ",
+        ],
+        children: [
+          {
+            title: "Production Dashboard",
+            url: "/admin/production/dashboard",
+            icon: LayoutDashboard,
+            anyPermissions: ["PRODUCTION_DASHBOARD:READ", "COMPANY_PRODUCTION:READ"],
+          },
+          {
+            title: "Company Assignments",
+            url: "/admin/production/assignments",
+            icon: Building2,
+            anyPermissions: ["COMPANY_PRODUCTION:READ", "COMPANY_PRODUCTION:ASSIGN", "COMPANY_PRODUCTION:MANAGE"],
+          },
+          {
+            title: "Production Items",
+            url: "/admin/production/items",
+            icon: Scale,
+            anyPermissions: ["PRODUCTION_ITEMS:READ", "PRODUCTION_ITEMS:MANAGE"],
+          },
+          {
+            title: "Reporting Frequencies",
+            url: "/admin/production/frequencies",
+            icon: Settings,
+            anyPermissions: ["PRODUCTION_FREQUENCIES:READ", "PRODUCTION_FREQUENCIES:MANAGE"],
+          },
+          {
+            title: "Production Reports",
+            url: "/admin/production/reports",
+            icon: ClipboardCheck,
+            anyPermissions: ["COMPANY_PRODUCTION_REPORTS:READ", "COMPANY_PRODUCTION_REPORTS:MANAGE", "COMPANY_PRODUCTION:READ"],
+          },
+        ],
       },
-    ],
-  },
-  {
-    title: "Companies & Licenses",
-    url: "/admin/companies",
-    icon: Building2,
-    anyPermissions: [
-      "COMPANIES:READ",
-      "COMPANIES:MANAGE",
-      "COMPANY_LICENSES:READ",
-      "COMPANY_LICENSES:MANAGE",
-    ],
-    children: [
       {
-        title: "Company Directory",
+        title: "Companies & Licenses",
         url: "/admin/companies",
         icon: Building2,
         anyPermissions: [
@@ -166,268 +161,318 @@ export const NAVIGATION: NavItem[] = [
           "COMPANY_LICENSES:READ",
           "COMPANY_LICENSES:MANAGE",
         ],
-      },
-      {
-        title: "Mining Licenses & GIS",
-        url: "/admin/licenses",
-        icon: FileText,
-        anyPermissions: [
-          "COMPANIES:READ",
-          "COMPANIES:MANAGE",
-          "COMPANY_LICENSES:READ",
-          "COMPANY_LICENSES:MANAGE",
+        children: [
+          {
+            title: "Company Directory",
+            url: "/admin/companies",
+            icon: Building2,
+            anyPermissions: [
+              "COMPANIES:READ",
+              "COMPANIES:MANAGE",
+              "COMPANY_LICENSES:READ",
+              "COMPANY_LICENSES:MANAGE",
+            ],
+          },
+          {
+            title: "Mining Licenses & GIS",
+            url: "/admin/licenses",
+            icon: FileText,
+            anyPermissions: [
+              "COMPANIES:READ",
+              "COMPANIES:MANAGE",
+              "COMPANY_LICENSES:READ",
+              "COMPANY_LICENSES:MANAGE",
+            ],
+          },
         ],
       },
-    ],
-  },
-  {
-    title: "Production",
-    url: "/admin/production",
-    icon: Factory,
-    anyPermissions: [
-      "PRODUCTION_DASHBOARD:READ",
-      "PRODUCTION_ITEMS:READ",
-      "PRODUCTION_FREQUENCIES:READ",
-      "COMPANY_PRODUCTION:READ",
-      "COMPANY_PRODUCTION:MANAGE",
-      "COMPANY_PRODUCTION_REPORTS:READ",
-    ],
-    children: [
       {
-        title: "Production Dashboard",
-        url: "/admin/production/dashboard",
-        icon: LayoutDashboard,
-        anyPermissions: ["PRODUCTION_DASHBOARD:READ", "COMPANY_PRODUCTION:READ"],
-      },
-      {
-        title: "Company Assignments",
-        url: "/admin/production/assignments",
+        title: "Purchasing Centers",
+        url: "/admin/purchasing-centers",
         icon: Building2,
-        anyPermissions: ["COMPANY_PRODUCTION:READ", "COMPANY_PRODUCTION:ASSIGN", "COMPANY_PRODUCTION:MANAGE"],
-      },
-      {
-        title: "Production Items",
-        url: "/admin/production/items",
-        icon: Scale,
-        anyPermissions: ["PRODUCTION_ITEMS:READ", "PRODUCTION_ITEMS:MANAGE"],
-      },
-      {
-        title: "Reporting Frequencies",
-        url: "/admin/production/frequencies",
-        icon: Settings,
-        anyPermissions: ["PRODUCTION_FREQUENCIES:READ", "PRODUCTION_FREQUENCIES:MANAGE"],
-      },
-      {
-        title: "Production Reports",
-        url: "/admin/production/reports",
-        icon: ClipboardCheck,
-        anyPermissions: ["COMPANY_PRODUCTION_REPORTS:READ", "COMPANY_PRODUCTION_REPORTS:MANAGE", "COMPANY_PRODUCTION:READ"],
+        anyPermissions: ["PURCHASING_CENTERS:READ", "PURCHASING_CENTERS:MANAGE"],
       },
     ],
   },
   {
-    title: "Purchasing Centers",
-    url: "/admin/purchasing-centers",
-    icon: Building2,
-    anyPermissions: ["PURCHASING_CENTERS:READ", "PURCHASING_CENTERS:MANAGE"],
-  },
-  {
-    title: "Sector Structures",
-    url: "/government-structures",
-    icon: Building2,
-    anyPermissions: ["GOVERNMENT_STRUCTURES:READ"],
-  },
-  {
-    title: "Departments",
-    url: "/internal-structures",
-    icon: Building2,
-    anyPermissions: ["INTERNAL_STRUCTURES:READ"],
-  },
-  {
-    title: "Plan Management",
-    url: "/plans",
-    icon: ListTree,
-    anyPermissions: [
-      "PLANS:READ",
-      "PLAN:VIEW_ASSIGNED_REVIEW",
-      "PLAN:PUBLISH_FOR_REVIEW",
-      "PLAN:COMPLETE_REVIEW",
-      "PLAN:VIEW_REVIEW_DASHBOARD",
-      "PLAN_RULES:READ",
-      "PERFORMANCE_COLOR_THRESHOLDS:READ",
-    ],
-    children: [
+    category: "NATIONAL & REGIONAL OVERSIGHT",
+    items: [
       {
-        title: "Plan Drafts",
+        title: "National Reporting",
+        url: "/national-reporting",
+        icon: BarChart3,
+        anyPermissions: [
+          "NATIONAL_REPORTING:READ_REQUIREMENT",
+          "NATIONAL_REPORTING:READ_DASHBOARD",
+          "NATIONAL_REPORTING:MANAGE",
+        ],
+        children: [
+          {
+            title: "National Dashboard",
+            url: "/national-reporting",
+            icon: LayoutDashboard,
+            anyPermissions: ["NATIONAL_REPORTING:READ_DASHBOARD", "NATIONAL_REPORTING:MANAGE"],
+          },
+          {
+            title: "Requirements Catalog",
+            url: "/national-reporting/catalog",
+            icon: Layers,
+            anyPermissions: ["NATIONAL_REPORTING:READ_REQUIREMENT", "NATIONAL_REPORTING:MANAGE"],
+          },
+          {
+            title: "Regional Assignments",
+            url: "/national-reporting/assignments",
+            icon: Share2,
+            anyPermissions: ["NATIONAL_REPORTING:READ_REQUIREMENT", "NATIONAL_REPORTING:MANAGE"],
+          },
+          {
+            title: "Published Submissions",
+            url: "/national-reporting/submissions",
+            icon: ClipboardCheck,
+            anyPermissions: [
+              "NATIONAL_REPORTING:READ_REQUIREMENT",
+              "NATIONAL_REPORTING:READ_DASHBOARD",
+              "NATIONAL_REPORTING:MANAGE",
+            ],
+          },
+          {
+            title: "Reporting Configuration",
+            url: "/national-reporting/configuration",
+            icon: Settings,
+            anyPermissions: ["NATIONAL_REPORTING:MANAGE", "NATIONAL_REPORTING:READ_REQUIREMENT"],
+          },
+        ],
+      },
+      {
+        title: "Regions",
+        url: "/admin/regions",
+        icon: Globe,
+        anyPermissions: ["REGIONS:READ", "REGIONS:MANAGE"],
+      },
+    ],
+  },
+  {
+    category: "PLANNING & PERFORMANCE",
+    items: [
+      {
+        title: "Plan Management",
         url: "/plans",
         icon: ListTree,
-        allPermissions: ["PLANS:READ"],
-      },
-      {
-        title: "Plan Review",
-        url: "/plans/review",
-        icon: ClipboardCheck,
         anyPermissions: [
+          "PLANS:READ",
           "PLAN:VIEW_ASSIGNED_REVIEW",
           "PLAN:PUBLISH_FOR_REVIEW",
           "PLAN:COMPLETE_REVIEW",
           "PLAN:VIEW_REVIEW_DASHBOARD",
+          "PLAN_RULES:READ",
+          "PERFORMANCE_COLOR_THRESHOLDS:READ",
+        ],
+        children: [
+          {
+            title: "Plan Drafts",
+            url: "/plans",
+            icon: ListTree,
+            allPermissions: ["PLANS:READ"],
+          },
+          {
+            title: "Plan Review",
+            url: "/plans/review",
+            icon: ClipboardCheck,
+            anyPermissions: [
+              "PLAN:VIEW_ASSIGNED_REVIEW",
+              "PLAN:PUBLISH_FOR_REVIEW",
+              "PLAN:COMPLETE_REVIEW",
+              "PLAN:VIEW_REVIEW_DASHBOARD",
+            ],
+          },
+          {
+            title: "Planning Configuration",
+            url: "/plans/configuration",
+            icon: Settings,
+            allPermissions: ["PLANS:UPDATE"],
+          },
+          {
+            title: "Plan Rules",
+            url: "/plans/rules",
+            icon: Scale,
+            allPermissions: ["PLAN_RULES:READ"],
+          },
+          {
+            title: "Performance Colors",
+            url: "/plans/performance-colors",
+            icon: Palette,
+            allPermissions: ["PERFORMANCE_COLOR_THRESHOLDS:READ"],
+          },
         ],
       },
       {
-        title: "Planning Configuration",
-        url: "/plans/configuration",
-        icon: Settings,
-        allPermissions: ["PLANS:UPDATE"],
-      },
-      {
-        title: "Plan Rules",
-        url: "/plans/rules",
-        icon: Scale,
-        allPermissions: ["PLAN_RULES:READ"],
-      },
-      {
-        title: "Performance Colors",
-        url: "/plans/performance-colors",
-        icon: Palette,
-        allPermissions: ["PERFORMANCE_COLOR_THRESHOLDS:READ"],
-      }
-    ],
-  },
-  {
-    title: "Documents",
-    url: "/documents",
-    icon: Files,
-    anyPermissions: [
-      "DOCUMENTS:READ",
-      "DOCUMENTS:MANAGE",
-      "NOTES:VIEW",
-      "NOTES:MANAGE",
-    ],
-    children: [
-      {
-        title: "Documents",
-        url: "/documents",
-        icon: FileText,
-        anyPermissions: ["DOCUMENTS:READ", "DOCUMENTS:MANAGE"],
-      },
-      {
-        title: "Notes",
-        url: "/settings/notes",
-        icon: StickyNote,
-        anyPermissions: ["NOTES:VIEW", "NOTES:MANAGE"],
-      },
-    ],
-  },
-  {
-    title: "Issue Management",
-    url: "/issues",
-    icon: AlertCircle,
-    anyPermissions: [
-      "ISSUES:READ",
-      "ISSUES:READ_ALL",
-      "ISSUE_CATEGORIES:READ",
-      "FEDERAL_REGIONAL_ESCALATIONS:READ",
-      "FEDERAL_REGIONAL_ESCALATIONS:READ_ALL",
-    ],
-    children: [
-      {
-        title: "Issues",
+        title: "Issue Management",
         url: "/issues",
         icon: AlertCircle,
         anyPermissions: [
           "ISSUES:READ",
           "ISSUES:READ_ALL",
+          "ISSUE_CATEGORIES:READ",
           "FEDERAL_REGIONAL_ESCALATIONS:READ",
           "FEDERAL_REGIONAL_ESCALATIONS:READ_ALL",
         ],
+        children: [
+          {
+            title: "Issues",
+            url: "/issues",
+            icon: AlertCircle,
+            anyPermissions: [
+              "ISSUES:READ",
+              "ISSUES:READ_ALL",
+              "FEDERAL_REGIONAL_ESCALATIONS:READ",
+              "FEDERAL_REGIONAL_ESCALATIONS:READ_ALL",
+            ],
+          },
+          {
+            title: "Issue Categories",
+            url: "/issues/categories",
+            icon: Settings,
+            allPermissions: ["ISSUE_CATEGORIES:READ"],
+          },
+          {
+            title: "Form Containers",
+            url: "/issues/form-config",
+            icon: Settings,
+            allPermissions: ["FORM_CONFIG_CONTAINERS:READ"],
+          },
+        ],
       },
       {
-        title: "Issue Categories",
-        url: "/issues/categories",
-        icon: Settings,
-        allPermissions: ["ISSUE_CATEGORIES:READ"],
-      },
-      {
-        title: "Form Containers",
-        url: "/issues/form-config",
-        icon: Settings,
-        allPermissions: ["FORM_CONFIG_CONTAINERS:READ"],
+        title: "Documents",
+        url: "/documents",
+        icon: Files,
+        anyPermissions: [
+          "DOCUMENTS:READ",
+          "DOCUMENTS:MANAGE",
+          "NOTES:VIEW",
+          "NOTES:MANAGE",
+        ],
+        children: [
+          {
+            title: "Documents",
+            url: "/documents",
+            icon: FileText,
+            anyPermissions: ["DOCUMENTS:READ", "DOCUMENTS:MANAGE"],
+          },
+          {
+            title: "Notes",
+            url: "/settings/notes",
+            icon: StickyNote,
+            anyPermissions: ["NOTES:VIEW", "NOTES:MANAGE"],
+          },
+        ],
       },
     ],
   },
   {
-    title: "Users",
-    url: "/users/list",
-    icon: User2,
-    anyPermissions: ["USERS:READ", "ROLES:READ", "PERMISSIONS:READ", "PERMISSION_GROUPS:READ", "SPECIAL_PERMISSION_GROUPS:READ", "USER_SESSION:VIEW"],
-    children: [
+    category: "ORGANIZATION",
+    items: [
       {
-        title: "Users List",
+        title: "Sector Structures",
+        url: "/government-structures",
+        icon: Building2,
+        anyPermissions: ["GOVERNMENT_STRUCTURES:READ"],
+      },
+      {
+        title: "Departments",
+        url: "/internal-structures",
+        icon: Building2,
+        anyPermissions: ["INTERNAL_STRUCTURES:READ"],
+      },
+    ],
+  },
+  {
+    category: "SECURITY & SYSTEM",
+    items: [
+      {
+        title: "Users",
         url: "/users/list",
         icon: User2,
-        allPermissions: ["USERS:READ"],
+        anyPermissions: [
+          "USERS:READ",
+          "ROLES:READ",
+          "PERMISSIONS:READ",
+          "PERMISSION_GROUPS:READ",
+          "SPECIAL_PERMISSION_GROUPS:READ",
+          "USER_SESSION:VIEW",
+        ],
+        children: [
+          {
+            title: "Users List",
+            url: "/users/list",
+            icon: User2,
+            allPermissions: ["USERS:READ"],
+          },
+          {
+            title: "User Sessions",
+            url: "/users/sessions",
+            icon: Shield,
+            anyPermissions: ["USER_SESSION:VIEW", "USER_SESSION:MANAGE"],
+          },
+          {
+            title: "Role Management",
+            url: "/users/roles",
+            icon: Shield,
+            allPermissions: ["ROLES:READ"],
+          },
+          {
+            title: "Permission Group Management",
+            url: "/users/permission-groups",
+            icon: Shield,
+            allPermissions: ["PERMISSION_GROUPS:READ"],
+          },
+          {
+            title: "Special Permission Groups",
+            url: "/users/special-permission-groups",
+            icon: KeyRound,
+            allPermissions: ["SPECIAL_PERMISSION_GROUPS:READ"],
+          },
+          {
+            title: "Permission Management",
+            url: "/users/permissions",
+            icon: Key,
+            allPermissions: ["PERMISSIONS:READ"],
+          },
+        ],
       },
       {
-        title: "User Sessions",
-        url: "/users/sessions",
-        icon: Shield,
-        anyPermissions: ["USER_SESSION:VIEW", "USER_SESSION:MANAGE"],
-      },
-      {
-        title: "Role Management",
-        url: "/users/roles",
-        icon: Shield,
-        allPermissions: ["ROLES:READ"],
-      },
-      {
-        title: "Permission Group Management",
-        url: "/users/permission-groups",
-        icon: Shield,
-        allPermissions: ["PERMISSION_GROUPS:READ"],
-      },
-      {
-        title: "Special Permission Groups",
-        url: "/users/special-permission-groups",
-        icon: KeyRound,
-        allPermissions: ["SPECIAL_PERMISSION_GROUPS:READ"],
-      },
-      {
-        title: "Permission Management",
-        url: "/users/permissions",
-        icon: Key,
-        allPermissions: ["PERMISSIONS:READ"],
-      },
-    ],
-  },
-  {
-    title: "Settings",
-    url: "/settings/branding",
-    icon: Settings,
-    anyPermissions: [
-      "BRANDING_SETTINGS:READ",
-      "SYSTEM_AUDIT_LOGS:READ",
-      "SYSTEM_SETTINGS:READ",
-    ],
-    children: [
-      {
-        title: "Branding",
+        title: "Settings",
         url: "/settings/branding",
-        icon: Paintbrush,
-        allPermissions: ["BRANDING_SETTINGS:READ"],
-      },
-      {
-        title: "System",
-        url: "/settings/system",
         icon: Settings,
-        allPermissions: ["SYSTEM_SETTINGS:READ"],
-      },
-      {
-        title: "Audit Logs",
-        url: "/settings/audit-logs",
-        icon: History,
-        allPermissions: ["SYSTEM_AUDIT_LOGS:READ"],
+        anyPermissions: [
+          "BRANDING_SETTINGS:READ",
+          "SYSTEM_AUDIT_LOGS:READ",
+          "SYSTEM_SETTINGS:READ",
+        ],
+        children: [
+          {
+            title: "Branding",
+            url: "/settings/branding",
+            icon: Paintbrush,
+            allPermissions: ["BRANDING_SETTINGS:READ"],
+          },
+          {
+            title: "System",
+            url: "/settings/system",
+            icon: Settings,
+            allPermissions: ["SYSTEM_SETTINGS:READ"],
+          },
+          {
+            title: "Audit Logs",
+            url: "/settings/audit-logs",
+            icon: History,
+            allPermissions: ["SYSTEM_AUDIT_LOGS:READ"],
+          },
+        ],
       },
     ],
   },
 ];
+
+// Flat navigation export for backward compatibility
+export const NAVIGATION: NavItem[] = PRIVATE_CATEGORIZED_NAVIGATION.flatMap((c) => c.items);

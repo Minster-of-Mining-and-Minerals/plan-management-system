@@ -72,18 +72,34 @@ export function RegionalAppSidebar({ regionId }: { regionId?: string }) {
   }, [basePath]);
 
   // Filter accessible items based on user permissions
+  // If a user has no permission for all the tabs under a category, the category will not be displayed
   const visibleCategories = useMemo<NavCategory[]>(() => {
     return categorizedNav
       .map((cat) => {
         const visibleItems = cat.items
-          .filter((item) => canAccessItem(item, userPermissions))
-          .map((item) => ({
-            ...item,
-            children: item.children?.filter((child) =>
-              canAccessItem(child, userPermissions)
-            ),
-          }))
-          .filter((item) => !item.children || item.children.length > 0);
+          .map((item) => {
+            if (item.children && item.children.length > 0) {
+              const visibleChildren = item.children.filter((child) =>
+                canAccessItem(child, userPermissions)
+              );
+              // If user has no permission for all the child tabs under this item, hide it
+              if (visibleChildren.length === 0) {
+                return null;
+              }
+              return {
+                ...item,
+                children: visibleChildren,
+              };
+            }
+
+            // Standalone item/tab
+            if (!canAccessItem(item, userPermissions)) {
+              return null;
+            }
+
+            return item;
+          })
+          .filter((item): item is NavItem => item !== null);
 
         return {
           category: cat.category,
