@@ -14,6 +14,7 @@ import {
   type NavCategory,
   type NavItem,
 } from "@/regional.navigation.config";
+import { isNavChildActive } from "@/lib/navigationActive";
 
 import {
   Sidebar,
@@ -126,7 +127,10 @@ export function RegionalAppSidebar({ regionId }: { regionId?: string }) {
 
   const isAnyChildActive = (item: NavItem) => {
     if (!item.children || item.children.length === 0) return false;
-    return item.children.some((child) => isItemActive(child.url));
+    const childUrls = item.children.map((child) => child.url);
+    return item.children.some((child) =>
+      isNavChildActive(pathname, child.url, childUrls)
+    );
   };
 
   const toggleSection = (title: string, defaultOpen: boolean) => {
@@ -188,8 +192,8 @@ export function RegionalAppSidebar({ regionId }: { regionId?: string }) {
             <div className="space-y-1">
               {cat.items.map((item) => {
                 const hasChildren = item.children && item.children.length > 0;
-                const active = isItemActive(item.url);
                 const hasActiveChild = isAnyChildActive(item);
+                const active = isItemActive(item.url) || hasActiveChild;
 
                 // Default open if any child is active
                 const defaultOpen = hasActiveChild;
@@ -197,6 +201,8 @@ export function RegionalAppSidebar({ regionId }: { regionId?: string }) {
                   openSections[item.title] !== undefined
                     ? openSections[item.title]
                     : defaultOpen;
+
+                const childUrls = item.children?.map((c) => c.url) ?? [];
 
                 return (
                   <div key={item.title} className="space-y-1">
@@ -248,7 +254,11 @@ export function RegionalAppSidebar({ regionId }: { regionId?: string }) {
                     {hasChildren && isOpen && (
                       <div className="ml-4 pl-3 border-l border-slate-200 dark:border-slate-800 my-1 space-y-1 group-data-[collapsible=icon]:hidden animate-in fade-in duration-150">
                         {item.children?.map((child) => {
-                          const childActive = isItemActive(child.url);
+                          const childActive = isNavChildActive(
+                            pathname,
+                            child.url,
+                            childUrls
+                          );
 
                           return (
                             <Link

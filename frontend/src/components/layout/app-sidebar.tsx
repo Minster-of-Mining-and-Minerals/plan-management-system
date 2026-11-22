@@ -14,6 +14,7 @@ import {
   type NavCategory,
   type NavItem,
 } from "@/navigation.config";
+import { isNavChildActive } from "@/lib/navigationActive";
 
 import { useGetGovernmentStructuresQuery } from "@/redux/api/governmentStructureApi";
 import { useGetRegionsQuery } from "@/redux/api/regionApi";
@@ -157,7 +158,13 @@ export function AppSidebar() {
 
   const isAnyChildActive = (item: NavItem) => {
     if (item.children && item.children.length > 0) {
-      if (item.children.some((child) => isItemActive(child.url))) return true;
+      const childUrls = item.children.map((child) => child.url);
+      if (
+        item.children.some((child) =>
+          isNavChildActive(pathname, child.url, childUrls)
+        )
+      )
+        return true;
     }
     if (item.url === "/government-structures" && pathname.startsWith("/government-structures"))
       return true;
@@ -248,9 +255,8 @@ export function AppSidebar() {
                 const hasDynamicChildren =
                   isGovStructures || isRegions || isCompanies || isPurchasingCenters;
                 const hasChildren = hasConfigChildren || hasDynamicChildren;
-
-                const active = isItemActive(item.url);
                 const hasActiveChild = isAnyChildActive(item);
+                const active = isItemActive(item.url) || hasActiveChild;
 
                 // Default open if any child is active
                 const defaultOpen = hasActiveChild;
@@ -258,6 +264,8 @@ export function AppSidebar() {
                   openSections[item.title] !== undefined
                     ? openSections[item.title]
                     : defaultOpen;
+
+                const childUrls = item.children?.map((c) => c.url) ?? [];
 
                 return (
                   <div key={item.title} className="space-y-1">
@@ -311,7 +319,11 @@ export function AppSidebar() {
                         {/* Config Children Tabs */}
                         {hasConfigChildren &&
                           item.children?.map((child) => {
-                            const childActive = isItemActive(child.url);
+                            const childActive = isNavChildActive(
+                              pathname,
+                              child.url,
+                              childUrls
+                            );
 
                             return (
                               <Link
