@@ -70,6 +70,7 @@ import Loading01 from "@/features/template/component/Loading/Loading01";
 import type { TargetPeriodNode, CompanyProductionTarget } from "@/redux/types/production";
 import { CompanyTargetAmendmentModal } from "./CompanyTargetAmendmentModal";
 import { CompanyTargetAmendmentComparisonModal } from "./CompanyTargetAmendmentComparisonModal";
+import { CompanyProductionReportingHierarchyView } from "./CompanyProductionReportingHierarchyView";
 import { Scale } from "lucide-react";
 
 export function CompanyProductionDetailView({
@@ -143,6 +144,9 @@ export function CompanyProductionDetailView({
   const [reportQuantity, setReportQuantity] = useState<string>("");
   const [reportNotes, setReportNotes] = useState<string>("");
   const [selectedDeptId, setSelectedDeptId] = useState<string>("");
+  const [isReportModalOpen, setIsReportModalOpen] = useState(false);
+  const [selectedTargetPeriodId, setSelectedTargetPeriodId] = useState<string | null>(null);
+  const [selectedPeriodLabel, setSelectedPeriodLabel] = useState<string | null>(null);
 
   // -------------------------------------------------------------
   // TAB 5: RESPONSIBILITY ASSIGNMENT STATE
@@ -437,7 +441,9 @@ export function CompanyProductionDetailView({
         report_date: reportDate,
         quantity_reported: qty,
         reported_unit_id: assignment?.default_reporting_unit_id || "",
-        company_structure_id: selectedDeptId || null,
+        company_structure_id: selectedDeptId && selectedDeptId !== "none" ? selectedDeptId : null,
+        target_period_id: selectedTargetPeriodId || undefined,
+        period_label: selectedPeriodLabel || undefined,
         notes: reportNotes,
       }).unwrap();
 
@@ -448,6 +454,7 @@ export function CompanyProductionDetailView({
 
       setReportQuantity("");
       setReportNotes("");
+      setIsReportModalOpen(false);
       refetchDetail();
     } catch (err: any) {
       actionFeedback.error(
@@ -1868,22 +1875,32 @@ export function CompanyProductionDetailView({
             </Card>
           ) : (
             <div className="space-y-6">
-              {/* Report Submission Form */}
-              <Card className="border shadow-sm">
-                <CardHeader className="border-b bg-muted/15 pb-3">
-                  <CardTitle className="text-sm font-semibold flex items-center justify-between">
-                    <span className="flex items-center gap-2">
-                      <Factory className="h-4 w-4 text-primary" />
-                      Submit Production Actual ({assignment.reportingFrequency?.name} Schedule)
-                    </span>
-                    <Badge variant="outline" className="text-xs font-mono">
-                      Target Version {approvedTarget?.version_number} Active
-                    </Badge>
-                  </CardTitle>
-                </CardHeader>
-                <form onSubmit={handleReportSubmit}>
-                  <CardContent className="p-6 space-y-4">
-                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+              {/* Target-Aligned Reporting Hierarchy & Daily Matrix Engine */}
+              <CompanyProductionReportingHierarchyView
+                assignmentId={assignmentId || ""}
+                onOpenReportModal={({ reportDate: selDate, periodLabel: selLabel, targetPeriodId: selTargetId }) => {
+                  setReportDate(selDate);
+                  setSelectedPeriodLabel(selLabel || null);
+                  setSelectedTargetPeriodId(selTargetId || null);
+                  setIsReportModalOpen(true);
+                }}
+              />
+
+              {/* Dedicated Report Submission Dialog Modal */}
+              <Dialog open={isReportModalOpen} onOpenChange={setIsReportModalOpen}>
+                <DialogContent className="max-w-xl">
+                  <DialogHeader>
+                    <DialogTitle className="flex items-center gap-2 text-base font-bold">
+                      <Factory className="h-5 w-5 text-primary" />
+                      Submit Production Actual ({assignment?.reportingFrequency?.name || "Periodic"} Schedule)
+                    </DialogTitle>
+                    <DialogDescription className="text-xs text-muted-foreground">
+                      Target Version v{approvedTarget?.version_number} Active | Selected Period: {selectedPeriodLabel || reportDate}
+                    </DialogDescription>
+                  </DialogHeader>
+
+                  <form onSubmit={handleReportSubmit} className="space-y-4">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                       <div className="space-y-1.5">
                         <Label className="text-xs font-semibold">Report Date</Label>
                         <Input
@@ -1915,23 +1932,23 @@ export function CompanyProductionDetailView({
                           </span>
                         </div>
                       </div>
+                    </div>
 
-                      <div className="space-y-1.5">
-                        <Label className="text-xs font-semibold">Reporting Department (Optional)</Label>
-                        <Select value={selectedDeptId} onValueChange={setSelectedDeptId}>
-                          <SelectTrigger className="h-9 text-xs">
-                            <SelectValue placeholder="Company HQ / Entire Concession" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="none">Company HQ / Concession Root</SelectItem>
-                            {structures.map((s) => (
-                              <SelectItem key={s.company_structure_id} value={s.company_structure_id}>
-                                {s.name} (Level {s.level})
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      </div>
+                    <div className="space-y-1.5">
+                      <Label className="text-xs font-semibold">Reporting Department (Optional)</Label>
+                      <Select value={selectedDeptId} onValueChange={setSelectedDeptId}>
+                        <SelectTrigger className="h-9 text-xs">
+                          <SelectValue placeholder="Company HQ / Entire Concession" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="none">Company HQ / Concession Root</SelectItem>
+                          {structures.map((s) => (
+                            <SelectItem key={s.company_structure_id} value={s.company_structure_id}>
+                              {s.name} (Level {s.level})
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
                     </div>
 
                     <div className="space-y-1.5">
@@ -1940,22 +1957,31 @@ export function CompanyProductionDetailView({
                         placeholder="Log production batch, pit location, operational shift notes..."
                         value={reportNotes}
                         onChange={(e) => setReportNotes(e.target.value)}
-                        className="text-xs h-16"
+                        className="text-xs h-20"
                       />
                     </div>
-                  </CardContent>
-                  <CardFooter className="border-t bg-muted/10 py-3 px-6 flex justify-end">
-                    <Button
-                      type="submit"
-                      disabled={isSubmittingReport || !reportQuantity}
-                      className="text-xs h-8 gap-1.5"
-                    >
-                      <Send className="h-3.5 w-3.5" />
-                      Submit Production Actual
-                    </Button>
-                  </CardFooter>
-                </form>
-              </Card>
+
+                    <DialogFooter className="pt-2">
+                      <Button
+                        type="button"
+                        variant="outline"
+                        onClick={() => setIsReportModalOpen(false)}
+                        className="text-xs h-8"
+                      >
+                        Cancel
+                      </Button>
+                      <Button
+                        type="submit"
+                        disabled={isSubmittingReport || !reportQuantity}
+                        className="text-xs h-8 gap-1.5 bg-primary text-white"
+                      >
+                        <Send className="h-3.5 w-3.5" />
+                        {isSubmittingReport ? "Submitting..." : "Submit Production Actual"}
+                      </Button>
+                    </DialogFooter>
+                  </form>
+                </DialogContent>
+              </Dialog>
 
               {/* Submissions History Table */}
               <Card className="border shadow-sm">

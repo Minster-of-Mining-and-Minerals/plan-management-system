@@ -152,6 +152,9 @@ export interface CompanyProductionAssignment {
   effective_from: string;
   effective_to?: string | null;
   requires_review: boolean;
+  allow_past_reporting?: boolean;
+  past_reporting_duration?: number | null;
+  past_reporting_unit?: "days" | "months" | "quarters" | "semi_annual" | "years" | string | null;
   is_active: boolean;
   notes?: string | null;
   company?: {
@@ -200,6 +203,9 @@ export interface CompanyProductionReport {
   production_item_id: string;
   company_structure_id?: string | null;
   approved_target_version?: number | null;
+  target_period_id?: string | null;
+  reporting_frequency?: string | null;
+  reporting_period_key?: string | null;
   report_date: string;
   period_label?: string | null;
   quantity_reported: number | string;
@@ -436,4 +442,114 @@ export interface TargetAmendmentComparison {
     percentage_change: number;
   };
   periodComparisons: PeriodComparisonItem[];
+}
+
+export type ReportingPeriodClassification =
+  | "CURRENT"
+  | "AVAILABLE"
+  | "AVAILABLE_PAST"
+  | "COMPLETED"
+  | "SUBMITTED"
+  | "PENDING_APPROVAL"
+  | "REJECTED"
+  | "LOCKED_PAST"
+  | "LOCKED_FUTURE"
+  | "OUTSIDE_LICENSE_PERIOD"
+  | "NO_APPROVED_TARGET"
+  | "INACTIVE_ASSIGNMENT";
+
+export interface ReportingHierarchyNode {
+  id: string;
+  level: "annual" | "half_year" | "quarter" | "month";
+  label: string;
+  periodCode?: string;
+  monthKey?: string;
+  startDate: string;
+  endDate: string;
+  targetQuantity: number;
+  actualQuantity: number;
+  remainingTarget?: number;
+  achievementPct?: number;
+  unitSymbol: string;
+  targetPeriodId?: string | null;
+  isReportingLevel?: boolean;
+  requiresDailyMatrix?: boolean;
+  classification: {
+    status: ReportingPeriodClassification;
+    isAccessible: boolean;
+    reason?: string;
+  };
+  children: ReportingHierarchyNode[];
+}
+
+export interface TargetAlignedReportingHierarchyResponse {
+  assignment: {
+    assignment_id: string;
+    company_id: string;
+    license_id?: string | null;
+    production_item_name?: string;
+    license_number?: string;
+    target_allocation_depth: string;
+    reporting_frequency: string;
+    unit_symbol: string;
+    unit_name: string;
+    allow_past_reporting?: boolean;
+    past_reporting_duration?: number | null;
+    past_reporting_unit?: string | null;
+  };
+  today: string;
+  allowanceWindow: {
+    allowPast: boolean;
+    duration?: number;
+    unit?: string;
+    earliestAllowedDate?: string;
+    explanation?: string;
+  };
+  approvedTargetVersion: number | null;
+  hierarchy: ReportingHierarchyNode;
+}
+
+export interface DailyReportingMatrixDay {
+  isPadding: boolean;
+  dayNumber: number | null;
+  date: string | null;
+  isToday?: boolean;
+  classification?: ReportingPeriodClassification;
+  isAccessible?: boolean;
+  reason?: string;
+  report?: {
+    report_id: string;
+    quantity_reported: number;
+    unit_symbol: string;
+    status: string;
+    notes?: string | null;
+    submitted_by_name?: string;
+    created_at?: string;
+  } | null;
+}
+
+export interface DailyReportingMatrixWeek {
+  weekNumber: number;
+  days: DailyReportingMatrixDay[];
+  weekActualTotal: number;
+  reportedCount: number;
+  availableCount: number;
+  lockedCount: number;
+}
+
+export interface DailyReportingMatrixResponse {
+  assignmentId: string;
+  month: string;
+  monthName: string;
+  today: string;
+  allowanceWindow: {
+    allowPast: boolean;
+    duration?: number;
+    unit?: string;
+    earliestAllowedDate?: string;
+    explanation?: string;
+  };
+  unitSymbol: string;
+  monthReportedTotal: number;
+  weeks: DailyReportingMatrixWeek[];
 }

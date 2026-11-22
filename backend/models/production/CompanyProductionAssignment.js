@@ -112,6 +112,21 @@ module.exports = (sequelize, DataTypes) => {
         allowNull: false,
         defaultValue: false,
       },
+      allow_past_reporting: {
+        type: DataTypes.BOOLEAN,
+        allowNull: false,
+        defaultValue: false,
+      },
+      past_reporting_duration: {
+        type: DataTypes.INTEGER,
+        allowNull: true,
+        defaultValue: 0,
+      },
+      past_reporting_unit: {
+        type: DataTypes.STRING(50),
+        allowNull: true,
+        defaultValue: "days",
+      },
       is_active: {
         type: DataTypes.BOOLEAN,
         allowNull: false,

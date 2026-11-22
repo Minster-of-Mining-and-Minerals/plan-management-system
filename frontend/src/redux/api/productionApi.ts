@@ -16,6 +16,8 @@ import type {
   TargetAmendmentComparison,
   FederalProductionDashboard,
   CompanyProductionDashboard,
+  TargetAlignedReportingHierarchyResponse,
+  DailyReportingMatrixResponse,
 } from "../types/production";
 
 export const productionApi = baseApi.injectEndpoints({
@@ -652,6 +654,43 @@ export const productionApi = baseApi.injectEndpoints({
       ],
     }),
 
+    getReportingHierarchy: builder.query<
+      TargetAlignedReportingHierarchyResponse,
+      { assignmentId: string; year?: number }
+    >({
+      query: ({ assignmentId, year }) => ({
+        url: `/production/company/assignments/${assignmentId}/reporting-hierarchy`,
+        method: "GET",
+        params: year ? { year } : {},
+      }),
+      transformResponse: (response: {
+        success: boolean;
+        data: TargetAlignedReportingHierarchyResponse;
+      }) => response.data,
+      providesTags: (result, error, { assignmentId }) => [
+        { type: "CompanyProductionReports", id: `HIERARCHY_${assignmentId}` },
+        { type: "CompanyProductionAssignments", id: assignmentId },
+      ],
+    }),
+
+    getDailyReportingMatrix: builder.query<
+      DailyReportingMatrixResponse,
+      { assignmentId: string; month: string }
+    >({
+      query: ({ assignmentId, month }) => ({
+        url: `/production/company/assignments/${assignmentId}/daily-matrix`,
+        method: "GET",
+        params: { month },
+      }),
+      transformResponse: (response: {
+        success: boolean;
+        data: DailyReportingMatrixResponse;
+      }) => response.data,
+      providesTags: (result, error, { assignmentId, month }) => [
+        { type: "CompanyProductionReports", id: `MATRIX_${assignmentId}_${month}` },
+      ],
+    }),
+
     getMeasurementUnits: builder.query<any[], void>({
       query: () => ({
         url: "/gold/units",
@@ -699,5 +738,7 @@ export const {
   useGetProductionPerformanceQuery,
   useGetFederalProductionDashboardQuery,
   useGetCompanyProductionDashboardQuery,
+  useGetReportingHierarchyQuery,
+  useGetDailyReportingMatrixQuery,
   useGetMeasurementUnitsQuery,
 } = productionApi;

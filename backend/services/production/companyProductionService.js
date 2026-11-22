@@ -25,6 +25,13 @@ const {
   calculateAchievementPercentage,
   calculateRemaining,
 } = require("./productionDecimalUtils");
+const {
+  calculateAllowanceWindow,
+  classifyReportingDate,
+  buildTargetAlignedReportingHierarchy,
+  buildDailyReportingMatrix,
+  getBusinessToday,
+} = require("./productionPeriodAccessService");
 
 /**
  * List assignments with optional filters.
@@ -177,6 +184,9 @@ async function createAssignment(data, userId) {
     effective_from,
     effective_to,
     requires_review,
+    allow_past_reporting,
+    past_reporting_duration,
+    past_reporting_unit,
     notes,
   } = data;
 
@@ -272,6 +282,9 @@ async function createAssignment(data, userId) {
     effective_from,
     effective_to: effective_to || null,
     requires_review: !!requires_review,
+    allow_past_reporting: !!allow_past_reporting,
+    past_reporting_duration: past_reporting_duration !== undefined ? Number(past_reporting_duration) : 0,
+    past_reporting_unit: past_reporting_unit || "days",
     notes: notes ? notes.trim() : null,
     created_by: userId,
     is_active: true,
@@ -345,6 +358,9 @@ async function updateAssignment(assignmentId, data) {
   if (data.effective_from) assignment.effective_from = data.effective_from;
   if (data.effective_to !== undefined) assignment.effective_to = data.effective_to;
   if (data.requires_review !== undefined) assignment.requires_review = !!data.requires_review;
+  if (data.allow_past_reporting !== undefined) assignment.allow_past_reporting = !!data.allow_past_reporting;
+  if (data.past_reporting_duration !== undefined) assignment.past_reporting_duration = Number(data.past_reporting_duration);
+  if (data.past_reporting_unit !== undefined) assignment.past_reporting_unit = data.past_reporting_unit;
   if (data.notes !== undefined) assignment.notes = data.notes ? data.notes.trim() : null;
   if (data.is_active !== undefined) assignment.is_active = !!data.is_active;
 
@@ -683,32 +699,90 @@ async function submitReport(data, userId, companyScope = null) {
     throw err;
   }
 
+  // 4. Centralized Period Access and Rolling Past-Reporting Allowance Enforcement
+  const todayStr = getBusinessToday();
+  const allowanceWindow = calculateAllowanceWindow(assignment, todayStr);
+  const licenseRecord = assignment.license_id ? await CompanyLicense.findByPk(assignment.license_id) : null;
+  const dateClassification = classifyReportingDate({
+    dateStr: report_date,
+    todayStr,
+    allowanceWindow,
+    license: licenseRecord,
+    assignment,
+    approvedTarget,
+  });
+
+  if (!dateClassification.isAccessible) {
+    const err = new Error(dateClassification.reason || "Reporting period is locked.");
+    err.status = 403;
+    throw err;
+  }
+
   const unitId = reported_unit_id || assignment.default_reporting_unit_id;
   const factorToBase = await getUnitFactorToBase(assignment.production_item_id, unitId);
   const normalizedQuantity = roundDecimal(numQty * factorToBase, 4);
 
-  // Duplicate check: check if an active report exists for same date, company, item
+  // Resolve period label and deterministic period key based on frequency
+  const freqCode = assignment.reportingFrequency ? assignment.reportingFrequency.code : "daily";
+  let resolvedPeriodLabel = period_label ? String(period_label).trim() : null;
+  let resolvedPeriodKey = data.reporting_period_key ? String(data.reporting_period_key).trim() : null;
+
+  if (freqCode === "monthly") {
+    const mKey = report_date.slice(0, 7);
+    if (!resolvedPeriodLabel) resolvedPeriodLabel = mKey;
+    if (!resolvedPeriodKey) resolvedPeriodKey = mKey;
+  } else if (freqCode === "quarterly") {
+    const qNum = Math.ceil(parseInt(report_date.slice(5, 7), 10) / 3);
+    const qKey = `${report_date.slice(0, 4)}-Q${qNum}`;
+    if (!resolvedPeriodLabel) resolvedPeriodLabel = qKey;
+    if (!resolvedPeriodKey) resolvedPeriodKey = qKey;
+  } else if (freqCode === "semi_annual") {
+    const hNum = parseInt(report_date.slice(5, 7), 10) <= 6 ? 1 : 2;
+    const hKey = `${report_date.slice(0, 4)}-H${hNum}`;
+    if (!resolvedPeriodLabel) resolvedPeriodLabel = hKey;
+    if (!resolvedPeriodKey) resolvedPeriodKey = hKey;
+  } else if (freqCode === "annual") {
+    const yKey = report_date.slice(0, 4);
+    if (!resolvedPeriodLabel) resolvedPeriodLabel = yKey;
+    if (!resolvedPeriodKey) resolvedPeriodKey = yKey;
+  } else {
+    // Daily
+    if (!resolvedPeriodLabel) resolvedPeriodLabel = report_date;
+    if (!resolvedPeriodKey) resolvedPeriodKey = report_date;
+  }
+
+  // Duplicate check: check if an active report exists for same period key, assignment
   const existingReport = await CompanyProductionReport.findOne({
     where: {
-      company_id: assignment.company_id,
-      production_item_id: assignment.production_item_id,
-      report_date,
+      assignment_id: assignment.assignment_id,
+      [Op.or]: [
+        { report_date },
+        { reporting_period_key: resolvedPeriodKey },
+      ],
     },
   });
   if (existingReport) {
-    const err = new Error(`A production report for ${report_date} has already been submitted for this item.`);
+    const err = new Error(`A production report for ${resolvedPeriodLabel} has already been submitted for this item.`);
     err.status = 409;
     throw err;
   }
 
-  // Resolve period label based on frequency if not provided
-  const freqCode = assignment.reportingFrequency ? assignment.reportingFrequency.code : "daily";
-  let resolvedPeriodLabel = period_label ? String(period_label).trim() : null;
-  if (!resolvedPeriodLabel) {
-    if (freqCode === "monthly") {
-      resolvedPeriodLabel = report_date.slice(0, 7); // e.g. '2026-02'
+  // Find linked target period allocation node (e.g. Q4 or November)
+  let resolvedTargetPeriodId = data.target_period_id || null;
+  if (!resolvedTargetPeriodId) {
+    const matchingPeriod = await CompanyProductionTarget.findOne({
+      where: {
+        assignment_id: assignment.assignment_id,
+        version_number: approvedTarget.version_number,
+        parent_target_id: approvedTarget.target_id,
+        period_start_date: { [Op.lte]: report_date },
+        period_end_date: { [Op.gte]: report_date },
+      },
+    });
+    if (matchingPeriod) {
+      resolvedTargetPeriodId = matchingPeriod.target_id;
     } else {
-      resolvedPeriodLabel = report_date;
+      resolvedTargetPeriodId = approvedTarget.target_id;
     }
   }
 
@@ -719,6 +793,9 @@ async function submitReport(data, userId, companyScope = null) {
     assignment_id: assignment.assignment_id,
     license_id: assignment.license_id || null,
     approved_target_version: approvedTarget ? approvedTarget.version_number : null,
+    target_period_id: resolvedTargetPeriodId,
+    reporting_frequency: freqCode,
+    reporting_period_key: resolvedPeriodKey,
     company_structure_id: data.company_structure_id || null,
     production_item_id: assignment.production_item_id,
     report_date,
@@ -2774,6 +2851,42 @@ async function getProductionDetail(assignmentId, companyScope = null) {
   };
 }
 
+/**
+ * Get target-aligned reporting hierarchy for an assignment.
+ */
+async function getReportingHierarchy({ assignmentId, year, companyScope = null }) {
+  const assignment = await CompanyProductionAssignment.findByPk(assignmentId);
+  if (!assignment) {
+    const err = new Error("Assignment not found.");
+    err.status = 404;
+    throw err;
+  }
+  if (companyScope && assignment.company_id !== companyScope) {
+    const err = new Error("Forbidden: You cannot access reporting hierarchy for another company.");
+    err.status = 403;
+    throw err;
+  }
+  return await buildTargetAlignedReportingHierarchy({ assignmentId, year });
+}
+
+/**
+ * Get daily reporting calendar matrix for a specific month.
+ */
+async function getDailyReportingMatrix({ assignmentId, month, companyScope = null }) {
+  const assignment = await CompanyProductionAssignment.findByPk(assignmentId);
+  if (!assignment) {
+    const err = new Error("Assignment not found.");
+    err.status = 404;
+    throw err;
+  }
+  if (companyScope && assignment.company_id !== companyScope) {
+    const err = new Error("Forbidden: You cannot access reporting matrix for another company.");
+    err.status = 403;
+    throw err;
+  }
+  return await buildDailyReportingMatrix({ assignmentId, monthStr: month });
+}
+
 module.exports = {
   listAssignments,
   getAssignmentById,
@@ -2802,4 +2915,6 @@ module.exports = {
   reviewTargetAmendment,
   reviseTargetAmendment,
   listTargetAmendments,
+  getReportingHierarchy,
+  getDailyReportingMatrix,
 };

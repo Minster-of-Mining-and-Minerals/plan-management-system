@@ -44,6 +44,11 @@ module.exports = (sequelize, DataTypes) => {
         foreignKey: "reviewed_by",
         as: "reviewer",
       });
+
+      CompanyProductionReport.belongsTo(models.CompanyProductionTarget, {
+        foreignKey: "target_period_id",
+        as: "targetPeriod",
+      });
     }
   }
 
@@ -76,6 +81,19 @@ module.exports = (sequelize, DataTypes) => {
       },
       approved_target_version: {
         type: DataTypes.INTEGER,
+        allowNull: true,
+      },
+      target_period_id: {
+        type: DataTypes.UUID,
+        allowNull: true,
+      },
+      reporting_frequency: {
+        type: DataTypes.STRING(50),
+        allowNull: true,
+        defaultValue: "daily",
+      },
+      reporting_period_key: {
+        type: DataTypes.STRING(100),
         allowNull: true,
       },
       report_date: {

@@ -98,6 +98,8 @@ router.get("/assignments", assignmentReadAccess, companyProductionController.lis
 router.post("/assignments", assignmentManageAccess, companyProductionController.createAssignmentHandler);
 router.get("/assignments/:id", assignmentReadAccess, companyProductionController.getAssignmentByIdHandler);
 router.get("/assignments/:id/detail", assignmentReadAccess, companyProductionController.getProductionDetailHandler);
+router.get("/assignments/:id/reporting-hierarchy", targetProposalAccess, companyProductionController.getReportingHierarchyHandler);
+router.get("/assignments/:id/daily-matrix", targetProposalAccess, companyProductionController.getDailyReportingMatrixHandler);
 router.put("/assignments/:id", assignmentManageAccess, companyProductionController.updateAssignmentHandler);
 
 router.post("/assignments/:id/targets", targetManageAccess, companyProductionController.saveTargetHierarchyHandler);

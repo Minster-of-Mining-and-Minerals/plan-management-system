@@ -65,6 +65,9 @@ export function LicenseProductionAssignModal({
   const [effectiveFrom, setEffectiveFrom] = useState("");
   const [effectiveTo, setEffectiveTo] = useState("");
   const [requiresReview, setRequiresReview] = useState(false);
+  const [allowPastReporting, setAllowPastReporting] = useState(false);
+  const [pastReportingDuration, setPastReportingDuration] = useState("7");
+  const [pastReportingUnit, setPastReportingUnit] = useState<"days" | "months" | "quarters" | "years">("days");
   const [notes, setNotes] = useState("");
 
   const licenseStart = license.effective_start_date || (license.effective_year_from ? `${license.effective_year_from}-01-01` : "");
@@ -80,6 +83,9 @@ export function LicenseProductionAssignModal({
       setSelectedUnitId("");
       setTargetDepth("quarterly");
       setRequiresReview(false);
+      setAllowPastReporting(false);
+      setPastReportingDuration("7");
+      setPastReportingUnit("days");
       setNotes("");
     }
   }, [open, licenseStart, licenseEnd]);
@@ -131,6 +137,9 @@ export function LicenseProductionAssignModal({
         effective_from: effectiveFrom,
         effective_to: effectiveTo || null,
         requires_review: requiresReview,
+        allow_past_reporting: allowPastReporting,
+        past_reporting_duration: allowPastReporting ? Number(pastReportingDuration) || 0 : 0,
+        past_reporting_unit: allowPastReporting ? pastReportingUnit : "days",
         notes: notes.trim() || null,
       }).unwrap();
 
@@ -275,6 +284,74 @@ export function LicenseProductionAssignModal({
                 </SelectContent>
               </Select>
             </div>
+          </div>
+
+          {/* Configuration Explanation Badge */}
+          <div className="p-2.5 rounded-lg border border-primary/20 bg-primary/5 text-[11px] text-muted-foreground flex items-center gap-2">
+            <Info className="h-4 w-4 text-primary shrink-0" />
+            <span>
+              Targets will be allocated <strong>{targetDepth.replace("_", "-")}</strong>. Actual production must be submitted{" "}
+              <strong>{frequencies.find((f: any) => f.frequency_id === selectedFrequencyId)?.name || "periodically"}</strong>.
+              {allowPastReporting && (
+                <> Past reporting permitted for up to <strong>{pastReportingDuration} {pastReportingUnit}</strong>.</>
+              )}
+            </span>
+          </div>
+
+          {/* Past Reporting Allowance Section */}
+          <div className="p-3 rounded-lg border border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/30 space-y-3">
+            <div className="flex items-center justify-between">
+              <div>
+                <Label htmlFor="allowPast" className="text-xs font-semibold cursor-pointer">
+                  Past Reporting Allowance
+                </Label>
+                <p className="text-[10px] text-muted-foreground">
+                  Permit submitting historical production reports within a rolling access window
+                </p>
+              </div>
+              <input
+                type="checkbox"
+                id="allowPast"
+                checked={allowPastReporting}
+                onChange={(e) => setAllowPastReporting(e.target.checked)}
+                className="h-4 w-4 rounded border-slate-300 text-emerald-600 focus:ring-emerald-500"
+              />
+            </div>
+
+            {allowPastReporting && (
+              <div className="grid grid-cols-2 gap-3 pt-1 border-t border-slate-200 dark:border-slate-800">
+                <div>
+                  <Label className="text-[11px] font-medium">Allowed Past Duration</Label>
+                  <Input
+                    type="number"
+                    min="1"
+                    max="365"
+                    value={pastReportingDuration}
+                    onChange={(e) => setPastReportingDuration(e.target.value)}
+                    className="h-8 text-xs mt-1"
+                    placeholder="e.g. 7"
+                    required={allowPastReporting}
+                  />
+                </div>
+                <div>
+                  <Label className="text-[11px] font-medium">Duration Unit</Label>
+                  <Select
+                    value={pastReportingUnit}
+                    onValueChange={(val: any) => setPastReportingUnit(val)}
+                  >
+                    <SelectTrigger className="h-8 text-xs mt-1">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="days" className="text-xs">Days (Rolling calendar days)</SelectItem>
+                      <SelectItem value="months" className="text-xs">Months (Calendar months)</SelectItem>
+                      <SelectItem value="quarters" className="text-xs">Quarters</SelectItem>
+                      <SelectItem value="years" className="text-xs">Years</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+            )}
           </div>
 
           {/* Effective Period */}

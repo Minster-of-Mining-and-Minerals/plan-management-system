@@ -670,6 +670,61 @@ async function listAllAmendmentsHandler(req, res, next) {
   }
 }
 
+/**
+ * Get target-aligned reporting hierarchy for an assignment.
+ */
+async function getReportingHierarchyHandler(req, res, next) {
+  try {
+    const { id } = req.params;
+    const { year } = req.query;
+    const companyScope = req.user && req.user.company_id ? req.user.company_id : null;
+
+    const result = await companyProductionService.getReportingHierarchy({
+      assignmentId: id,
+      year,
+      companyScope,
+    });
+
+    return res.status(200).json({
+      success: true,
+      data: result,
+    });
+  } catch (error) {
+    next(error);
+  }
+}
+
+/**
+ * Get daily reporting calendar matrix for a specific month.
+ */
+async function getDailyReportingMatrixHandler(req, res, next) {
+  try {
+    const { id } = req.params;
+    const { month } = req.query;
+    const companyScope = req.user && req.user.company_id ? req.user.company_id : null;
+
+    if (!month) {
+      return res.status(400).json({
+        success: false,
+        message: "Query parameter 'month' (YYYY-MM) is required.",
+      });
+    }
+
+    const result = await companyProductionService.getDailyReportingMatrix({
+      assignmentId: id,
+      month,
+      companyScope,
+    });
+
+    return res.status(200).json({
+      success: true,
+      data: result,
+    });
+  } catch (error) {
+    next(error);
+  }
+}
+
 module.exports = {
   listAssignmentsHandler,
   getAssignmentByIdHandler,
@@ -698,4 +753,6 @@ module.exports = {
   reviseTargetAmendmentHandler,
   listTargetAmendmentsHandler,
   listAllAmendmentsHandler,
+  getReportingHierarchyHandler,
+  getDailyReportingMatrixHandler,
 };
