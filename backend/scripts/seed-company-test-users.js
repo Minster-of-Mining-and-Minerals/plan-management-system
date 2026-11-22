@@ -6,7 +6,7 @@ const bcrypt = require("bcrypt");
 const { v4: uuidv4 } = require("uuid");
 const db = require("../models");
 
-const { Company, User, Role, UserRoles, Permission, RolePermissions, sequelize } = db;
+const { Company, User, Role, UserRoles, Permission, RolePermission, sequelize } = db;
 
 const TARGET_PASSWORD = "#Test@2026";
 const COMPANY_ADMIN_ROLE_ID = "30000000-0000-4000-8000-000000000001";
@@ -96,7 +96,7 @@ async function seedCompanyTestUsers() {
       });
 
       for (const r of targetRoles) {
-        await RolePermissions.findOrCreate({
+        await RolePermission.findOrCreate({
           where: {
             role_id: r.role_id,
             permission_id: permRecord.permission_id,
@@ -105,6 +105,7 @@ async function seedCompanyTestUsers() {
             role_permission_id: uuidv4(),
             role_id: r.role_id,
             permission_id: permRecord.permission_id,
+            is_active: true,
           },
           transaction: t,
         });
