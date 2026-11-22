@@ -5,7 +5,7 @@ import { useState, useEffect, useMemo } from "react";
 import { Link, usePathname } from "@/i18n/navigation";
 import { useParams } from "next/navigation";
 import Image from "next/image";
-import { Building2 } from "lucide-react";
+import { Building2, ChevronRight } from "lucide-react";
 import { canAccessItem } from "@/lib/can-access";
 import { usePermissions } from "@/hooks/usePermissions";
 import { useBranding } from "@/providers/BrandingProvider";
@@ -25,6 +25,7 @@ import {
 
 export function CompanyAppSidebar({ companyId }: { companyId?: string }) {
   const [mounted, setMounted] = useState(false);
+  const [openSections, setOpenSections] = useState<Record<string, boolean>>({});
   const { branding, logoPrimaryUrl } = useBranding();
   const { permissions: userPermissions } = usePermissions();
   const pathname = usePathname();
@@ -104,19 +105,31 @@ export function CompanyAppSidebar({ companyId }: { companyId?: string }) {
     return pathname === itemUrl || pathname.startsWith(`${itemUrl}/`);
   };
 
+  const isAnyChildActive = (item: NavItem) => {
+    if (!item.children || item.children.length === 0) return false;
+    return item.children.some((child) => isItemActive(child.url));
+  };
+
+  const toggleSection = (title: string, defaultOpen: boolean) => {
+    setOpenSections((prev) => ({
+      ...prev,
+      [title]: prev[title] !== undefined ? !prev[title] : !defaultOpen,
+    }));
+  };
+
   return (
     <Sidebar
       collapsible="icon"
       variant="floating"
-      className="bg-[#0B1E33] border-r border-[#152E4A] text-slate-100 hide-scrollbar"
+      className="bg-white dark:bg-card border-r border-border text-foreground hide-scrollbar shadow-xs"
     >
       {/* ---------- HEADER ---------- */}
-      <SidebarHeader className="py-6 px-4 border-b border-slate-800/80 bg-[#0B1E33]">
+      <SidebarHeader className="py-5 px-4 border-b border-border/80 bg-white dark:bg-card">
         <SidebarMenu>
           <SidebarMenuItem>
             <Link href={basePath} className="flex items-center gap-3">
               {logoPrimaryUrl ? (
-                <div className="relative w-11 h-11 rounded-full border border-amber-500/30 bg-white/95 p-1 shadow-sm shrink-0 overflow-hidden">
+                <div className="relative w-10 h-10 rounded-full border border-border bg-muted/20 p-1 shadow-xs shrink-0 overflow-hidden">
                   <Image
                     src={logoPrimaryUrl}
                     alt={`${branding.system_name_short || "Company"} logo`}
@@ -126,15 +139,15 @@ export function CompanyAppSidebar({ companyId }: { companyId?: string }) {
                   />
                 </div>
               ) : (
-                <div className="w-11 h-11 rounded-full bg-gradient-to-br from-amber-400 to-amber-600 text-slate-950 flex items-center justify-center shrink-0 shadow-sm font-bold">
+                <div className="w-10 h-10 rounded-full bg-primary/10 text-primary border border-primary/20 flex items-center justify-center shrink-0 shadow-xs font-bold">
                   <Building2 className="w-5 h-5" />
                 </div>
               )}
               <div className="grid flex-1 text-left leading-tight group-data-[collapsible=icon]:hidden">
-                <span className="truncate font-bold text-sm text-white tracking-tight">
+                <span className="truncate font-bold text-sm text-foreground tracking-tight">
                   {branding.system_name_short || "Company Workspace"}
                 </span>
-                <span className="truncate text-[11px] text-slate-400">
+                <span className="truncate text-[11px] text-muted-foreground">
                   {branding.system_tagline || "Mining Operations & Target Management"}
                 </span>
               </div>
@@ -143,12 +156,12 @@ export function CompanyAppSidebar({ companyId }: { companyId?: string }) {
         </SidebarMenu>
       </SidebarHeader>
 
-      {/* ---------- CATEGORIZED SIDEBAR CONTENT ---------- */}
-      <SidebarContent className="px-3 py-3 space-y-4 hide-scrollbar [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden bg-[#0B1E33]">
+      {/* ---------- CATEGORIZED SIDEBAR CONTENT (WHITE BG) ---------- */}
+      <SidebarContent className="px-3 py-3 space-y-4 hide-scrollbar [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden bg-white dark:bg-card">
         {visibleCategories.map((cat, catIdx) => (
           <div key={cat.category || catIdx} className="space-y-1">
             {/* Category Header Label */}
-            <div className="px-3 pt-2 pb-1 text-[10px] font-bold tracking-wider text-slate-400 uppercase select-none group-data-[collapsible=icon]:hidden">
+            <div className="px-3 pt-2 pb-1 text-[10px] font-bold tracking-wider text-muted-foreground uppercase select-none group-data-[collapsible=icon]:hidden">
               {cat.category}
             </div>
 
@@ -157,32 +170,64 @@ export function CompanyAppSidebar({ companyId }: { companyId?: string }) {
               {cat.items.map((item) => {
                 const hasChildren = item.children && item.children.length > 0;
                 const active = isItemActive(item.url);
+                const hasActiveChild = isAnyChildActive(item);
+
+                // Default open if any child is active
+                const defaultOpen = hasActiveChild;
+                const isOpen =
+                  openSections[item.title] !== undefined
+                    ? openSections[item.title]
+                    : defaultOpen;
 
                 return (
                   <div key={item.title} className="space-y-1">
                     {/* Top Level Item */}
-                    <Link
-                      href={item.url}
-                      className={`flex items-center gap-3 px-3 py-2 rounded-lg text-sm transition-all group-data-[collapsible=icon]:justify-center ${
-                        active
-                          ? "bg-[#E5A93C] text-slate-950 font-bold shadow-xs hover:bg-[#d89c30]"
-                          : "text-slate-300 hover:text-white hover:bg-white/10"
-                      }`}
-                      title={item.title}
-                    >
-                      <item.icon
-                        className={`size-4.5 shrink-0 ${
-                          active ? "text-slate-950" : "text-slate-400"
+                    <div className="flex items-center gap-1">
+                      <Link
+                        href={item.url}
+                        className={`flex-1 flex items-center gap-3 px-3 py-2 rounded-lg text-sm transition-all group-data-[collapsible=icon]:justify-center ${
+                          active
+                            ? "bg-[#E5A93C] text-slate-950 font-bold shadow-xs hover:bg-[#d89c30]"
+                            : "text-slate-700 hover:text-slate-950 hover:bg-slate-100 dark:text-slate-300 dark:hover:text-white dark:hover:bg-slate-800/60"
                         }`}
-                      />
-                      <span className="truncate group-data-[collapsible=icon]:hidden">
-                        {item.title}
-                      </span>
-                    </Link>
+                        title={item.title}
+                      >
+                        <item.icon
+                          className={`size-4.5 shrink-0 ${
+                            active
+                              ? "text-slate-950"
+                              : "text-slate-500 dark:text-slate-400"
+                          }`}
+                        />
+                        <span className="truncate group-data-[collapsible=icon]:hidden">
+                          {item.title}
+                        </span>
+                      </Link>
 
-                    {/* Directly Displayed Indented Children */}
-                    {hasChildren && (
-                      <div className="ml-4 pl-3 border-l border-slate-700/60 my-1 space-y-1 group-data-[collapsible=icon]:hidden">
+                      {/* Collapsible Chevron Toggle Button for items with children (Users) */}
+                      {hasChildren && (
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            toggleSection(item.title, defaultOpen);
+                          }}
+                          className="p-1.5 rounded-md text-muted-foreground hover:text-foreground hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors group-data-[collapsible=icon]:hidden"
+                          aria-label={`Toggle ${item.title} menu`}
+                        >
+                          <ChevronRight
+                            className={`size-3.5 transition-transform duration-200 ${
+                              isOpen ? "rotate-90" : ""
+                            }`}
+                          />
+                        </button>
+                      )}
+                    </div>
+
+                    {/* Collapsible Indented Children (Users List, Sessions, Roles, Groups, Permissions) */}
+                    {hasChildren && isOpen && (
+                      <div className="ml-4 pl-3 border-l border-slate-200 dark:border-slate-800 my-1 space-y-1 group-data-[collapsible=icon]:hidden animate-in fade-in duration-150">
                         {item.children?.map((child) => {
                           const childActive = isItemActive(child.url);
 
@@ -193,13 +238,15 @@ export function CompanyAppSidebar({ companyId }: { companyId?: string }) {
                               className={`flex items-center gap-2.5 px-2.5 py-1.5 rounded-md text-xs transition-all ${
                                 childActive
                                   ? "bg-[#E5A93C] text-slate-950 font-bold shadow-xs hover:bg-[#d89c30]"
-                                  : "text-slate-300 hover:text-white hover:bg-white/10"
+                                  : "text-slate-600 hover:text-slate-950 hover:bg-slate-100 dark:text-slate-400 dark:hover:text-white dark:hover:bg-slate-800/60"
                               }`}
                               title={child.title}
                             >
                               <child.icon
                                 className={`size-3.5 shrink-0 ${
-                                  childActive ? "text-slate-950" : "text-slate-400"
+                                  childActive
+                                    ? "text-slate-950"
+                                    : "text-slate-400 dark:text-slate-500"
                                 }`}
                               />
                               <span className="truncate">{child.title}</span>
