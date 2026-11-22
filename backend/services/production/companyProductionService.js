@@ -2707,22 +2707,15 @@ async function getProductionDetail(assignmentId, companyScope = null) {
 
   // Check license validity
   const license = assignment.license;
-  const nowStr = new Date().toISOString().slice(0, 10);
-  let licenseEligible = false;
+  let licenseEligible = true;
   let licenseIneligibilityReason = null;
 
-  if (!license) {
-    licenseIneligibilityReason = "No license is linked to this production assignment.";
-  } else if (license.status !== "active") {
-    licenseIneligibilityReason = `License '${license.license_number}' is ${license.status}. Only active licenses are eligible for reporting.`;
-  } else if (license.effective_start_date && nowStr < license.effective_start_date) {
-    licenseIneligibilityReason = `License effective period has not started yet (starts ${license.effective_start_date}).`;
-  } else if (license.effective_end_date && nowStr > license.effective_end_date) {
-    licenseIneligibilityReason = `License expired on ${license.effective_end_date}.`;
-  } else {
-    licenseEligible = true;
+  if (license && (license.status === "suspended" || license.status === "terminated")) {
+    licenseEligible = false;
+    licenseIneligibilityReason = `License '${license.license_number}' is ${license.status}. Production reporting is not permitted.`;
   }
 
+  // Once target allocation is approved, reporting is unlocked for the company
   const isReportingUnlocked = Boolean(approvedTarget && licenseEligible);
 
   // Recent reports

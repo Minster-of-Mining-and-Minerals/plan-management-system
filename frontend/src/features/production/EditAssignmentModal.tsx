@@ -58,8 +58,11 @@ export function EditAssignmentModal({
   const [isActive, setIsActive] = useState(true);
   const [notes, setNotes] = useState("");
 
+  const lastInitializedIdRef = React.useRef<string | null>(null);
+
   useEffect(() => {
-    if (open && assignment) {
+    if (open && assignment && lastInitializedIdRef.current !== assignment.assignment_id) {
+      lastInitializedIdRef.current = assignment.assignment_id;
       setSelectedFrequencyId(assignment.reporting_frequency_id || "");
       setTargetDepth(assignment.target_allocation_depth || "quarterly");
       setSelectedUnitId(assignment.default_reporting_unit_id || "");
@@ -67,6 +70,8 @@ export function EditAssignmentModal({
       setEffectiveTo(assignment.effective_to || "2027-07-07");
       setIsActive(assignment.is_active ?? true);
       setNotes(assignment.notes || "");
+    } else if (!open) {
+      lastInitializedIdRef.current = null;
     }
   }, [open, assignment]);
 

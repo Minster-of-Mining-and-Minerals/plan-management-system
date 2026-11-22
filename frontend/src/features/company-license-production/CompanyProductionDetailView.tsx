@@ -157,13 +157,15 @@ export function CompanyProductionDetailView({
   const approvedTarget = detailBundle?.approvedTarget;
   const latestTarget = detailBundle?.latestTarget;
   const targetProposal = detailBundle?.targetProposal;
-  const isReportingUnlocked = detailBundle?.isReportingUnlocked ?? false;
 
   const targetDepth = assignment?.target_allocation_depth || "quarterly";
   const unitSymbol = assignment?.defaultReportingUnit?.symbol || "unit";
   const unitName = assignment?.defaultReportingUnit?.name || "Standard Unit";
 
   // Initialize Target Proposal state from server data or generate default periods
+  const targetProposalId = targetProposal?.root?.target_id;
+  const assignmentKey = assignment?.assignment_id;
+
   useEffect(() => {
     if (targetProposal && targetProposal.periods && targetProposal.periods.length > 0) {
       setAnnualTargetInput(String(targetProposal.annual_target || ""));
@@ -181,11 +183,11 @@ export function CompanyProductionDetailView({
           })),
         }))
       );
-    } else if (assignment) {
+    } else if (assignment && periodAllocations.length === 0) {
       // Generate initial blank period template according to target_allocation_depth
       generatePeriodTemplates(targetDepth, 0);
     }
-  }, [targetProposal, assignment, targetDepth]);
+  }, [targetProposalId, assignmentKey, targetDepth]);
 
   // Helper to generate period templates
   function generatePeriodTemplates(depth: string, totalAnnual: number) {
@@ -540,11 +542,21 @@ export function CompanyProductionDetailView({
     );
   }
 
-  const proposalStatus = targetProposal?.status || latestTarget?.status || "draft";
-  const isProposalApproved = proposalStatus === "approved" || proposalStatus === "published";
+  const hasApprovedTarget = Boolean(
+    approvedTarget ||
+    detailBundle?.approvedTarget ||
+    detailBundle?.approvedTargetsTree
+  );
+  const proposalStatus =
+    targetProposal?.status ||
+    latestTarget?.status ||
+    (hasApprovedTarget ? "approved" : "draft");
+  const isProposalApproved =
+    proposalStatus === "approved" || proposalStatus === "published" || hasApprovedTarget;
   const isProposalSubmitted = proposalStatus === "submitted" || proposalStatus === "under_review";
   const isProposalRejected = proposalStatus === "rejected";
   const isRevisionRequested = proposalStatus === "revision_requested";
+  const isReportingUnlocked = Boolean(detailBundle?.isReportingUnlocked || hasApprovedTarget);
 
   const [isRevisingProposal, setIsRevisingProposal] = useState(false);
   const [isAmendmentModalOpen, setIsAmendmentModalOpen] = useState(false);
@@ -1054,444 +1066,656 @@ export function CompanyProductionDetailView({
             </CardHeader>
 
             <CardContent className="p-6 space-y-6">
-              {/* 1. Pending Amendment Banner */}
-              {pendingAmendment && (
-                <div className="p-4 rounded-xl border border-blue-500/30 bg-blue-500/10 text-blue-900 dark:text-blue-200 text-xs flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                  <div className="flex items-start gap-3">
-                    <Clock className="h-5 w-5 text-blue-600 shrink-0 mt-0.5" />
-                    <div>
-                      <div className="font-bold flex items-center gap-1.5">
+              {hasApprovedTarget ? (
+                /* =======================================================
+                   VIEW APPROVED TARGET ALLOCATION (ACTIVE STANDARD)
+                ======================================================= */
+                <div className="space-y-6">
+                  {/* Top Pending Amendment Notification (if any) */}
+                  {pendingAmendment && (
+                    <div className="p-4 rounded-xl border border-blue-500/30 bg-blue-500/10 text-blue-900 dark:text-blue-200 text-xs flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                      <div className="flex items-start gap-3">
+                        <Clock className="h-5 w-5 text-blue-600 shrink-0 mt-0.5" />
+                        <div>
+                          <div className="font-bold flex items-center gap-1.5">
+                            <Scale className="h-4 w-4" />
+                            Target Amendment Request ({pendingAmendment.amendment_reference}) Under Federal Review
+                          </div>
+                          <p className="text-[11px] opacity-90 mt-0.5">
+                            Proposed Annual Target: <strong>{Number(pendingAmendment.proposed_annual_target).toLocaleString()} {unitSymbol}</strong> &bull; Reason: &ldquo;{pendingAmendment.amendment_reason}&rdquo;
+                          </p>
+                        </div>
+                      </div>
+                      {detailBundle?.amendmentComparison && (
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => setIsComparisonModalOpen(true)}
+                          className="h-8 text-xs gap-1.5 shrink-0 bg-white dark:bg-card text-foreground"
+                        >
+                          <Scale className="h-3.5 w-3.5 text-blue-600" />
+                          View Amendment Comparison
+                        </Button>
+                      )}
+                    </div>
+                  )}
+
+                  {/* Rejected Amendment Notice (if any) */}
+                  {!pendingAmendment && latestAmendment?.status === "amendment_rejected" && (
+                    <div className="p-4 rounded-xl border border-destructive/30 bg-destructive/10 text-destructive text-xs flex items-start gap-3">
+                      <AlertCircle className="h-5 w-5 shrink-0 mt-0.5" />
+                      <div>
+                        <div className="font-bold">
+                          Last Target Amendment Request ({latestAmendment.amendment_reference}) was Rejected
+                        </div>
+                        <p className="text-[11px] opacity-90 mt-0.5">
+                          Feedback: &ldquo;{latestAmendment.review_comments}&rdquo; &bull; The current approved target remains the active production standard.
+                        </p>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Approved Target Details Banner with SINGLE prominent Request Amendment button */}
+                  <div className="p-5 rounded-xl border border-emerald-500/30 bg-emerald-500/5 text-foreground space-y-4">
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-emerald-500/20 pb-4">
+                      <div className="flex items-start gap-3">
+                        <ShieldCheck className="h-6 w-6 text-emerald-600 shrink-0 mt-0.5" />
+                        <div>
+                          <div className="flex items-center gap-2">
+                            <h3 className="font-bold text-sm text-foreground">
+                              Approved Production Target Allocation (Version {approvedTarget?.version_number || targetProposal?.version_number || 1})
+                            </h3>
+                            <Badge className="bg-emerald-600 text-white text-[10px]">
+                              Officially Active & Locked
+                            </Badge>
+                          </div>
+                          <p className="text-xs text-muted-foreground mt-0.5">
+                            Approved by {targetProposal?.reviewed_by?.full_name || targetProposal?.reviewer?.full_name || "Federal Ministry"} &bull; Direct company edits are locked. Periodic reporting is enabled.
+                          </p>
+                        </div>
+                      </div>
+
+                      {/* Exactly ONE button for requesting amendment */}
+                      <Button
+                        type="button"
+                        size="sm"
+                        disabled={Boolean(pendingAmendment)}
+                        onClick={() => setIsAmendmentModalOpen(true)}
+                        className="h-9 text-xs gap-1.5 shrink-0 bg-amber-600 hover:bg-amber-700 text-white font-semibold shadow-xs"
+                      >
                         <Scale className="h-4 w-4" />
-                        Target Amendment Request ({pendingAmendment.amendment_reference}) Under Federal Review
+                        {pendingAmendment ? "Amendment Under Review" : "Request Target Amendment"}
+                      </Button>
+                    </div>
+
+                    {/* Summary Cards */}
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs">
+                      <div className="p-3 rounded-lg bg-card border shadow-2xs">
+                        <span className="text-[10px] text-muted-foreground uppercase font-bold tracking-wider block">Approved Annual Target</span>
+                        <span className="text-base font-bold font-mono text-emerald-700 dark:text-emerald-400 mt-0.5 block">
+                          {Number(approvedTarget?.target_quantity || targetProposal?.annual_target || annualTargetInput || 0).toLocaleString()} {unitSymbol}
+                        </span>
                       </div>
-                      <p className="text-[11px] opacity-90 mt-0.5">
-                        Proposed Annual Target: <strong>{Number(pendingAmendment.proposed_annual_target).toLocaleString()} {unitSymbol}</strong> &bull; Reason: &ldquo;{pendingAmendment.amendment_reason}&rdquo;
-                      </p>
-                    </div>
-                  </div>
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={() => setIsComparisonModalOpen(true)}
-                    className="h-8 text-xs gap-1.5 shrink-0 bg-white dark:bg-card text-foreground"
-                  >
-                    <Scale className="h-3.5 w-3.5 text-blue-600" />
-                    View Amendment Comparison
-                  </Button>
-                </div>
-              )}
-
-              {/* 2. Rejected Amendment Notice if not pending */}
-              {!pendingAmendment && latestAmendment?.status === "amendment_rejected" && (
-                <div className="p-4 rounded-xl border border-destructive/30 bg-destructive/10 text-destructive text-xs flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                  <div className="flex items-start gap-3">
-                    <AlertCircle className="h-5 w-5 shrink-0 mt-0.5" />
-                    <div>
-                      <div className="font-bold">
-                        Last Target Amendment Request ({latestAmendment.amendment_reference}) was Rejected
+                      <div className="p-3 rounded-lg bg-card border shadow-2xs">
+                        <span className="text-[10px] text-muted-foreground uppercase font-bold tracking-wider block">Production Item</span>
+                        <span className="text-xs font-semibold text-foreground mt-0.5 truncate block">
+                          {assignment.productionItem?.name}
+                        </span>
                       </div>
-                      <p className="text-[11px] opacity-90 mt-0.5">
-                        Feedback: &ldquo;{latestAmendment.review_comments}&rdquo; &bull; The original approved target remains active.
-                      </p>
-                    </div>
-                  </div>
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={() => setIsAmendmentModalOpen(true)}
-                    className="h-8 text-xs gap-1.5 shrink-0 bg-white dark:bg-card text-foreground"
-                  >
-                    <Scale className="h-3.5 w-3.5 text-amber-600" />
-                    Request New Amendment
-                  </Button>
-                </div>
-              )}
-
-              {/* 3. Approved Target Banner (Locked) */}
-              {isProposalApproved && (
-                <div className="p-4 rounded-xl border border-emerald-500/30 bg-emerald-500/10 text-emerald-900 dark:text-emerald-200 text-xs flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                  <div className="flex items-start gap-3">
-                    <ShieldCheck className="h-5 w-5 text-emerald-600 shrink-0 mt-0.5" />
-                    <div>
-                      <div className="font-bold">
-                        Approved Target Version {targetProposal?.version_number || 1} is Officially Active & Permanently Locked
+                      <div className="p-3 rounded-lg bg-card border shadow-2xs">
+                        <span className="text-[10px] text-muted-foreground uppercase font-bold tracking-wider block">Target Allocation Depth</span>
+                        <span className="text-xs font-mono font-bold uppercase text-foreground mt-0.5 block">
+                          {targetDepth}
+                        </span>
                       </div>
-                      <p className="text-[11px] opacity-90 mt-0.5">
-                        Approved by {targetProposal?.reviewed_by?.full_name || targetProposal?.reviewer?.full_name || "Federal Ministry"} &bull; Direct edits are disabled. Periodic production reporting is unlocked.
-                      </p>
+                      <div className="p-3 rounded-lg bg-card border shadow-2xs">
+                        <span className="text-[10px] text-muted-foreground uppercase font-bold tracking-wider block">Reporting Unit</span>
+                        <span className="text-xs font-semibold text-foreground mt-0.5 block">
+                          {unitName} ({unitSymbol})
+                        </span>
+                      </div>
                     </div>
                   </div>
-                  {!pendingAmendment && (
-                    <Button
-                      size="sm"
-                      onClick={() => setIsAmendmentModalOpen(true)}
-                      className="h-8 text-xs gap-1.5 shrink-0 bg-amber-600 hover:bg-amber-700 text-white font-semibold"
-                    >
-                      <Scale className="h-3.5 w-3.5" />
-                      Request Target Amendment
-                    </Button>
-                  )}
-                </div>
-              )}
 
-              {/* 4. Initial Submitted Banner */}
-              {proposalStatus === "submitted" && (
-                <div className="p-4 rounded-xl border border-blue-500/30 bg-blue-500/10 text-blue-900 dark:text-blue-200 text-xs flex items-center gap-3">
-                  <Clock className="h-5 w-5 text-blue-600 shrink-0" />
-                  <div>
-                    <span className="font-bold">Target Proposal Under Federal Review: </span>
-                    This proposal is currently being reviewed by the Federal Ministry of Mines. You will be notified once a decision is made.
-                  </div>
-                </div>
-              )}
-
-              {/* 5. Rejected Proposal Banner with Revise Action */}
-              {proposalStatus === "rejected" && (
-                <div className="p-4 rounded-xl border border-destructive/30 bg-destructive/10 text-destructive text-xs flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                  <div className="flex items-start gap-3">
-                    <AlertCircle className="h-5 w-5 shrink-0 mt-0.5" />
-                    <div>
-                      <div className="font-bold">Target Proposal Rejected by Federal Ministry</div>
-                      <p className="text-[11px] opacity-90 mt-0.5">
-                        Reviewer Feedback: &ldquo;{targetProposal?.review_comments || "Proposal does not meet standard resource allocation rules."}&rdquo;
-                      </p>
-                    </div>
-                  </div>
-                  {!isRevisingProposal && (
-                    <Button
-                      size="sm"
-                      onClick={() => setIsRevisingProposal(true)}
-                      className="h-8 text-xs gap-1.5 shrink-0 bg-destructive hover:bg-destructive/90 text-white font-semibold"
-                    >
-                      <RotateCcw className="h-3.5 w-3.5" />
-                      Revise and Resubmit Proposal
-                    </Button>
-                  )}
-                </div>
-              )}
-
-              {/* 6. Revision Requested Banner */}
-              {proposalStatus === "revision_requested" && (
-                <div className="p-4 rounded-xl border border-amber-500/30 bg-amber-500/10 text-amber-900 dark:text-amber-200 text-xs flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                  <div className="flex items-start gap-3">
-                    <RotateCcw className="h-5 w-5 text-amber-600 shrink-0 mt-0.5" />
-                    <div>
-                      <div className="font-bold">Revision Requested by Federal Reviewer</div>
-                      <p className="text-[11px] opacity-90 mt-0.5">
-                        Instructions: &ldquo;{targetProposal?.review_comments || "Please review and adjust period target allocations."}&rdquo;
-                      </p>
-                    </div>
-                  </div>
-                  {!isRevisingProposal && (
-                    <Button
-                      size="sm"
-                      onClick={() => setIsRevisingProposal(true)}
-                      className="h-8 text-xs gap-1.5 shrink-0 bg-amber-600 hover:bg-amber-700 text-white font-semibold"
-                    >
-                      <RotateCcw className="h-3.5 w-3.5" />
-                      Edit Revision & Resubmit
-                    </Button>
-                  )}
-                </div>
-              )}
-
-              {/* 6.1 Annual Target Input Row */}
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 items-end p-4 rounded-xl border bg-card">
-                <div className="space-y-2 sm:col-span-2">
-                  <Label className="text-xs font-semibold flex items-center justify-between">
-                    <span>Proposed Annual Production Target</span>
-                    <span className="text-[11px] font-normal text-muted-foreground">
-                      Unit is fixed by Federal Assignment: <strong>{unitName} ({unitSymbol})</strong>
-                    </span>
-                  </Label>
-                  <div className="relative">
-                    <Input
-                      type="number"
-                      step="any"
-                      min="0"
-                      placeholder="e.g. 1200"
-                      value={annualTargetInput}
-                      disabled={isInputsLocked}
-                      onChange={(e) => handleAnnualTargetChange(e.target.value)}
-                      className="pr-16 text-base font-bold font-mono"
-                    />
-                    <div className="absolute right-3 top-2.5 text-xs font-mono font-semibold text-muted-foreground">
-                      {unitSymbol}
-                    </div>
-                  </div>
-                </div>
-
-                <div className="space-y-1">
-                  <Button
-                    type="button"
-                    variant="outline"
-                    className="w-full text-xs h-9 gap-1.5"
-                    disabled={isInputsLocked || !targetAnnualNum}
-                    onClick={() => generatePeriodTemplates(targetDepth, targetAnnualNum)}
-                  >
-                    <RotateCcw className="h-3.5 w-3.5" />
-                    Auto-Distribute Equally
-                  </Button>
-                </div>
-              </div>
-
-              {/* 6.2 Periodic Distribution Table */}
-              <div className="space-y-3">
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-                  <div>
-                    <h3 className="text-sm font-bold text-foreground">
-                      Period Target Distribution ({targetDepth.toUpperCase()})
-                    </h3>
-                    <p className="text-xs text-muted-foreground">
-                      Adjust individual period targets to reflect seasonal extraction plans. Sum must equal the annual target.
-                    </p>
-                  </div>
-
-                  {/* 6.3 Realtime Sum Reconciliation Indicator */}
-                  <div className="flex items-center gap-2">
-                    <span className="text-xs text-muted-foreground">Total Allocated:</span>
-                    <span className="font-mono text-xs font-bold text-foreground">
-                      {totalAllocatedPeriods.toLocaleString()} {unitSymbol}
-                    </span>
-                    {isPeriodSumValid ? (
-                      <Badge className="bg-emerald-600 text-white text-[11px] gap-1">
-                        <Check className="h-3 w-3" /> Reconciled
+                  {/* Period Classification Breakdown Table */}
+                  <div className="space-y-3">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <h4 className="text-sm font-bold text-foreground">
+                          Approved Period Target Distribution ({targetDepth.toUpperCase()})
+                        </h4>
+                        <p className="text-xs text-muted-foreground">
+                          Official periodic allocations approved by Federal Ministry.
+                        </p>
+                      </div>
+                      <Badge className="bg-emerald-600 text-white text-[11px] gap-1 font-mono">
+                        <Check className="h-3 w-3" /> 100% Reconciled
                       </Badge>
+                    </div>
+
+                    <div className="border rounded-xl overflow-hidden shadow-xs">
+                      <table className="w-full text-left text-xs">
+                        <thead className="bg-muted/40 text-muted-foreground font-semibold uppercase tracking-wider border-b">
+                          <tr>
+                            <th className="py-2.5 px-4">Period</th>
+                            <th className="py-2.5 px-4">Classification</th>
+                            <th className="py-2.5 px-4">Validity Date Range</th>
+                            <th className="py-2.5 px-4 text-right">Approved Target ({unitSymbol})</th>
+                            <th className="py-2.5 px-4 text-right">Department Allocations</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y">
+                          {(detailBundle?.approvedTargetsTree?.periods || targetProposal?.periods || periodAllocations).map((p: any) => {
+                            const isExpanded = !!expandedDeptPeriods[p.period_label];
+                            const deptAllocations = p.department_allocations || [];
+
+                            return (
+                              <React.Fragment key={p.period_label}>
+                                <tr className="hover:bg-muted/15 transition-colors">
+                                  <td className="py-3 px-4 font-semibold text-foreground">
+                                    {p.period_label}
+                                  </td>
+                                  <td className="py-3 px-4 capitalize font-mono text-muted-foreground">
+                                    {p.target_period_type || targetDepth}
+                                  </td>
+                                  <td className="py-3 px-4 font-mono text-muted-foreground">
+                                    {p.period_start_date} &rarr; {p.period_end_date}
+                                  </td>
+                                  <td className="py-3 px-4 text-right font-mono font-bold text-foreground">
+                                    {Number(p.target_quantity || 0).toLocaleString()} {unitSymbol}
+                                  </td>
+                                  <td className="py-3 px-4 text-right">
+                                    {deptAllocations.length > 0 ? (
+                                      <Button
+                                        type="button"
+                                        size="sm"
+                                        variant="ghost"
+                                        onClick={() => toggleDeptPeriod(p.period_label)}
+                                        className="h-7 text-xs gap-1 font-medium text-primary"
+                                      >
+                                        {isExpanded ? (
+                                          <ChevronDown className="h-3.5 w-3.5" />
+                                        ) : (
+                                          <ChevronRight className="h-3.5 w-3.5" />
+                                        )}
+                                        <span>{deptAllocations.length} Depts</span>
+                                      </Button>
+                                    ) : (
+                                      <span className="text-muted-foreground italic text-[11px]">Company Level</span>
+                                    )}
+                                  </td>
+                                </tr>
+
+                                {isExpanded && deptAllocations.length > 0 && (
+                                  <tr className="bg-muted/20 border-b">
+                                    <td colSpan={5} className="p-4 space-y-2">
+                                      <div className="text-xs font-semibold text-foreground flex items-center gap-1.5">
+                                        <Building2 className="h-4 w-4 text-primary" />
+                                        <span>Department Allocations for {p.period_label}</span>
+                                      </div>
+                                      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2">
+                                        {deptAllocations.map((d: any) => (
+                                          <div
+                                            key={d.target_id || d.company_structure_id}
+                                            className="p-2 rounded-lg border bg-card flex items-center justify-between text-xs shadow-2xs"
+                                          >
+                                            <span className="font-medium text-foreground truncate">
+                                              {d.department?.name || d.name || "Department"}
+                                            </span>
+                                            <span className="font-mono font-bold text-emerald-700 dark:text-emerald-400">
+                                              {Number(d.target_quantity).toLocaleString()} {unitSymbol}
+                                            </span>
+                                          </div>
+                                        ))}
+                                      </div>
+                                    </td>
+                                  </tr>
+                                )}
+                              </React.Fragment>
+                            );
+                          })}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+
+                  {/* List of Other Requests: Target Amendment Requests & Review History */}
+                  <div className="space-y-3 pt-4 border-t">
+                    <div>
+                      <h4 className="text-sm font-bold text-foreground flex items-center gap-2">
+                        <Scale className="h-4 w-4 text-amber-600" />
+                        Target Amendment Requests & Review History
+                      </h4>
+                      <p className="text-xs text-muted-foreground">
+                        Formal target modification requests submitted to the Federal Ministry.
+                      </p>
+                    </div>
+
+                    {(detailBundle?.allAmendments || []).length === 0 ? (
+                      <div className="p-6 text-center text-xs text-muted-foreground border rounded-xl bg-card italic">
+                        No target amendment requests submitted yet. The active approved target remains the binding standard.
+                      </div>
                     ) : (
-                      <Badge variant="destructive" className="text-[11px] gap-1">
-                        Difference: {periodDifference > 0 ? `+${periodDifference}` : periodDifference} {unitSymbol}
-                      </Badge>
+                      <div className="border rounded-xl overflow-hidden shadow-xs">
+                        <table className="w-full text-left text-xs">
+                          <thead className="bg-muted/40 text-muted-foreground font-semibold uppercase tracking-wider border-b">
+                            <tr>
+                              <th className="py-2.5 px-4">Ref #</th>
+                              <th className="py-2.5 px-4">Status</th>
+                              <th className="py-2.5 px-4 text-right">Proposed Annual Target</th>
+                              <th className="py-2.5 px-4">Reason</th>
+                              <th className="py-2.5 px-4">Submitted Date</th>
+                              <th className="py-2.5 px-4">Review Decision / Comments</th>
+                              <th className="py-2.5 px-4 text-right">Action</th>
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y">
+                            {(detailBundle?.allAmendments || []).map((amendment) => {
+                              const isApproved = amendment.status === "amendment_approved";
+                              const isPending = amendment.status === "amendment_submitted" || amendment.status === "amendment_under_review";
+                              const isRejected = amendment.status === "amendment_rejected";
+
+                              return (
+                                <tr key={amendment.amendment_id} className="hover:bg-muted/15 transition-colors">
+                                  <td className="py-3 px-4 font-mono font-bold text-foreground">
+                                    {amendment.amendment_reference}
+                                  </td>
+                                  <td className="py-3 px-4">
+                                    <Badge
+                                      variant="outline"
+                                      className={
+                                        isApproved
+                                          ? "bg-emerald-500/10 text-emerald-600 border-emerald-500/30"
+                                          : isPending
+                                          ? "bg-blue-500/10 text-blue-600 border-blue-500/30"
+                                          : isRejected
+                                          ? "bg-destructive/10 text-destructive border-destructive/30"
+                                          : "bg-muted text-muted-foreground"
+                                      }
+                                    >
+                                      {amendment.status.replace(/_/g, " ").toUpperCase()}
+                                    </Badge>
+                                  </td>
+                                  <td className="py-3 px-4 text-right font-mono font-bold text-foreground">
+                                    {Number(amendment.proposed_annual_target).toLocaleString()} {unitSymbol}
+                                  </td>
+                                  <td className="py-3 px-4 max-w-[200px] truncate text-muted-foreground" title={amendment.amendment_reason || ""}>
+                                    {amendment.amendment_reason || "Target amendment request"}
+                                  </td>
+                                  <td className="py-3 px-4 text-muted-foreground">
+                                    {amendment.submitted_at ? new Date(amendment.submitted_at).toLocaleDateString() : "—"}
+                                  </td>
+                                  <td className="py-3 px-4 max-w-[180px] truncate text-muted-foreground" title={amendment.review_comments || ""}>
+                                    {amendment.review_comments || "—"}
+                                  </td>
+                                  <td className="py-3 px-4 text-right">
+                                    {detailBundle?.amendmentComparison && (
+                                      <Button
+                                        size="sm"
+                                        variant="outline"
+                                        onClick={() => setIsComparisonModalOpen(true)}
+                                        className="h-7 text-xs px-2 gap-1 text-primary"
+                                      >
+                                        <Layers className="h-3 w-3" />
+                                        Compare
+                                      </Button>
+                                    )}
+                                  </td>
+                                </tr>
+                              );
+                            })}
+                          </tbody>
+                        </table>
+                      </div>
                     )}
                   </div>
-                </div>
-
-                {/* Table of periods */}
-                <div className="border rounded-xl overflow-hidden shadow-xs">
-                  <table className="w-full text-left text-xs">
-                    <thead className="bg-muted/40 text-muted-foreground font-semibold uppercase tracking-wider border-b">
-                      <tr>
-                        <th className="py-2.5 px-4">Period</th>
-                        <th className="py-2.5 px-4">Date Range</th>
-                        <th className="py-2.5 px-4">Target Quantity ({unitSymbol})</th>
-                        <th className="py-2.5 px-4 text-right">Department Tree Allocation</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y">
-                      {periodAllocations.map((p, pIdx) => {
-                        const isExpanded = !!expandedDeptPeriods[p.period_label];
-                        const deptAllocations = p.department_allocations || [];
-                        const deptAllocSum = deptAllocations.reduce(
-                          (sum, d) => sum + (Number(d.target_quantity) || 0),
-                          0
-                        );
-                        const hasDeptReconcileError =
-                          deptAllocations.length > 0 &&
-                          Math.abs(deptAllocSum - (Number(p.target_quantity) || 0)) > 0.0001;
-
-                        return (
-                          <React.Fragment key={p.period_label}>
-                            <tr className="hover:bg-muted/15 transition-colors">
-                              <td className="py-3 px-4 font-semibold text-foreground">
-                                {p.period_label}
-                              </td>
-                              <td className="py-3 px-4 font-mono text-muted-foreground">
-                                {p.period_start_date} &rarr; {p.period_end_date}
-                              </td>
-                              <td className="py-3 px-4">
-                                <div className="relative max-w-[180px]">
-                                  <Input
-                                    type="number"
-                                    step="any"
-                                    min="0"
-                                    value={p.target_quantity ?? ""}
-                                    disabled={isInputsLocked}
-                                    onChange={(e) => handlePeriodQuantityChange(pIdx, e.target.value)}
-                                    className="h-8 font-mono text-xs pr-10 font-medium"
-                                  />
-                                  <span className="absolute right-2.5 top-2 text-[10px] font-mono text-muted-foreground">
-                                    {unitSymbol}
-                                  </span>
-                                </div>
-                              </td>
-                              <td className="py-3 px-4 text-right">
-                                <Button
-                                  type="button"
-                                  size="sm"
-                                  variant="ghost"
-                                  onClick={() => toggleDeptPeriod(p.period_label)}
-                                  className="h-7 text-xs gap-1 font-medium text-primary"
-                                >
-                                  {isExpanded ? (
-                                    <ChevronDown className="h-3.5 w-3.5" />
-                                  ) : (
-                                    <ChevronRight className="h-3.5 w-3.5" />
-                                  )}
-                                  <span>
-                                    {deptAllocations.length > 0
-                                      ? `${deptAllocations.length} Depts Allocated`
-                                      : "Allocate to Depts"}
-                                  </span>
-                                </Button>
-                              </td>
-                            </tr>
-
-                            {/* 6.4 Tree-based Organizational Hierarchy Allocation Section */}
-                            {isExpanded && (
-                              <tr className="bg-muted/20 border-b">
-                                <td colSpan={4} className="p-4 space-y-3">
-                                  <div className="flex items-center justify-between border-b pb-2">
-                                    <div className="text-xs font-semibold text-foreground flex items-center gap-1.5">
-                                      <Building2 className="h-4 w-4 text-primary" />
-                                      <span>Department Target Allocation for {p.period_label}</span>
-                                    </div>
-                                    <div className="flex items-center gap-2 text-xs">
-                                      <span className="text-muted-foreground">Total Assigned to Depts:</span>
-                                      <span className="font-mono font-bold text-foreground">
-                                        {deptAllocSum.toFixed(2)} / {Number(p.target_quantity || 0).toFixed(2)} {unitSymbol}
-                                      </span>
-                                      {hasDeptReconcileError && (
-                                        <Badge variant="destructive" className="text-[10px]">
-                                          Unallocated: {(Number(p.target_quantity || 0) - deptAllocSum).toFixed(2)}
-                                        </Badge>
-                                      )}
-                                    </div>
-                                  </div>
-
-                                  {structures.length === 0 ? (
-                                    <div className="text-xs text-muted-foreground italic py-2">
-                                      No internal departments configured for this company. Targets will remain at the company level.
-                                    </div>
-                                  ) : (
-                                    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
-                                      {structures.map((s) => {
-                                        const alloc = deptAllocations.find(
-                                          (d) => d.company_structure_id === s.company_structure_id
-                                        );
-                                        const allocVal = alloc ? alloc.target_quantity : "";
-
-                                        return (
-                                          <div
-                                            key={s.company_structure_id}
-                                            className="p-2.5 rounded-lg border bg-card space-y-1.5 shadow-2xs"
-                                          >
-                                            <div className="flex items-center justify-between text-xs">
-                                              <span className="font-semibold text-foreground truncate">
-                                                {s.name}
-                                              </span>
-                                              <span className="text-[10px] text-muted-foreground font-mono">
-                                                L{s.level}
-                                              </span>
-                                            </div>
-                                            <div className="relative">
-                                              <Input
-                                                type="number"
-                                                step="any"
-                                                min="0"
-                                                placeholder="0"
-                                                disabled={isInputsLocked}
-                                                value={allocVal}
-                                                onChange={(e) =>
-                                                  handleDeptAllocationChange(
-                                                    pIdx,
-                                                    s.company_structure_id,
-                                                    e.target.value
-                                                  )
-                                                }
-                                                className="h-7 text-xs font-mono pr-9"
-                                              />
-                                              <span className="absolute right-2 top-1.5 text-[10px] font-mono text-muted-foreground">
-                                                {unitSymbol}
-                                              </span>
-                                            </div>
-                                          </div>
-                                        );
-                                      })}
-                                    </div>
-                                  )}
-                                </td>
-                              </tr>
-                            )}
-                          </React.Fragment>
-                        );
-                      })}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-
-              {/* Submission Notes */}
-              <div className="space-y-1.5">
-                <Label className="text-xs font-semibold">Proposal Submission Notes / Justification</Label>
-                <Textarea
-                  placeholder="Provide operational plan context, expected grade, seasonal constraints, or extraction methodology for Federal reviewers..."
-                  value={submissionNotes}
-                  disabled={isInputsLocked}
-                  onChange={(e) => setSubmissionNotes(e.target.value)}
-                  className="text-xs h-20"
-                />
-              </div>
-
-              {/* Action Buttons */}
-              {isProposalApproved ? (
-                <div className="flex flex-col sm:flex-row items-center justify-between gap-3 pt-3 border-t">
-                  <div className="text-xs text-muted-foreground flex items-center gap-1.5">
-                    <ShieldCheck className="h-4 w-4 text-emerald-600" />
-                    <span>Approved targets cannot be directly modified. To request adjustments, submit a formal amendment.</span>
-                  </div>
-                  <Button
-                    type="button"
-                    size="sm"
-                    disabled={Boolean(pendingAmendment)}
-                    onClick={() => setIsAmendmentModalOpen(true)}
-                    className="text-xs h-9 gap-1.5 bg-amber-600 hover:bg-amber-700 text-white font-semibold"
-                  >
-                    <Scale className="h-4 w-4" />
-                    {pendingAmendment ? "Amendment Under Federal Review" : "Request Target Amendment"}
-                  </Button>
-                </div>
-              ) : isProposalSubmitted ? (
-                <div className="flex items-center justify-between pt-3 border-t text-xs text-muted-foreground">
-                  <span className="flex items-center gap-1.5 text-blue-600 font-semibold">
-                    <Clock className="h-4 w-4" />
-                    Target proposal is currently under Federal evaluation. Direct edits are locked.
-                  </span>
                 </div>
               ) : (
-                <div className="flex flex-col sm:flex-row items-center justify-between gap-3 pt-3 border-t">
-                  <div className="text-xs text-muted-foreground">
-                    {!isTargetProposalValid ? (
-                      <span className="text-destructive font-semibold">
-                        &bull; Resolve target sum and department reconciliation errors before submitting.
-                      </span>
-                    ) : (
-                      <span className="text-emerald-600 font-semibold">
-                        &bull; Target allocation perfectly reconciled and ready for Federal review.
-                      </span>
-                    )}
+                /* =======================================================
+                   INITIAL PROPOSAL FORMULATION & SUBMISSION FORM
+                ======================================================= */
+                <div className="space-y-6">
+                  {/* Initial Submitted Banner */}
+                  {proposalStatus === "submitted" && (
+                    <div className="p-4 rounded-xl border border-blue-500/30 bg-blue-500/10 text-blue-900 dark:text-blue-200 text-xs flex items-center gap-3">
+                      <Clock className="h-5 w-5 text-blue-600 shrink-0" />
+                      <div>
+                        <span className="font-bold">Target Proposal Under Federal Review: </span>
+                        This proposal is currently being reviewed by the Federal Ministry of Mines. You will be notified once a decision is made.
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Rejected Proposal Banner with Revise Action */}
+                  {proposalStatus === "rejected" && (
+                    <div className="p-4 rounded-xl border border-destructive/30 bg-destructive/10 text-destructive text-xs flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                      <div className="flex items-start gap-3">
+                        <AlertCircle className="h-5 w-5 shrink-0 mt-0.5" />
+                        <div>
+                          <div className="font-bold">Target Proposal Rejected by Federal Ministry</div>
+                          <p className="text-[11px] opacity-90 mt-0.5">
+                            Reviewer Feedback: &ldquo;{targetProposal?.review_comments || "Proposal does not meet standard resource allocation rules."}&rdquo;
+                          </p>
+                        </div>
+                      </div>
+                      {!isRevisingProposal && (
+                        <Button
+                          size="sm"
+                          onClick={() => setIsRevisingProposal(true)}
+                          className="h-8 text-xs gap-1.5 shrink-0 bg-destructive hover:bg-destructive/90 text-white font-semibold"
+                        >
+                          <RotateCcw className="h-3.5 w-3.5" />
+                          Revise and Resubmit Proposal
+                        </Button>
+                      )}
+                    </div>
+                  )}
+
+                  {/* Revision Requested Banner */}
+                  {proposalStatus === "revision_requested" && (
+                    <div className="p-4 rounded-xl border border-amber-500/30 bg-amber-500/10 text-amber-900 dark:text-amber-200 text-xs flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                      <div className="flex items-start gap-3">
+                        <RotateCcw className="h-5 w-5 text-amber-600 shrink-0 mt-0.5" />
+                        <div>
+                          <div className="font-bold">Revision Requested by Federal Reviewer</div>
+                          <p className="text-[11px] opacity-90 mt-0.5">
+                            Instructions: &ldquo;{targetProposal?.review_comments || "Please review and adjust period target allocations."}&rdquo;
+                          </p>
+                        </div>
+                      </div>
+                      {!isRevisingProposal && (
+                        <Button
+                          size="sm"
+                          onClick={() => setIsRevisingProposal(true)}
+                          className="h-8 text-xs gap-1.5 shrink-0 bg-amber-600 hover:bg-amber-700 text-white font-semibold"
+                        >
+                          <RotateCcw className="h-3.5 w-3.5" />
+                          Edit Revision & Resubmit
+                        </Button>
+                      )}
+                    </div>
+                  )}
+
+                  {/* Annual Target Input Row */}
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 items-end p-4 rounded-xl border bg-card">
+                    <div className="space-y-2 sm:col-span-2">
+                      <Label className="text-xs font-semibold flex items-center justify-between">
+                        <span>Proposed Annual Production Target</span>
+                        <span className="text-[11px] font-normal text-muted-foreground">
+                          Unit is fixed by Federal Assignment: <strong>{unitName} ({unitSymbol})</strong>
+                        </span>
+                      </Label>
+                      <div className="relative">
+                        <Input
+                          type="number"
+                          step="any"
+                          min="0"
+                          placeholder="e.g. 1200"
+                          value={annualTargetInput}
+                          disabled={isInputsLocked}
+                          onChange={(e) => handleAnnualTargetChange(e.target.value)}
+                          className="pr-16 text-base font-bold font-mono"
+                        />
+                        <div className="absolute right-3 top-2.5 text-xs font-mono font-semibold text-muted-foreground">
+                          {unitSymbol}
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="space-y-1">
+                      <Button
+                        type="button"
+                        variant="outline"
+                        className="w-full text-xs h-9 gap-1.5"
+                        disabled={isInputsLocked || !targetAnnualNum}
+                        onClick={() => generatePeriodTemplates(targetDepth, targetAnnualNum)}
+                      >
+                        <RotateCcw className="h-3.5 w-3.5" />
+                        Auto-Distribute Equally
+                      </Button>
+                    </div>
                   </div>
 
-                  <div className="flex items-center gap-3">
-                    <Button
-                      type="button"
-                      variant="outline"
-                      disabled={isSavingTarget}
-                      onClick={() => handleSaveProposal(false)}
-                      className="text-xs h-9 gap-1.5"
-                    >
-                      <Save className="h-4 w-4" />
-                      Save Draft
-                    </Button>
+                  {/* Periodic Distribution Table */}
+                  <div className="space-y-3">
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                      <div>
+                        <h3 className="text-sm font-bold text-foreground">
+                          Period Target Distribution ({targetDepth.toUpperCase()})
+                        </h3>
+                        <p className="text-xs text-muted-foreground">
+                          Adjust individual period targets to reflect seasonal extraction plans. Sum must equal the annual target.
+                        </p>
+                      </div>
 
-                    <Button
-                      type="button"
-                      disabled={!isTargetProposalValid || isSavingTarget}
-                      onClick={() => handleSaveProposal(true)}
-                      className="text-xs h-9 gap-1.5 bg-primary hover:bg-primary/90 text-white"
-                    >
-                      <Send className="h-4 w-4" />
-                      {isRevisingProposal ? "Resubmit for Federal Review" : "Submit for Federal Review"}
-                    </Button>
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs text-muted-foreground">Total Allocated:</span>
+                        <span className="font-mono text-xs font-bold text-foreground">
+                          {totalAllocatedPeriods.toLocaleString()} {unitSymbol}
+                        </span>
+                        {isPeriodSumValid ? (
+                          <Badge className="bg-emerald-600 text-white text-[11px] gap-1">
+                            <Check className="h-3 w-3" /> Reconciled
+                          </Badge>
+                        ) : (
+                          <Badge variant="destructive" className="text-[11px] gap-1">
+                            Difference: {periodDifference > 0 ? `+${periodDifference}` : periodDifference} {unitSymbol}
+                          </Badge>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Table of periods */}
+                    <div className="border rounded-xl overflow-hidden shadow-xs">
+                      <table className="w-full text-left text-xs">
+                        <thead className="bg-muted/40 text-muted-foreground font-semibold uppercase tracking-wider border-b">
+                          <tr>
+                            <th className="py-2.5 px-4">Period</th>
+                            <th className="py-2.5 px-4">Date Range</th>
+                            <th className="py-2.5 px-4">Target Quantity ({unitSymbol})</th>
+                            <th className="py-2.5 px-4 text-right">Department Tree Allocation</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y">
+                          {periodAllocations.map((p, pIdx) => {
+                            const isExpanded = !!expandedDeptPeriods[p.period_label];
+                            const deptAllocations = p.department_allocations || [];
+                            const deptAllocSum = deptAllocations.reduce(
+                              (sum, d) => sum + (Number(d.target_quantity) || 0),
+                              0
+                            );
+                            const hasDeptReconcileError =
+                              deptAllocations.length > 0 &&
+                              Math.abs(deptAllocSum - (Number(p.target_quantity) || 0)) > 0.0001;
+
+                            return (
+                              <React.Fragment key={p.period_label}>
+                                <tr className="hover:bg-muted/15 transition-colors">
+                                  <td className="py-3 px-4 font-semibold text-foreground">
+                                    {p.period_label}
+                                  </td>
+                                  <td className="py-3 px-4 font-mono text-muted-foreground">
+                                    {p.period_start_date} &rarr; {p.period_end_date}
+                                  </td>
+                                  <td className="py-3 px-4">
+                                    <div className="relative max-w-[180px]">
+                                      <Input
+                                        type="number"
+                                        step="any"
+                                        min="0"
+                                        value={p.target_quantity ?? ""}
+                                        disabled={isInputsLocked}
+                                        onChange={(e) => handlePeriodQuantityChange(pIdx, e.target.value)}
+                                        className="h-8 font-mono text-xs pr-10 font-medium"
+                                      />
+                                      <span className="absolute right-2.5 top-2 text-[10px] font-mono text-muted-foreground">
+                                        {unitSymbol}
+                                      </span>
+                                    </div>
+                                  </td>
+                                  <td className="py-3 px-4 text-right">
+                                    <Button
+                                      type="button"
+                                      size="sm"
+                                      variant="ghost"
+                                      onClick={() => toggleDeptPeriod(p.period_label)}
+                                      className="h-7 text-xs gap-1 font-medium text-primary"
+                                    >
+                                      {isExpanded ? (
+                                        <ChevronDown className="h-3.5 w-3.5" />
+                                      ) : (
+                                        <ChevronRight className="h-3.5 w-3.5" />
+                                      )}
+                                      <span>
+                                        {deptAllocations.length > 0
+                                          ? `${deptAllocations.length} Depts Allocated`
+                                          : "Allocate to Depts"}
+                                      </span>
+                                    </Button>
+                                  </td>
+                                </tr>
+
+                                {isExpanded && (
+                                  <tr className="bg-muted/20 border-b">
+                                    <td colSpan={4} className="p-4 space-y-3">
+                                      <div className="flex items-center justify-between border-b pb-2">
+                                        <div className="text-xs font-semibold text-foreground flex items-center gap-1.5">
+                                          <Building2 className="h-4 w-4 text-primary" />
+                                          <span>Department Target Allocation for {p.period_label}</span>
+                                        </div>
+                                        <div className="flex items-center gap-2 text-xs">
+                                          <span className="text-muted-foreground">Total Assigned to Depts:</span>
+                                          <span className="font-mono font-bold text-foreground">
+                                            {deptAllocSum.toFixed(2)} / {Number(p.target_quantity || 0).toFixed(2)} {unitSymbol}
+                                          </span>
+                                          {hasDeptReconcileError && (
+                                            <Badge variant="destructive" className="text-[10px]">
+                                              Unallocated: {(Number(p.target_quantity || 0) - deptAllocSum).toFixed(2)}
+                                            </Badge>
+                                          )}
+                                        </div>
+                                      </div>
+
+                                      {structures.length === 0 ? (
+                                        <div className="text-xs text-muted-foreground italic py-2">
+                                          No internal departments configured for this company. Targets will remain at the company level.
+                                        </div>
+                                      ) : (
+                                        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
+                                          {structures.map((s) => {
+                                            const alloc = deptAllocations.find(
+                                              (d) => d.company_structure_id === s.company_structure_id
+                                            );
+                                            const allocVal = alloc ? alloc.target_quantity : "";
+
+                                            return (
+                                              <div
+                                                key={s.company_structure_id}
+                                                className="p-2.5 rounded-lg border bg-card space-y-1.5 shadow-2xs"
+                                              >
+                                                <div className="flex items-center justify-between text-xs">
+                                                  <span className="font-semibold text-foreground truncate">
+                                                    {s.name}
+                                                  </span>
+                                                  <span className="text-[10px] text-muted-foreground font-mono">
+                                                    L{s.level}
+                                                  </span>
+                                                </div>
+                                                <div className="relative">
+                                                  <Input
+                                                    type="number"
+                                                    step="any"
+                                                    min="0"
+                                                    placeholder="0"
+                                                    disabled={isInputsLocked}
+                                                    value={allocVal}
+                                                    onChange={(e) =>
+                                                      handleDeptAllocationChange(
+                                                        pIdx,
+                                                        s.company_structure_id,
+                                                        e.target.value
+                                                      )
+                                                    }
+                                                    className="h-7 text-xs font-mono pr-9"
+                                                  />
+                                                  <span className="absolute right-2 top-1.5 text-[10px] font-mono text-muted-foreground">
+                                                    {unitSymbol}
+                                                  </span>
+                                                </div>
+                                              </div>
+                                            );
+                                          })}
+                                        </div>
+                                      )}
+                                    </td>
+                                  </tr>
+                                )}
+                              </React.Fragment>
+                            );
+                          })}
+                        </tbody>
+                      </table>
+                    </div>
                   </div>
+
+                  {/* Submission Notes */}
+                  <div className="space-y-1.5">
+                    <Label className="text-xs font-semibold">Proposal Submission Notes / Justification</Label>
+                    <Textarea
+                      placeholder="Provide operational plan context, expected grade, seasonal constraints, or extraction methodology for Federal reviewers..."
+                      value={submissionNotes}
+                      disabled={isInputsLocked}
+                      onChange={(e) => setSubmissionNotes(e.target.value)}
+                      className="text-xs h-20"
+                    />
+                  </div>
+
+                  {/* Action Buttons */}
+                  {isProposalSubmitted ? (
+                    <div className="flex items-center justify-between pt-3 border-t text-xs text-muted-foreground">
+                      <span className="flex items-center gap-1.5 text-blue-600 font-semibold">
+                        <Clock className="h-4 w-4" />
+                        Target proposal is currently under Federal evaluation. Direct edits are locked.
+                      </span>
+                    </div>
+                  ) : (
+                    <div className="flex flex-col sm:flex-row items-center justify-between gap-3 pt-3 border-t">
+                      <div className="text-xs text-muted-foreground">
+                        {!isTargetProposalValid ? (
+                          <span className="text-destructive font-semibold">
+                            &bull; Resolve target sum and department reconciliation errors before submitting.
+                          </span>
+                        ) : (
+                          <span className="text-emerald-600 font-semibold">
+                            &bull; Target allocation perfectly reconciled and ready for Federal review.
+                          </span>
+                        )}
+                      </div>
+
+                      <div className="flex items-center gap-3">
+                        <Button
+                          type="button"
+                          variant="outline"
+                          disabled={isSavingTarget}
+                          onClick={() => handleSaveProposal(false)}
+                          className="text-xs h-9 gap-1.5"
+                        >
+                          <Save className="h-4 w-4" />
+                          Save Draft
+                        </Button>
+
+                        <Button
+                          type="button"
+                          disabled={!isTargetProposalValid || isSavingTarget}
+                          onClick={() => handleSaveProposal(true)}
+                          className="text-xs h-9 gap-1.5 bg-primary hover:bg-primary/90 text-white"
+                        >
+                          <Send className="h-4 w-4" />
+                          {isRevisingProposal ? "Resubmit for Federal Review" : "Submit for Federal Review"}
+                        </Button>
+                      </div>
+                    </div>
+                  )}
                 </div>
               )}
             </CardContent>
@@ -2011,6 +2235,29 @@ export function CompanyProductionDetailView({
           </Dialog>
         </TabsContent>
       </Tabs>
+
+      {/* Target Amendment Request Modal */}
+      {isAmendmentModalOpen && assignment && detailBundle && (
+        <CompanyTargetAmendmentModal
+          isOpen={isAmendmentModalOpen}
+          onClose={() => setIsAmendmentModalOpen(false)}
+          assignmentId={assignmentId || ""}
+          detailBundle={detailBundle}
+          onSuccess={() => {
+            setIsAmendmentModalOpen(false);
+            refetchDetail();
+          }}
+        />
+      )}
+
+      {/* Target Amendment Comparison Modal */}
+      {isComparisonModalOpen && detailBundle?.amendmentComparison && (
+        <CompanyTargetAmendmentComparisonModal
+          isOpen={isComparisonModalOpen}
+          onClose={() => setIsComparisonModalOpen(false)}
+          comparison={detailBundle.amendmentComparison}
+        />
+      )}
     </div>
   );
 }

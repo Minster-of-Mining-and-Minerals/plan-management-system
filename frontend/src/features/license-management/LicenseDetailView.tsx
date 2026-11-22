@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
 import dynamic from "next/dynamic";
 import {
@@ -133,6 +133,12 @@ export function LicenseDetailView({ licenseId }: { licenseId: string }) {
   const [adminEffectiveStart, setAdminEffectiveStart] = useState("2026-07-08");
   const [adminEffectiveEnd, setAdminEffectiveEnd] = useState("2027-07-07");
   const [adminDescription, setAdminDescription] = useState("");
+
+  const handleGisCoordinateChange = useCallback((geojson: any, latitude: number | null, longitude: number | null) => {
+    setBoundaryGeoJson(geojson);
+    setGisLatitude(latitude);
+    setGisLongitude(longitude);
+  }, []);
 
   // Populate GIS edit state when license loads
   useEffect(() => {
@@ -420,11 +426,7 @@ export function LicenseDetailView({ licenseId }: { licenseId: string }) {
                   initialGeoJSON={boundaryGeoJson}
                   initialLatitude={gisLatitude}
                   initialLongitude={gisLongitude}
-                  onChange={(geojson, latitude, longitude) => {
-                    setBoundaryGeoJson(geojson);
-                    setGisLatitude(latitude);
-                    setGisLongitude(longitude);
-                  }}
+                  onChange={handleGisCoordinateChange}
                 />
 
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4 pt-2">

@@ -1,63 +1,34 @@
+"use strict";
 "use client";
 
 import { useState, useEffect, useMemo } from "react";
 import { Link, usePathname } from "@/i18n/navigation";
-import { useParams, useRouter } from "next/navigation";
+import { useParams } from "next/navigation";
 import Image from "next/image";
-import { ChevronRight } from "lucide-react";
+import { Building2, ChevronRight, MapPin } from "lucide-react";
 import { canAccessItem } from "@/lib/can-access";
 import { usePermissions } from "@/hooks/usePermissions";
 import { useBranding } from "@/providers/BrandingProvider";
 import {
-  sidebarTopNavClasses,
-  sidebarTopNavCollapsibleClasses,
-  sidebarSubNavClasses,
-} from "@/lib/branding/sidebarNavClasses";
-import { isNavChildActive } from "@/lib/navigationActive";
-import { REGIONAL_NAVIGATION } from "@/regional.navigation.config";
+  REGIONAL_CATEGORIZED_NAVIGATION,
+  type NavCategory,
+  type NavItem,
+} from "@/regional.navigation.config";
 
 import {
   Sidebar,
   SidebarContent,
-  SidebarGroup,
-  SidebarGroupContent,
   SidebarHeader,
   SidebarMenu,
-  SidebarMenuButton,
   SidebarMenuItem,
-  SidebarMenuSub,
-  SidebarMenuSubItem,
-  SidebarMenuSubButton,
 } from "@/components/ui/sidebar";
-
-import {
-  Collapsible,
-  CollapsibleContent,
-  CollapsibleTrigger,
-} from "@/components/ui/collapsible";
-
-function isNavSectionActive(
-  pathname: string,
-  item: { url: string; children?: { url: string }[] }
-) {
-  if (pathname === item.url || pathname.startsWith(`${item.url}/`)) {
-    return true;
-  }
-
-  const childUrls = item.children?.map((child) => child.url) ?? [];
-  return (
-    item.children?.some((child) =>
-      isNavChildActive(pathname, child.url, childUrls)
-    ) ?? false
-  );
-}
 
 export function RegionalAppSidebar({ regionId }: { regionId?: string }) {
   const [mounted, setMounted] = useState(false);
+  const [openSections, setOpenSections] = useState<Record<string, boolean>>({});
   const { branding, logoPrimaryUrl } = useBranding();
   const { permissions: userPermissions } = usePermissions();
   const pathname = usePathname();
-  const router = useRouter();
   const params = useParams<{ id?: string }>();
 
   useEffect(() => {
@@ -72,65 +43,115 @@ export function RegionalAppSidebar({ regionId }: { regionId?: string }) {
       : `/${activeRegionId}`
     : "/regional";
 
-  const regionalNavItems = useMemo(() => {
-    return REGIONAL_NAVIGATION.map((item) => {
-      const mappedUrl =
-        item.url === "/regional" || item.url === "/regional/dashboard"
-          ? basePath
-          : item.url.replace(/^\/regional/, basePath);
+  // Map category navigation URLs with active region basePath
+  const categorizedNav = useMemo<NavCategory[]>(() => {
+    return REGIONAL_CATEGORIZED_NAVIGATION.map((cat) => {
+      const mappedItems = cat.items.map((item) => {
+        const mappedUrl =
+          item.url === "/regional" || item.url === "/regional/dashboard"
+            ? basePath
+            : item.url.replace(/^\/regional/, basePath);
 
-      const mappedChildren = item.children?.map((child) => ({
-        ...child,
-        url: child.url.replace(/^\/regional/, basePath),
-      }));
+        const mappedChildren = item.children?.map((child) => ({
+          ...child,
+          url: child.url.replace(/^\/regional/, basePath),
+        }));
+
+        return {
+          ...item,
+          url: mappedUrl,
+          children: mappedChildren,
+        };
+      });
 
       return {
-        ...item,
-        url: mappedUrl,
-        children: mappedChildren,
+        category: cat.category,
+        items: mappedItems,
       };
     });
   }, [basePath]);
 
-  const visibleNav = useMemo(
-    () =>
-      regionalNavItems
-        .filter((item) => canAccessItem(item, userPermissions))
-        .map((item) => ({
-          ...item,
-          children: item.children?.filter((child) =>
-            canAccessItem(child, userPermissions)
-          ),
-        }))
-        .filter((item) => !item.children || item.children.length > 0),
-    [regionalNavItems, userPermissions]
-  );
+  // Filter accessible items based on user permissions
+  const visibleCategories = useMemo<NavCategory[]>(() => {
+    return categorizedNav
+      .map((cat) => {
+        const visibleItems = cat.items
+          .filter((item) => canAccessItem(item, userPermissions))
+          .map((item) => ({
+            ...item,
+            children: item.children?.filter((child) =>
+              canAccessItem(child, userPermissions)
+            ),
+          }))
+          .filter((item) => !item.children || item.children.length > 0);
+
+        return {
+          category: cat.category,
+          items: visibleItems,
+        };
+      })
+      .filter((cat) => cat.items.length > 0);
+  }, [categorizedNav, userPermissions]);
+
+  // Active check helper
+  const isDashboardUrl = (url: string) =>
+    url === basePath || url === `${basePath}/dashboard`;
+
+  const isItemActive = (itemUrl: string) => {
+    if (isDashboardUrl(itemUrl)) {
+      return (
+        pathname === basePath ||
+        pathname === `${basePath}/dashboard` ||
+        pathname === `${basePath}/`
+      );
+    }
+    return pathname === itemUrl || pathname.startsWith(`${itemUrl}/`);
+  };
+
+  const isAnyChildActive = (item: NavItem) => {
+    if (!item.children || item.children.length === 0) return false;
+    return item.children.some((child) => isItemActive(child.url));
+  };
+
+  const toggleSection = (title: string, defaultOpen: boolean) => {
+    setOpenSections((prev) => ({
+      ...prev,
+      [title]: prev[title] !== undefined ? !prev[title] : !defaultOpen,
+    }));
+  };
 
   return (
-    <Sidebar collapsible="icon" variant="floating" className="hide-scrollbar">
+    <Sidebar
+      collapsible="icon"
+      variant="floating"
+      className="bg-white dark:bg-card border-r border-border text-foreground hide-scrollbar shadow-xs"
+    >
       {/* ---------- HEADER ---------- */}
-      <SidebarHeader className="py-10">
+      <SidebarHeader className="py-5 px-4 border-b border-border/80 bg-white dark:bg-card">
         <SidebarMenu>
           <SidebarMenuItem>
-            <Link href={basePath} className="flex flex-col items-center">
+            <Link href={basePath} className="flex items-center gap-3">
               {logoPrimaryUrl ? (
-                <Image
-                  src={logoPrimaryUrl}
-                  alt={`${branding.system_name_short || "Regional"} logo`}
-                  width={100}
-                  height={100}
-                  className="mx-auto mb-1 rounded-xl p-2"
-                  unoptimized
-                />
-              ) : null}
-              <div className="grid flex-1 text-center gap-1 text-sm leading-tight group-data-[collapsible=icon]:opacity-0">
-                <span className="truncate font-semibold text-sidebar-header-text">
+                <div className="relative w-10 h-10 rounded-full border border-border bg-muted/20 p-1 shadow-xs shrink-0 overflow-hidden">
+                  <Image
+                    src={logoPrimaryUrl}
+                    alt={`${branding.system_name_short || "Regional"} logo`}
+                    fill
+                    className="object-contain p-0.5"
+                    unoptimized
+                  />
+                </div>
+              ) : (
+                <div className="w-10 h-10 rounded-full bg-emerald-600/10 text-emerald-600 border border-emerald-600/20 flex items-center justify-center shrink-0 shadow-xs font-bold">
+                  <MapPin className="w-5 h-5" />
+                </div>
+              )}
+              <div className="grid flex-1 text-left leading-tight group-data-[collapsible=icon]:hidden">
+                <span className="truncate font-bold text-sm text-foreground tracking-tight">
                   {branding.system_name_short || "Regional Workspace"}
                 </span>
-                <span className="truncate text-xs text-sidebar-header-text/80">
-                  {branding.system_tagline ||
-                    branding.system_name_full ||
-                    "Regional Administration"}
+                <span className="truncate text-[11px] text-muted-foreground">
+                  {branding.system_tagline || "Regional Mineral Plan & Operations"}
                 </span>
               </div>
             </Link>
@@ -138,137 +159,111 @@ export function RegionalAppSidebar({ regionId }: { regionId?: string }) {
         </SidebarMenu>
       </SidebarHeader>
 
-      {/* ---------- CONTENT ---------- */}
-      <SidebarContent className="hide-scrollbar [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
-        <SidebarGroup className="px-5 group-data-[collapsible=icon]:px-0">
-          <SidebarGroupContent>
-            <SidebarMenu className="gap-2 group-data-[collapsible=icon]:items-center">
-              {visibleNav.map((item) => {
+      {/* ---------- CATEGORIZED SIDEBAR CONTENT (WHITE BG) ---------- */}
+      <SidebarContent className="px-3 py-3 space-y-4 hide-scrollbar [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden bg-white dark:bg-card">
+        {visibleCategories.map((cat, catIdx) => (
+          <div key={cat.category || catIdx} className="space-y-1">
+            {/* Category Header Label */}
+            <div className="px-3 pt-2 pb-1 text-[10px] font-bold tracking-wider text-muted-foreground uppercase select-none group-data-[collapsible=icon]:hidden">
+              {cat.category}
+            </div>
+
+            {/* Category Items */}
+            <div className="space-y-1">
+              {cat.items.map((item) => {
                 const hasChildren = item.children && item.children.length > 0;
-                const childUrls = item.children?.map((child) => child.url) ?? [];
+                const active = isItemActive(item.url);
+                const hasActiveChild = isAnyChildActive(item);
 
-                if (hasChildren) {
-                  if (!mounted) {
-                    return (
-                      <SidebarMenuItem
-                        key={item.title}
-                        className="group-data-[collapsible=icon]:w-fit"
-                      >
-                        <SidebarMenuButton
-                          asChild
-                          isActive={isNavSectionActive(pathname, item)}
-                          tooltip={item.title}
-                          className={sidebarTopNavClasses}
-                        >
-                          <Link
-                            href={item.url}
-                            className="flex items-center gap-4 group-data-[collapsible=icon]:justify-center"
-                          >
-                            <item.icon className="group-data-[collapsible=icon]:size-5 shrink-0" />
-                            <span className="text-base whitespace-nowrap truncate group-data-[collapsible=icon]:hidden">
-                              {item.title}
-                            </span>
-                          </Link>
-                        </SidebarMenuButton>
-                      </SidebarMenuItem>
-                    );
-                  }
-
-                  return (
-                    <Collapsible
-                      key={item.title}
-                      asChild
-                      defaultOpen={isNavSectionActive(pathname, item)}
-                      className="group/collapsible"
-                    >
-                      <SidebarMenuItem className="group-data-[collapsible=icon]:w-fit">
-                        <CollapsibleTrigger asChild>
-                          <SidebarMenuButton
-                            tooltip={item.title}
-                            isActive={isNavSectionActive(pathname, item)}
-                            className={sidebarTopNavCollapsibleClasses}
-                          >
-                            <Link
-                              href={item.url}
-                              onClick={() => router.push(item.url)}
-                              className="flex-1 flex items-center gap-4 group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:items-center"
-                            >
-                              <item.icon className="group-data-[collapsible=icon]:size-5 shrink-0" />
-                              <span className="text-base whitespace-nowrap truncate group-data-[collapsible=icon]:hidden">
-                                {item.title}
-                              </span>
-                            </Link>
-                            <ChevronRight
-                              className="ml-auto transition-transform duration-200
-                              group-data-[state=open]/collapsible:rotate-90
-                              group-data-[collapsible=icon]:hidden"
-                            />
-                          </SidebarMenuButton>
-                        </CollapsibleTrigger>
-
-                        <CollapsibleContent>
-                          <SidebarMenuSub className="pt-1">
-                            {item.children?.map((child) => (
-                              <SidebarMenuSubItem key={child.url}>
-                                <SidebarMenuSubButton
-                                  asChild
-                                  isActive={isNavChildActive(
-                                    pathname,
-                                    child.url,
-                                    childUrls
-                                  )}
-                                  className={sidebarSubNavClasses}
-                                >
-                                  <Link
-                                    href={child.url}
-                                    className="flex items-center gap-4"
-                                  >
-                                    <child.icon className="h-4 w-4 shrink-0" />
-                                    <span className="whitespace-nowrap truncate">
-                                      {child.title}
-                                    </span>
-                                  </Link>
-                                </SidebarMenuSubButton>
-                              </SidebarMenuSubItem>
-                            ))}
-                          </SidebarMenuSub>
-                        </CollapsibleContent>
-                      </SidebarMenuItem>
-                    </Collapsible>
-                  );
-                }
-
-                const isActive =
-                  pathname === item.url ||
-                  (item.url !== basePath && pathname.startsWith(`${item.url}/`));
+                // Default open if any child is active
+                const defaultOpen = hasActiveChild;
+                const isOpen =
+                  openSections[item.title] !== undefined
+                    ? openSections[item.title]
+                    : defaultOpen;
 
                 return (
-                  <SidebarMenuItem
-                    key={item.url}
-                    className="group-data-[collapsible=icon]:w-fit"
-                  >
-                    <SidebarMenuButton
-                      asChild
-                      isActive={isActive}
-                      tooltip={item.title}
-                      className={sidebarTopNavClasses}
-                    >
+                  <div key={item.title} className="space-y-1">
+                    {/* Top Level Item */}
+                    <div className="flex items-center gap-1">
                       <Link
                         href={item.url}
-                        className="flex items-center gap-4 group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:items-center"
+                        className={`flex-1 flex items-center gap-3 px-3 py-2 rounded-lg text-sm transition-all group-data-[collapsible=icon]:justify-center ${
+                          active
+                            ? "bg-[#E5A93C] text-slate-950 font-bold shadow-xs hover:bg-[#d89c30]"
+                            : "text-slate-700 hover:text-slate-950 hover:bg-slate-100 dark:text-slate-300 dark:hover:text-white dark:hover:bg-slate-800/60"
+                        }`}
+                        title={item.title}
                       >
-                        <item.icon className="group-data-[collapsible=icon]:size-5 shrink-0" />
-                        <span className="text-base whitespace-nowrap truncate group-data-[collapsible=icon]:hidden">
+                        <item.icon
+                          className={`size-4.5 shrink-0 ${
+                            active
+                              ? "text-slate-950"
+                              : "text-slate-500 dark:text-slate-400"
+                          }`}
+                        />
+                        <span className="truncate group-data-[collapsible=icon]:hidden">
                           {item.title}
                         </span>
                       </Link>
-                    </SidebarMenuButton>
-                  </SidebarMenuItem>
+
+                      {/* Collapsible Chevron Toggle Button for items with children (Plan Management, Users) */}
+                      {hasChildren && (
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            toggleSection(item.title, defaultOpen);
+                          }}
+                          className="p-1.5 rounded-md text-muted-foreground hover:text-foreground hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors group-data-[collapsible=icon]:hidden"
+                          aria-label={`Toggle ${item.title} menu`}
+                        >
+                          <ChevronRight
+                            className={`size-3.5 transition-transform duration-200 ${
+                              isOpen ? "rotate-90" : ""
+                            }`}
+                          />
+                        </button>
+                      )}
+                    </div>
+
+                    {/* Collapsible Indented Children */}
+                    {hasChildren && isOpen && (
+                      <div className="ml-4 pl-3 border-l border-slate-200 dark:border-slate-800 my-1 space-y-1 group-data-[collapsible=icon]:hidden animate-in fade-in duration-150">
+                        {item.children?.map((child) => {
+                          const childActive = isItemActive(child.url);
+
+                          return (
+                            <Link
+                              key={child.title}
+                              href={child.url}
+                              className={`flex items-center gap-2.5 px-2.5 py-1.5 rounded-md text-xs transition-all ${
+                                childActive
+                                  ? "bg-[#E5A93C] text-slate-950 font-bold shadow-xs hover:bg-[#d89c30]"
+                                  : "text-slate-600 hover:text-slate-950 hover:bg-slate-100 dark:text-slate-400 dark:hover:text-white dark:hover:bg-slate-800/60"
+                              }`}
+                              title={child.title}
+                            >
+                              <child.icon
+                                className={`size-3.5 shrink-0 ${
+                                  childActive
+                                    ? "text-slate-950"
+                                    : "text-slate-400 dark:text-slate-500"
+                                }`}
+                              />
+                              <span className="truncate">{child.title}</span>
+                            </Link>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
                 );
               })}
-            </SidebarMenu>
-          </SidebarGroupContent>
-        </SidebarGroup>
+            </div>
+          </div>
+        ))}
       </SidebarContent>
     </Sidebar>
   );

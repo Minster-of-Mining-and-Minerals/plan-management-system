@@ -37,11 +37,22 @@ export function ShapefileCoordinatePicker({
   initialLongitude,
   onChange,
 }: ShapefileCoordinatePickerProps) {
-  const [vertices, setVertices] = useState<CoordinateVertex[]>(() => {
-    if (initialGeoJSON?.coordinates?.[0]?.length) {
-      const ring = initialGeoJSON.coordinates[0];
-      // strip duplicate closing point if present for vertex editor
-      const pts = ring.slice(0, ring.length > 3 && ring[0][0] === ring[ring.length - 1][0] && ring[0][1] === ring[ring.length - 1][1] ? ring.length - 1 : ring.length);
+  const onChangeRef = useRef(onChange);
+  useEffect(() => {
+    onChangeRef.current = onChange;
+  }, [onChange]);
+
+  const parseGeoJSONVertices = (geoJSON: any): CoordinateVertex[] => {
+    if (geoJSON?.coordinates?.[0]?.length) {
+      const ring = geoJSON.coordinates[0];
+      const pts = ring.slice(
+        0,
+        ring.length > 3 &&
+          ring[0][0] === ring[ring.length - 1][0] &&
+          ring[0][1] === ring[ring.length - 1][1]
+          ? ring.length - 1
+          : ring.length
+      );
       return pts.map((p: [number, number], idx: number) => ({
         order: idx + 1,
         longitude: Number(p[0]),
@@ -49,16 +60,33 @@ export function ShapefileCoordinatePicker({
       }));
     }
     return [];
-  });
+  };
+
+  const initialSerialized = initialGeoJSON ? JSON.stringify(initialGeoJSON) : null;
+  const lastEmittedRef = useRef<string | null>(initialSerialized);
+  const prevInitialGeoJSONRef = useRef<string | null>(initialSerialized);
+
+  const [vertices, setVertices] = useState<CoordinateVertex[]>(() =>
+    parseGeoJSONVertices(initialGeoJSON)
+  );
+
+  // Sync incoming initialGeoJSON safely if parent changes it
+  useEffect(() => {
+    const serialized = initialGeoJSON ? JSON.stringify(initialGeoJSON) : null;
+    if (serialized !== prevInitialGeoJSONRef.current) {
+      prevInitialGeoJSONRef.current = serialized;
+      lastEmittedRef.current = serialized;
+      setVertices(parseGeoJSONVertices(initialGeoJSON));
+    }
+  }, [initialGeoJSON]);
 
   const [activeTab, setActiveTab] = useState<"upload" | "manual">("upload");
   const [fileError, setFileError] = useState<string | null>(null);
   const [fileSuccess, setFileSuccess] = useState<string | null>(null);
 
-  // Synchronize outwards when vertices change
+  // Synchronize outwards ONLY when vertices change and differ from last emitted
   useEffect(() => {
     if (vertices.length >= 3) {
-      // create closed linear ring
       const ring: [number, number][] = vertices.map((v) => [v.longitude, v.latitude]);
       if (
         ring.length > 0 &&
@@ -81,11 +109,18 @@ export function ShapefileCoordinatePicker({
         coordinates: [ring],
       };
 
-      onChange(geoJSON, centroidLat, centroidLon);
+      const serialized = JSON.stringify(geoJSON);
+      if (serialized !== lastEmittedRef.current) {
+        lastEmittedRef.current = serialized;
+        onChangeRef.current(geoJSON, centroidLat, centroidLon);
+      }
     } else if (vertices.length === 0) {
-      onChange(null, null, null);
+      if (lastEmittedRef.current !== null) {
+        lastEmittedRef.current = null;
+        onChangeRef.current(null, null, null);
+      }
     }
-  }, [vertices, onChange]);
+  }, [vertices]);
 
   // Handle file upload (GeoJSON, JSON, KML, CSV)
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {

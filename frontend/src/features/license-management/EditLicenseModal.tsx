@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import {
   Dialog,
   DialogContent,
@@ -73,6 +73,12 @@ export function EditLicenseModal({
   const [boundaryGeoJSON, setBoundaryGeoJSON] = useState<any>(null);
   const [centroidLat, setCentroidLat] = useState<number | null>(null);
   const [centroidLon, setCentroidLon] = useState<number | null>(null);
+
+  const handleCoordinateChange = useCallback((geoJSON: any, lat: number | null, lon: number | null) => {
+    setBoundaryGeoJSON(geoJSON);
+    setCentroidLat(lat);
+    setCentroidLon(lon);
+  }, []);
 
   useEffect(() => {
     if (license && open) {
@@ -329,11 +335,7 @@ export function EditLicenseModal({
             initialGeoJSON={boundaryGeoJSON}
             initialLatitude={centroidLat}
             initialLongitude={centroidLon}
-            onChange={(geoJSON, lat, lon) => {
-              setBoundaryGeoJSON(geoJSON);
-              setCentroidLat(lat);
-              setCentroidLon(lon);
-            }}
+            onChange={handleCoordinateChange}
           />
 
           {/* Row 6: Description / Notes */}

@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useCallback } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { ColumnDef } from "@tanstack/react-table";
@@ -108,6 +108,12 @@ export function CompanyLicenseList({
   const [formBoundary, setFormBoundary] = useState<any>(null);
   const [formCentroidLat, setFormCentroidLat] = useState<number | null>(null);
   const [formCentroidLon, setFormCentroidLon] = useState<number | null>(null);
+
+  const handleFormBoundaryChange = useCallback((geoJSON: any, lat: number | null, lon: number | null) => {
+    setFormBoundary(geoJSON);
+    setFormCentroidLat(lat);
+    setFormCentroidLon(lon);
+  }, []);
 
   const resetForm = () => {
     setFormNumber("");
@@ -643,11 +649,7 @@ export function CompanyLicenseList({
               initialGeoJSON={formBoundary}
               initialLatitude={formCentroidLat}
               initialLongitude={formCentroidLon}
-              onChange={(geoJSON, lat, lon) => {
-                setFormBoundary(geoJSON);
-                setFormCentroidLat(lat);
-                setFormCentroidLon(lon);
-              }}
+              onChange={handleFormBoundaryChange}
             />
 
             <div className="space-y-1.5">
