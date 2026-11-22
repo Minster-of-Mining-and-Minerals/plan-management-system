@@ -48,11 +48,20 @@ function sanitizeForEmail(name, code) {
     .replace(/[^a-z0-9]+/g, "_")
     .replace(/^_+|_+$/g, "");
   
+  // RFC 5321 restricts email local-part (before @) to max 64 characters.
+  // Truncate clean name to 40 characters so clean + "_test_user" is <= 50 characters.
+  if (clean.length > 40) {
+    clean = clean.slice(0, 40).replace(/_+$/, "");
+  }
+
   if (!clean || clean.length < 2) {
     clean = (code || "company")
       .toLowerCase()
       .replace(/[^a-z0-9]+/g, "_")
       .replace(/^_+|_+$/g, "");
+    if (clean.length > 40) {
+      clean = clean.slice(0, 40).replace(/_+$/, "");
+    }
   }
   return clean;
 }
