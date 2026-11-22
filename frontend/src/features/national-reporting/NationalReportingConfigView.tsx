@@ -61,71 +61,7 @@ export interface ReportingCategoryDefinition {
   typicalUnits: string[];
 }
 
-export const NATIONAL_REPORTING_CATEGORIES: ReportingCategoryDefinition[] = [
-  {
-    code: "mining_production",
-    label: "Mining Production & Output",
-    icon: "⛏️",
-    description: "Extraction of metallic, non-metallic, construction, and strategic minerals across provinces.",
-    mandateLevel: "mandatory_default",
-    frequencyDefault: "quarterly",
-    typicalUnits: ["kg", "ton", "quintal", "gram", "m3"],
-  },
-  {
-    code: "mineral_exploration",
-    label: "Mineral Exploration & Reserve Estimation",
-    icon: "🧭",
-    description: "Geological surveys, core drilling milestones, and resource classification by regional license holders.",
-    mandateLevel: "mandatory_default",
-    frequencyDefault: "semi-annual" as any,
-    typicalUnits: ["meter", "sample", "dataset", "sq_km"],
-  },
-  {
-    code: "industrial_capacity",
-    label: "Industrial Capacity & Beneficiation",
-    icon: "🏭",
-    description: "Local mineral processing, value addition plants, refinery utilization, and domestic smelter quotas.",
-    mandateLevel: "optional_default",
-    frequencyDefault: "annual",
-    typicalUnits: ["ton", "percentage", "facility"],
-  },
-  {
-    code: "revenue_generation",
-    label: "Revenue, Royalties & Mining Tax",
-    icon: "💰",
-    description: "Provincial mineral royalty collections, land rent, licensing fees, and local community fund levies.",
-    mandateLevel: "mandatory_default",
-    frequencyDefault: "quarterly",
-    typicalUnits: ["etb", "birr", "usd"],
-  },
-  {
-    code: "environmental_compliance",
-    label: "Environmental Remediation & Community",
-    icon: "🌿",
-    description: "Mined land reclamation, environmental impact assessments, water safety, and resettlement programs.",
-    mandateLevel: "mandatory_default",
-    frequencyDefault: "quarterly",
-    typicalUnits: ["hectare", "sq_m", "percentage", "site"],
-  },
-  {
-    code: "artisanal_mining",
-    label: "Artisanal & Small-Scale Mining (ASM)",
-    icon: "👷",
-    description: "Traditional mining cooperatives, ASM registry, gold purchasing center throughput, and formalization.",
-    mandateLevel: "mandatory_default",
-    frequencyDefault: "monthly" as any,
-    typicalUnits: ["cooperative", "person", "gram", "license"],
-  },
-  {
-    code: "safety_and_inspections",
-    label: "Mine Safety & Regulatory Inspection",
-    icon: "🛡️",
-    description: "Occupational safety audits, technical inspections, incident investigations, and enforcement orders.",
-    mandateLevel: "optional_default",
-    frequencyDefault: "quarterly",
-    typicalUnits: ["inspection", "report", "occurrence", "count"],
-  },
-];
+export const NATIONAL_REPORTING_CATEGORIES: ReportingCategoryDefinition[] = [];
 
 export function NationalReportingConfigView() {
   const [activeTab, setActiveTab] = useState<string>("categories");
@@ -145,10 +81,10 @@ export function NationalReportingConfigView() {
   const { data: customCategories = [] } = useGetNationalCategoriesQuery();
   const [createCategory, { isLoading: isCreatingCategory }] = useCreateNationalCategoryMutation();
 
-  // Combine built-in categories with custom categories from DB
+  // Real canonical categories from DB
   const allCategories = useMemo(() => {
-    const combined: any[] = [...NATIONAL_REPORTING_CATEGORIES.map((c) => ({ ...c, is_custom: false }))];
-    const seen = new Set(combined.map((c) => c.code.toLowerCase()));
+    const combined: any[] = [];
+    const seen = new Set();
 
     customCategories.forEach((cat) => {
       if (!seen.has(cat.code.toLowerCase())) {
@@ -160,7 +96,7 @@ export function NationalReportingConfigView() {
           mandateLevel: cat.mandate_level || cat.mandateLevel || "mandatory_default",
           frequencyDefault: cat.frequency_default || cat.frequencyDefault || "monthly",
           typicalUnits: cat.typical_units || cat.typicalUnits || [],
-          is_custom: true,
+          is_custom: false,
         });
         seen.add(cat.code.toLowerCase());
       }
