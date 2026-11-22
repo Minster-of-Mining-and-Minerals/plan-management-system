@@ -29,6 +29,7 @@ import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
 import {
   useGetFrequenciesQuery,
+  useGetMeasurementUnitsQuery,
   useUpdateAssignmentMutation,
 } from "@/redux/api/productionApi";
 import type { CompanyProductionAssignment } from "@/redux/types/production";
@@ -48,6 +49,7 @@ export function EditAssignmentModal({
   onSuccess,
 }: EditAssignmentModalProps) {
   const { data: frequencies = [], isLoading: freqsLoading } = useGetFrequenciesQuery();
+  const { data: allMeasurementUnits = [], isLoading: unitsLoading } = useGetMeasurementUnitsQuery();
   const [updateAssignment, { isLoading: isSubmitting }] = useUpdateAssignmentMutation();
 
   const [selectedFrequencyId, setSelectedFrequencyId] = useState("");
@@ -84,7 +86,21 @@ export function EditAssignmentModal({
   if (!assignment) return null;
 
   const item = assignment.productionItem;
-  const supportedUnits = item?.supportedUnits?.map((u) => u.measurementUnit).filter(Boolean) || [];
+  const unitsFromSupported = item?.supportedUnits?.map((u) => u.measurementUnit).filter(Boolean) || [];
+  const directUnits = [
+    item?.baseUnit,
+    item?.defaultReportingUnit,
+    assignment.defaultReportingUnit,
+  ].filter(Boolean);
+
+  const unitMap = new Map<string, any>();
+  [...unitsFromSupported, ...directUnits].forEach((u: any) => {
+    if (u && u.unit_id && !unitMap.has(u.unit_id)) {
+      unitMap.set(u.unit_id, u);
+    }
+  });
+
+  const availableUnits = unitMap.size > 0 ? Array.from(unitMap.values()) : allMeasurementUnits;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -195,23 +211,25 @@ export function EditAssignmentModal({
           </div>
 
           {/* Default Reporting Unit */}
-          {supportedUnits.length > 0 && (
-            <div className="space-y-1.5">
-              <Label className="text-xs font-semibold">Default Reporting Unit</Label>
-              <Select value={selectedUnitId} onValueChange={setSelectedUnitId}>
-                <SelectTrigger className="text-xs">
-                  <SelectValue placeholder="Select Measurement Unit" />
-                </SelectTrigger>
-                <SelectContent>
-                  {supportedUnits.map((u: any) => (
-                    <SelectItem key={u.unit_id} value={u.unit_id} className="text-xs">
-                      {u.name} ({u.symbol})
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-          )}
+          <div className="space-y-1.5">
+            <Label className="text-xs font-semibold">Default Reporting Unit</Label>
+            <Select
+              value={selectedUnitId}
+              onValueChange={setSelectedUnitId}
+              disabled={unitsLoading}
+            >
+              <SelectTrigger className="text-xs">
+                <SelectValue placeholder="Select Measurement Unit" />
+              </SelectTrigger>
+              <SelectContent>
+                {availableUnits.map((u: any) => (
+                  <SelectItem key={u.unit_id} value={u.unit_id} className="text-xs">
+                    {u.name} {u.symbol ? `(${u.symbol})` : ""}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
 
           {/* Configuration Explanation Badge */}
           <div className="p-2.5 rounded-lg border border-primary/20 bg-primary/5 text-[11px] text-muted-foreground flex items-center gap-2">

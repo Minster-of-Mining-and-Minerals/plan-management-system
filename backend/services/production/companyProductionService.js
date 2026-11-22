@@ -313,18 +313,60 @@ async function updateAssignment(assignmentId, data) {
 
   // Validate unit if modified
   if (data.default_reporting_unit_id) {
-    const validUnit = await ProductionItemUnit.findOne({
+    if (data.default_reporting_unit_id !== assignment.default_reporting_unit_id) {
+      const item = await ProductionItem.findByPk(assignment.production_item_id);
+      const validUnit = await ProductionItemUnit.findOne({
+        where: {
+          production_item_id: assignment.production_item_id,
+          unit_id: data.default_reporting_unit_id,
+        },
+      });
+      const isDirectItemUnit =
+        item &&
+        (item.base_unit_id === data.default_reporting_unit_id ||
+          item.default_reporting_unit_id === data.default_reporting_unit_id);
+      const measurementUnitExists = await GoldMeasurementUnit.findByPk(
+        data.default_reporting_unit_id
+      );
+
+      if (!validUnit && !isDirectItemUnit && !measurementUnitExists) {
+        const err = new Error("The selected unit is not permitted for this production item.");
+        err.status = 400;
+        throw err;
+      }
+
+      // Auto-create/link in ProductionItemUnit if missing
+      if (!validUnit && (isDirectItemUnit || measurementUnitExists)) {
+        await ProductionItemUnit.findOrCreate({
+          where: {
+            production_item_id: assignment.production_item_id,
+            unit_id: data.default_reporting_unit_id,
+          },
+          defaults: {
+            conversion_factor_to_base: 1.0,
+            is_default: false,
+            is_active: true,
+          },
+        }).catch(() => {});
+      }
+
+      assignment.default_reporting_unit_id = data.default_reporting_unit_id;
+    }
+  }
+
+  // Ensure current assigned unit has a ProductionItemUnit record
+  if (assignment.default_reporting_unit_id) {
+    await ProductionItemUnit.findOrCreate({
       where: {
         production_item_id: assignment.production_item_id,
-        unit_id: data.default_reporting_unit_id,
+        unit_id: assignment.default_reporting_unit_id,
       },
-    });
-    if (!validUnit) {
-      const err = new Error("The selected unit is not permitted for this production item.");
-      err.status = 400;
-      throw err;
-    }
-    assignment.default_reporting_unit_id = data.default_reporting_unit_id;
+      defaults: {
+        conversion_factor_to_base: 1.0,
+        is_default: true,
+        is_active: true,
+      },
+    }).catch(() => {});
   }
 
   // Validate frequency if modified
