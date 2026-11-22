@@ -152,7 +152,7 @@ export function CompanyProductionsListView({ overrideCompanyId }: { overrideComp
         header: "Target Status",
         cell: ({ row }) => {
           const targets = row.original.targets || [];
-          const latestTarget = targets.sort((a, b) => b.version_number - a.version_number)[0];
+          const latestTarget = [...targets].sort((a, b) => b.version_number - a.version_number)[0];
           const status = latestTarget ? latestTarget.status : "not_proposed";
 
           const badgeClasses: Record<string, string> = {

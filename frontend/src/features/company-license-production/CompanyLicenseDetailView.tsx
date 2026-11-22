@@ -372,10 +372,11 @@ export function CompanyLicenseDetailView({
                 </thead>
                 <tbody className="divide-y divide-border">
                   {attachedProductions.map((assign) => {
-                    const latestTarget = (assign.targets || []).sort(
+                    const targets = assign.targets || [];
+                    const latestTarget = [...targets].sort(
                       (a, b) => b.version_number - a.version_number
                     )[0];
-                    const approvedTarget = (assign.targets || []).find((t) => t.status === "approved" || t.status === "published");
+                    const approvedTarget = targets.find((t) => t.status === "approved" || t.status === "published");
                     const targetStatus = latestTarget ? latestTarget.status : "No Proposal";
                     const isReportingEnabled = Boolean(approvedTarget && isCurrentlyValid);
 
