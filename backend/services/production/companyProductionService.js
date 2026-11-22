@@ -10,6 +10,7 @@ const {
   ProductionReportingFrequency,
   CompanyProductionAssignment,
   CompanyProductionTarget,
+  CompanyProductionTargetAmendment,
   CompanyProductionReport,
   CompanyProductionTargetApprovalHistory,
   CompanyProductionReportingAssignment,
@@ -1297,7 +1298,11 @@ async function saveTargetProposal({
   let targetVersion = 1;
   if (latestTarget) {
     if (latestTarget.status === "approved" || latestTarget.status === "published") {
-      targetVersion = latestTarget.version_number + 1;
+      const err = new Error(
+        `Target Version ${latestTarget.version_number} is officially APPROVED and permanently locked against direct modifications. To adjust targets, please submit a formal Target Amendment Request.`
+      );
+      err.status = 403;
+      throw err;
     } else if (latestTarget.status === "submitted" || latestTarget.status === "under_review") {
       const err = new Error(
         `A target proposal (Version ${latestTarget.version_number}) is currently under review by the Federal Ministry. You cannot modify it until a review decision is issued.`
@@ -1546,6 +1551,17 @@ async function reviewTargetProposal({ assignmentId, versionNumber, decision, rev
     throw err;
   }
 
+  if (
+    (decision === "rejected" || decision === "revision_requested") &&
+    (!reviewComments || !reviewComments.trim())
+  ) {
+    const err = new Error(
+      `A detailed review comment / justification is mandatory when issuing a ${decision.replace("_", " ")} decision.`
+    );
+    err.status = 400;
+    throw err;
+  }
+
   const assignment = await CompanyProductionAssignment.findByPk(assignmentId);
   if (!assignment) {
     const err = new Error("Assignment not found.");
@@ -1683,7 +1699,14 @@ async function getApprovalHistory(assignmentId, versionNumber = null) {
 
   return await CompanyProductionTargetApprovalHistory.findAll({
     where,
-    include: [{ model: User, as: "actor", attributes: ["user_id", "full_name", "email"] }],
+    include: [
+      { model: User, as: "actor", attributes: ["user_id", "full_name", "email"] },
+      {
+        model: CompanyProductionTargetAmendment,
+        as: "amendment",
+        attributes: ["amendment_id", "amendment_reference", "status", "amendment_reason"],
+      },
+    ],
     order: [["created_at", "ASC"]],
   });
 }
@@ -1740,6 +1763,864 @@ async function listReportingResponsibilities(assignmentId) {
       { model: Role, as: "role", attributes: ["role_id", "name"] },
     ],
     order: [["created_at", "ASC"]],
+  });
+}
+
+/**
+ * Submit a formal Target Amendment request for an approved target.
+ */
+async function submitTargetAmendment({
+  assignmentId,
+  proposedAnnualTarget,
+  periodAllocations,
+  amendmentReason,
+  effectiveDate = null,
+  submissionNotes = null,
+  userId,
+  companyScope = null,
+}) {
+  const assignment = await CompanyProductionAssignment.findByPk(assignmentId, {
+    include: [
+      { model: ProductionItem, as: "productionItem" },
+      { model: CompanyLicense, as: "license" },
+      { model: Company, as: "company" },
+    ],
+  });
+  if (!assignment) {
+    const err = new Error("Company production assignment not found.");
+    err.status = 404;
+    throw err;
+  }
+
+  if (companyScope && assignment.company_id !== companyScope) {
+    const err = new Error("Forbidden: You cannot submit amendments for another company.");
+    err.status = 403;
+    throw err;
+  }
+
+  // Find currently approved target
+  const approvedTarget = await CompanyProductionTarget.findOne({
+    where: {
+      assignment_id: assignmentId,
+      status: "approved",
+      target_period_type: "year",
+    },
+    order: [["version_number", "DESC"]],
+  });
+
+  if (!approvedTarget) {
+    const err = new Error("Cannot request an amendment: No officially approved target exists for this assignment.");
+    err.status = 400;
+    throw err;
+  }
+
+  // Check if an amendment is already pending review
+  const pendingAmendment = await CompanyProductionTargetAmendment.findOne({
+    where: {
+      assignment_id: assignmentId,
+      status: ["amendment_submitted", "amendment_under_review"],
+    },
+  });
+  if (pendingAmendment) {
+    const err = new Error(
+      `An amendment request (${pendingAmendment.amendment_reference}) is already under Federal review. Duplicate requests are not permitted.`
+    );
+    err.status = 400;
+    throw err;
+  }
+
+  // Validate amendment reason
+  if (!amendmentReason || !amendmentReason.trim()) {
+    const err = new Error("A detailed reason for the target amendment is mandatory.");
+    err.status = 400;
+    throw err;
+  }
+
+  const numAnnual = Number(proposedAnnualTarget);
+  if (isNaN(numAnnual) || numAnnual <= 0) {
+    const err = new Error("Proposed annual target must be a positive number.");
+    err.status = 400;
+    throw err;
+  }
+
+  if (!Array.isArray(periodAllocations) || periodAllocations.length === 0) {
+    const err = new Error("At least one period allocation must be provided.");
+    err.status = 400;
+    throw err;
+  }
+
+  // Validate sum of period allocations equals proposed annual target
+  let totalPeriodSum = 0;
+  for (const p of periodAllocations) {
+    const pQty = Number(p.target_quantity);
+    if (isNaN(pQty) || pQty < 0) {
+      const err = new Error(`Invalid target quantity for period '${p.period_label}'.`);
+      err.status = 400;
+      throw err;
+    }
+    totalPeriodSum += pQty;
+
+    // Validate department allocations if present
+    if (Array.isArray(p.department_allocations) && p.department_allocations.length > 0) {
+      let deptSum = 0;
+      for (const d of p.department_allocations) {
+        const dQty = Number(d.target_quantity);
+        if (isNaN(dQty) || dQty < 0) {
+          const err = new Error(`Invalid department target quantity in '${p.period_label}'.`);
+          err.status = 400;
+          throw err;
+        }
+        deptSum += dQty;
+      }
+      deptSum = roundDecimal(deptSum, 4);
+      if (Math.abs(deptSum - roundDecimal(pQty, 4)) > 0.0001) {
+        const err = new Error(
+          `Department allocations total (${deptSum}) does not match period target '${p.period_label}' (${pQty}).`
+        );
+        err.status = 400;
+        throw err;
+      }
+    }
+  }
+
+  totalPeriodSum = roundDecimal(totalPeriodSum, 4);
+  const roundedAnnual = roundDecimal(numAnnual, 4);
+  if (Math.abs(totalPeriodSum - roundedAnnual) > 0.0001) {
+    const err = new Error(
+      `Sum of proposed period allocations (${totalPeriodSum}) does not equal proposed annual target (${roundedAnnual}).`
+    );
+    err.status = 400;
+    throw err;
+  }
+
+  // Generate unique sequential reference
+  const count = await CompanyProductionTargetAmendment.count({ where: { assignment_id: assignmentId } });
+  const year = new Date().getFullYear();
+  const amendmentReference = `AMD-${year}-${String(count + 1).padStart(4, "0")}`;
+
+  // Find max version number
+  const maxVersion =
+    (await CompanyProductionTarget.max("version_number", {
+      where: { assignment_id: assignmentId },
+    })) || approvedTarget.version_number;
+  const proposedVersionNumber = maxVersion + 1;
+
+  const unitId = assignment.default_reporting_unit_id;
+  const factorToBase = await getUnitFactorToBase(assignment.production_item_id, unitId);
+  const annualQuantityBase = roundDecimal(numAnnual * factorToBase, 4);
+
+  const sortedStarts = [...periodAllocations].map((p) => p.period_start_date).sort();
+  const sortedEnds = [...periodAllocations].map((p) => p.period_end_date).sort();
+  const yearStart = sortedStarts[0] || assignment.effective_from;
+  const yearEnd = sortedEnds[sortedEnds.length - 1] || assignment.effective_to || yearStart;
+  const yearLabel = String(new Date(yearStart).getFullYear() || "Amended Target");
+
+  let createdAmendment;
+
+  await sequelize.transaction(async (t) => {
+    // 1. Create amendment record
+    createdAmendment = await CompanyProductionTargetAmendment.create(
+      {
+        assignment_id: assignmentId,
+        amendment_reference: amendmentReference,
+        current_approved_version: approvedTarget.version_number,
+        proposed_version_number: proposedVersionNumber,
+        current_annual_target: approvedTarget.target_quantity,
+        proposed_annual_target: roundedAnnual,
+        amendment_reason: amendmentReason.trim(),
+        submission_notes: submissionNotes ? submissionNotes.trim() : null,
+        effective_date: effectiveDate || null,
+        status: "amendment_submitted",
+        submitted_by: userId,
+        submitted_at: new Date(),
+      },
+      { transaction: t }
+    );
+
+    // 2. Create root proposed target
+    const rootProposedTarget = await CompanyProductionTarget.create(
+      {
+        assignment_id: assignmentId,
+        parent_target_id: null,
+        company_structure_id: null,
+        version_number: proposedVersionNumber,
+        target_period_type: "year",
+        period_label: yearLabel,
+        period_start_date: yearStart,
+        period_end_date: yearEnd,
+        target_quantity: roundedAnnual,
+        unit_id: unitId,
+        target_quantity_base: annualQuantityBase,
+        status: "amendment_submitted",
+        submission_notes: submissionNotes,
+        submitted_by: userId,
+        submitted_at: new Date(),
+        created_by: userId,
+        amendment_id: createdAmendment.amendment_id,
+        is_amendment: true,
+      },
+      { transaction: t }
+    );
+
+    // 3. Create period targets and department allocations
+    for (const p of periodAllocations) {
+      const pQty = Number(p.target_quantity);
+      const pQtyBase = roundDecimal(pQty * factorToBase, 4);
+
+      const periodRecord = await CompanyProductionTarget.create(
+        {
+          assignment_id: assignmentId,
+          parent_target_id: rootProposedTarget.target_id,
+          company_structure_id: null,
+          version_number: proposedVersionNumber,
+          target_period_type: p.target_period_type || assignment.target_allocation_depth || "quarter",
+          period_label: p.period_label,
+          period_start_date: p.period_start_date,
+          period_end_date: p.period_end_date,
+          target_quantity: pQty,
+          unit_id: unitId,
+          target_quantity_base: pQtyBase,
+          status: "amendment_submitted",
+          submitted_by: userId,
+          submitted_at: new Date(),
+          created_by: userId,
+          amendment_id: createdAmendment.amendment_id,
+          is_amendment: true,
+        },
+        { transaction: t }
+      );
+
+      if (Array.isArray(p.department_allocations)) {
+        for (const d of p.department_allocations) {
+          const dQty = Number(d.target_quantity);
+          if (isNaN(dQty) || dQty <= 0) continue;
+          const dQtyBase = roundDecimal(dQty * factorToBase, 4);
+
+          await CompanyProductionTarget.create(
+            {
+              assignment_id: assignmentId,
+              parent_target_id: periodRecord.target_id,
+              company_structure_id: d.company_structure_id,
+              version_number: proposedVersionNumber,
+              target_period_type: p.target_period_type || assignment.target_allocation_depth || "quarter",
+              period_label: `${p.period_label} - Dept`,
+              period_start_date: p.period_start_date,
+              period_end_date: p.period_end_date,
+              target_quantity: dQty,
+              unit_id: unitId,
+              target_quantity_base: dQtyBase,
+              status: "amendment_submitted",
+              submitted_by: userId,
+              submitted_at: new Date(),
+              created_by: userId,
+              amendment_id: createdAmendment.amendment_id,
+              is_amendment: true,
+            },
+            { transaction: t }
+          );
+        }
+      }
+    }
+
+    // 4. Record history
+    await CompanyProductionTargetApprovalHistory.create(
+      {
+        assignment_id: assignmentId,
+        version_number: proposedVersionNumber,
+        amendment_id: createdAmendment.amendment_id,
+        action: "amendment_submitted",
+        previous_status: "approved",
+        new_status: "amendment_submitted",
+        comments: `Amendment requested: ${amendmentReason.trim()}`,
+        actor_id: userId,
+      },
+      { transaction: t }
+    );
+  });
+
+  return await getAmendmentComparison({ amendmentId: createdAmendment.amendment_id });
+}
+
+/**
+ * Get side-by-side comparison between approved target and proposed amendment target.
+ */
+async function getAmendmentComparison({ assignmentId, amendmentId = null }) {
+  let amendment;
+  if (amendmentId) {
+    amendment = await CompanyProductionTargetAmendment.findByPk(amendmentId, {
+      include: [
+        { model: User, as: "submitter", attributes: ["user_id", "full_name", "email"] },
+        { model: User, as: "reviewer", attributes: ["user_id", "full_name", "email"] },
+        {
+          model: CompanyProductionAssignment,
+          as: "assignment",
+          include: [
+            { model: Company, as: "company" },
+            { model: CompanyLicense, as: "license" },
+            { model: ProductionItem, as: "productionItem" },
+            { model: GoldMeasurementUnit, as: "defaultReportingUnit" },
+          ],
+        },
+      ],
+    });
+  } else if (assignmentId) {
+    amendment = await CompanyProductionTargetAmendment.findOne({
+      where: { assignment_id: assignmentId },
+      order: [["created_at", "DESC"]],
+      include: [
+        { model: User, as: "submitter", attributes: ["user_id", "full_name", "email"] },
+        { model: User, as: "reviewer", attributes: ["user_id", "full_name", "email"] },
+        {
+          model: CompanyProductionAssignment,
+          as: "assignment",
+          include: [
+            { model: Company, as: "company" },
+            { model: CompanyLicense, as: "license" },
+            { model: ProductionItem, as: "productionItem" },
+            { model: GoldMeasurementUnit, as: "defaultReportingUnit" },
+          ],
+        },
+      ],
+    });
+  }
+
+  if (!amendment) {
+    const err = new Error("Target amendment request not found.");
+    err.status = 404;
+    throw err;
+  }
+
+  const effectiveAssignmentId = amendment.assignment_id;
+
+  // Fetch approved target proposal tree
+  const approvedProposal = await getTargetProposal(effectiveAssignmentId, amendment.current_approved_version);
+
+  // Fetch proposed amendment target tree
+  const proposedProposal = await getTargetProposal(effectiveAssignmentId, amendment.proposed_version_number);
+
+  const approvedAnnual = approvedProposal ? Number(approvedProposal.annual_target) : Number(amendment.current_annual_target);
+  const proposedAnnual = proposedProposal ? Number(proposedProposal.annual_target) : Number(amendment.proposed_annual_target);
+  const annualDifference = roundDecimal(proposedAnnual - approvedAnnual, 4);
+  const annualPercentageChange =
+    approvedAnnual > 0 ? roundDecimal(((proposedAnnual - approvedAnnual) / approvedAnnual) * 100, 2) : 0;
+
+  // Map period comparisons
+  const approvedPeriods = approvedProposal?.periods || [];
+  const proposedPeriods = proposedProposal?.periods || [];
+
+  const periodMap = new Map();
+  for (const ap of approvedPeriods) {
+    periodMap.set(ap.period_label, {
+      period_label: ap.period_label,
+      period_start_date: ap.period_start_date,
+      period_end_date: ap.period_end_date,
+      approved_quantity: Number(ap.target_quantity),
+      proposed_quantity: 0,
+      approved_departments: ap.department_allocations || [],
+      proposed_departments: [],
+    });
+  }
+
+  for (const pp of proposedPeriods) {
+    if (periodMap.has(pp.period_label)) {
+      const item = periodMap.get(pp.period_label);
+      item.proposed_quantity = Number(pp.target_quantity);
+      item.proposed_departments = pp.department_allocations || [];
+    } else {
+      periodMap.set(pp.period_label, {
+        period_label: pp.period_label,
+        period_start_date: pp.period_start_date,
+        period_end_date: pp.period_end_date,
+        approved_quantity: 0,
+        proposed_quantity: Number(pp.target_quantity),
+        approved_departments: [],
+        proposed_departments: pp.department_allocations || [],
+      });
+    }
+  }
+
+  const periodComparisons = Array.from(periodMap.values()).map((p) => {
+    const diff = roundDecimal(p.proposed_quantity - p.approved_quantity, 4);
+    const pct =
+      p.approved_quantity > 0 ? roundDecimal(((p.proposed_quantity - p.approved_quantity) / p.approved_quantity) * 100, 2) : 0;
+
+    // Compare department allocations
+    const deptMap = new Map();
+    for (const ad of p.approved_departments) {
+      const key = ad.company_structure_id || ad.period_label;
+      deptMap.set(key, {
+        department_id: ad.company_structure_id,
+        department_name: ad.department?.name || "Department",
+        approved_quantity: Number(ad.target_quantity),
+        proposed_quantity: 0,
+      });
+    }
+    for (const pd of p.proposed_departments) {
+      const key = pd.company_structure_id || pd.period_label;
+      if (deptMap.has(key)) {
+        deptMap.get(key).proposed_quantity = Number(pd.target_quantity);
+      } else {
+        deptMap.set(key, {
+          department_id: pd.company_structure_id,
+          department_name: pd.department?.name || "Department",
+          approved_quantity: 0,
+          proposed_quantity: Number(pd.target_quantity),
+        });
+      }
+    }
+
+    const departmentComparisons = Array.from(deptMap.values()).map((d) => ({
+      ...d,
+      difference: roundDecimal(d.proposed_quantity - d.approved_quantity, 4),
+      percentage_change:
+        d.approved_quantity > 0 ? roundDecimal(((d.proposed_quantity - d.approved_quantity) / d.approved_quantity) * 100, 2) : 0,
+    }));
+
+    return {
+      period_label: p.period_label,
+      period_start_date: p.period_start_date,
+      period_end_date: p.period_end_date,
+      approved_quantity: p.approved_quantity,
+      proposed_quantity: p.proposed_quantity,
+      difference: diff,
+      percentage_change: pct,
+      department_comparisons: departmentComparisons,
+    };
+  });
+
+  return {
+    amendment,
+    assignment: amendment.assignment,
+    approvedProposal,
+    proposedProposal,
+    annualComparison: {
+      approved_annual: approvedAnnual,
+      proposed_annual: proposedAnnual,
+      difference: annualDifference,
+      percentage_change: annualPercentageChange,
+    },
+    periodComparisons,
+  };
+}
+
+/**
+ * Review target amendment (Federal/Private authority only).
+ */
+async function reviewTargetAmendment({ amendmentId, decision, reviewComments, effectiveDate, userId }) {
+  const validDecisions = ["amendment_approved", "amendment_rejected", "amendment_revision_requested"];
+  if (!validDecisions.includes(decision)) {
+    const err = new Error(`Invalid amendment decision '${decision}'. Must be one of: ${validDecisions.join(", ")}`);
+    err.status = 400;
+    throw err;
+  }
+
+  if (
+    (decision === "amendment_rejected" || decision === "amendment_revision_requested") &&
+    (!reviewComments || !reviewComments.trim())
+  ) {
+    const err = new Error(
+      "A detailed review comment/reason is mandatory when rejecting or requesting revisions on an amendment."
+    );
+    err.status = 400;
+    throw err;
+  }
+
+  const amendment = await CompanyProductionTargetAmendment.findByPk(amendmentId);
+  if (!amendment) {
+    const err = new Error("Amendment not found.");
+    err.status = 404;
+    throw err;
+  }
+
+  const assignmentId = amendment.assignment_id;
+  const proposedVersion = amendment.proposed_version_number;
+  const previousApprovedVersion = amendment.current_approved_version;
+
+  await sequelize.transaction(async (t) => {
+    if (decision === "amendment_approved") {
+      // 1. Mark previous approved targets as superseded
+      await CompanyProductionTarget.update(
+        { status: "superseded" },
+        {
+          where: {
+            assignment_id: assignmentId,
+            version_number: previousApprovedVersion,
+          },
+          transaction: t,
+        }
+      );
+
+      // 2. Mark proposed targets as approved
+      await CompanyProductionTarget.update(
+        {
+          status: "approved",
+          reviewed_by: userId,
+          reviewed_at: new Date(),
+          review_comments: reviewComments || "Approved by Federal Authority.",
+        },
+        {
+          where: {
+            assignment_id: assignmentId,
+            version_number: proposedVersion,
+          },
+          transaction: t,
+        }
+      );
+
+      // 3. Mark amendment as approved
+      await amendment.update(
+        {
+          status: "amendment_approved",
+          reviewed_by: userId,
+          reviewed_at: new Date(),
+          activated_at: new Date(),
+          effective_date: effectiveDate || amendment.effective_date || new Date().toISOString().slice(0, 10),
+          review_comments: reviewComments || null,
+        },
+        { transaction: t }
+      );
+
+      // 4. Approval history
+      await CompanyProductionTargetApprovalHistory.create(
+        {
+          assignment_id: assignmentId,
+          version_number: proposedVersion,
+          amendment_id: amendment.amendment_id,
+          action: "amendment_approved",
+          previous_status: "amendment_submitted",
+          new_status: "approved",
+          comments: reviewComments || "Target amendment approved and activated by Federal Ministry.",
+          actor_id: userId,
+        },
+        { transaction: t }
+      );
+    } else if (decision === "amendment_rejected") {
+      // Update targets to amendment_rejected
+      await CompanyProductionTarget.update(
+        {
+          status: "amendment_rejected",
+          reviewed_by: userId,
+          reviewed_at: new Date(),
+          review_comments: reviewComments.trim(),
+        },
+        {
+          where: {
+            assignment_id: assignmentId,
+            version_number: proposedVersion,
+          },
+          transaction: t,
+        }
+      );
+
+      // Update amendment record
+      await amendment.update(
+        {
+          status: "amendment_rejected",
+          reviewed_by: userId,
+          reviewed_at: new Date(),
+          review_comments: reviewComments.trim(),
+        },
+        { transaction: t }
+      );
+
+      // Approval history
+      await CompanyProductionTargetApprovalHistory.create(
+        {
+          assignment_id: assignmentId,
+          version_number: proposedVersion,
+          amendment_id: amendment.amendment_id,
+          action: "amendment_rejected",
+          previous_status: "amendment_submitted",
+          new_status: "amendment_rejected",
+          comments: `Amendment rejected: ${reviewComments.trim()}`,
+          actor_id: userId,
+        },
+        { transaction: t }
+      );
+    } else if (decision === "amendment_revision_requested") {
+      // Update targets to amendment_revision_requested
+      await CompanyProductionTarget.update(
+        {
+          status: "amendment_revision_requested",
+          reviewed_by: userId,
+          reviewed_at: new Date(),
+          review_comments: reviewComments.trim(),
+        },
+        {
+          where: {
+            assignment_id: assignmentId,
+            version_number: proposedVersion,
+          },
+          transaction: t,
+        }
+      );
+
+      // Update amendment record
+      await amendment.update(
+        {
+          status: "amendment_revision_requested",
+          reviewed_by: userId,
+          reviewed_at: new Date(),
+          review_comments: reviewComments.trim(),
+        },
+        { transaction: t }
+      );
+
+      // Approval history
+      await CompanyProductionTargetApprovalHistory.create(
+        {
+          assignment_id: assignmentId,
+          version_number: proposedVersion,
+          amendment_id: amendment.amendment_id,
+          action: "amendment_revision_requested",
+          previous_status: "amendment_submitted",
+          new_status: "amendment_revision_requested",
+          comments: `Revision requested: ${reviewComments.trim()}`,
+          actor_id: userId,
+        },
+        { transaction: t }
+      );
+    }
+  });
+
+  return await getAmendmentComparison({ amendmentId });
+}
+
+/**
+ * Revise and resubmit a target amendment when revision is requested.
+ */
+async function reviseTargetAmendment({
+  amendmentId,
+  proposedAnnualTarget,
+  periodAllocations,
+  amendmentReason,
+  effectiveDate = null,
+  submissionNotes = null,
+  userId,
+  companyScope = null,
+}) {
+  const amendment = await CompanyProductionTargetAmendment.findByPk(amendmentId, {
+    include: [{ model: CompanyProductionAssignment, as: "assignment" }],
+  });
+  if (!amendment) {
+    const err = new Error("Amendment not found.");
+    err.status = 404;
+    throw err;
+  }
+
+  if (companyScope && amendment.assignment.company_id !== companyScope) {
+    const err = new Error("Forbidden: You cannot modify amendments for another company.");
+    err.status = 403;
+    throw err;
+  }
+
+  if (amendment.status !== "amendment_revision_requested" && amendment.status !== "amendment_draft") {
+    const err = new Error(`Cannot revise amendment with status '${amendment.status}'.`);
+    err.status = 400;
+    throw err;
+  }
+
+  const numAnnual = Number(proposedAnnualTarget);
+  if (isNaN(numAnnual) || numAnnual <= 0) {
+    const err = new Error("Proposed annual target must be a positive number.");
+    err.status = 400;
+    throw err;
+  }
+
+  // Validate period allocations
+  let totalPeriodSum = 0;
+  for (const p of periodAllocations) {
+    const pQty = Number(p.target_quantity);
+    if (isNaN(pQty) || pQty < 0) {
+      const err = new Error(`Invalid target quantity for period '${p.period_label}'.`);
+      err.status = 400;
+      throw err;
+    }
+    totalPeriodSum += pQty;
+  }
+  totalPeriodSum = roundDecimal(totalPeriodSum, 4);
+  const roundedAnnual = roundDecimal(numAnnual, 4);
+  if (Math.abs(totalPeriodSum - roundedAnnual) > 0.0001) {
+    const err = new Error(
+      `Sum of proposed period allocations (${totalPeriodSum}) does not equal proposed annual target (${roundedAnnual}).`
+    );
+    err.status = 400;
+    throw err;
+  }
+
+  const assignment = amendment.assignment;
+  const unitId = assignment.default_reporting_unit_id;
+  const factorToBase = await getUnitFactorToBase(assignment.production_item_id, unitId);
+  const annualQuantityBase = roundDecimal(numAnnual * factorToBase, 4);
+  const proposedVersionNumber = amendment.proposed_version_number;
+
+  await sequelize.transaction(async (t) => {
+    // Delete existing proposed targets for this amendment
+    await CompanyProductionTarget.destroy({
+      where: { amendment_id: amendment.amendment_id },
+      transaction: t,
+      force: true,
+    });
+
+    // Update amendment record
+    await amendment.update(
+      {
+        proposed_annual_target: roundedAnnual,
+        amendment_reason: amendmentReason ? amendmentReason.trim() : amendment.amendment_reason,
+        submission_notes: submissionNotes ? submissionNotes.trim() : amendment.submission_notes,
+        effective_date: effectiveDate || amendment.effective_date,
+        status: "amendment_submitted",
+        submitted_by: userId,
+        submitted_at: new Date(),
+      },
+      { transaction: t }
+    );
+
+    const sortedStarts = [...periodAllocations].map((p) => p.period_start_date).sort();
+    const sortedEnds = [...periodAllocations].map((p) => p.period_end_date).sort();
+    const yearStart = sortedStarts[0] || assignment.effective_from;
+    const yearEnd = sortedEnds[sortedEnds.length - 1] || assignment.effective_to || yearStart;
+    const yearLabel = String(new Date(yearStart).getFullYear() || "Amended Target");
+
+    // Recreate root proposed target
+    const rootProposedTarget = await CompanyProductionTarget.create(
+      {
+        assignment_id: assignment.assignment_id,
+        parent_target_id: null,
+        company_structure_id: null,
+        version_number: proposedVersionNumber,
+        target_period_type: "year",
+        period_label: yearLabel,
+        period_start_date: yearStart,
+        period_end_date: yearEnd,
+        target_quantity: roundedAnnual,
+        unit_id: unitId,
+        target_quantity_base: annualQuantityBase,
+        status: "amendment_submitted",
+        submission_notes: submissionNotes,
+        submitted_by: userId,
+        submitted_at: new Date(),
+        created_by: userId,
+        amendment_id: amendment.amendment_id,
+        is_amendment: true,
+      },
+      { transaction: t }
+    );
+
+    // Recreate periods and department allocations
+    for (const p of periodAllocations) {
+      const pQty = Number(p.target_quantity);
+      const pQtyBase = roundDecimal(pQty * factorToBase, 4);
+
+      const periodRecord = await CompanyProductionTarget.create(
+        {
+          assignment_id: assignment.assignment_id,
+          parent_target_id: rootProposedTarget.target_id,
+          company_structure_id: null,
+          version_number: proposedVersionNumber,
+          target_period_type: p.target_period_type || assignment.target_allocation_depth || "quarter",
+          period_label: p.period_label,
+          period_start_date: p.period_start_date,
+          period_end_date: p.period_end_date,
+          target_quantity: pQty,
+          unit_id: unitId,
+          target_quantity_base: pQtyBase,
+          status: "amendment_submitted",
+          submitted_by: userId,
+          submitted_at: new Date(),
+          created_by: userId,
+          amendment_id: amendment.amendment_id,
+          is_amendment: true,
+        },
+        { transaction: t }
+      );
+
+      if (Array.isArray(p.department_allocations)) {
+        for (const d of p.department_allocations) {
+          const dQty = Number(d.target_quantity);
+          if (isNaN(dQty) || dQty <= 0) continue;
+          const dQtyBase = roundDecimal(dQty * factorToBase, 4);
+
+          await CompanyProductionTarget.create(
+            {
+              assignment_id: assignment.assignment_id,
+              parent_target_id: periodRecord.target_id,
+              company_structure_id: d.company_structure_id,
+              version_number: proposedVersionNumber,
+              target_period_type: p.target_period_type || assignment.target_allocation_depth || "quarter",
+              period_label: `${p.period_label} - Dept`,
+              period_start_date: p.period_start_date,
+              period_end_date: p.period_end_date,
+              target_quantity: dQty,
+              unit_id: unitId,
+              target_quantity_base: dQtyBase,
+              status: "amendment_submitted",
+              submitted_by: userId,
+              submitted_at: new Date(),
+              created_by: userId,
+              amendment_id: amendment.amendment_id,
+              is_amendment: true,
+            },
+            { transaction: t }
+          );
+        }
+      }
+    }
+
+    // Record history
+    await CompanyProductionTargetApprovalHistory.create(
+      {
+        assignment_id: assignment.assignment_id,
+        version_number: proposedVersionNumber,
+        amendment_id: amendment.amendment_id,
+        action: "amendment_resubmitted",
+        previous_status: "amendment_revision_requested",
+        new_status: "amendment_submitted",
+        comments: `Revised amendment resubmitted: ${amendmentReason || "Adjusted proposed values."}`,
+        actor_id: userId,
+      },
+      { transaction: t }
+    );
+  });
+
+  return await getAmendmentComparison({ amendmentId: amendment.amendment_id });
+}
+
+/**
+ * List all target amendments with filtering.
+ */
+async function listTargetAmendments(filters = {}) {
+  const where = {};
+  if (filters.assignment_id) {
+    where.assignment_id = filters.assignment_id;
+  }
+  if (filters.status) {
+    where.status = filters.status;
+  }
+
+  const assignmentWhere = {};
+  if (filters.company_id) {
+    assignmentWhere.company_id = filters.company_id;
+  }
+
+  return await CompanyProductionTargetAmendment.findAll({
+    where,
+    include: [
+      {
+        model: CompanyProductionAssignment,
+        as: "assignment",
+        where: Object.keys(assignmentWhere).length > 0 ? assignmentWhere : undefined,
+        include: [
+          { model: Company, as: "company" },
+          { model: CompanyLicense, as: "license" },
+          { model: ProductionItem, as: "productionItem" },
+          { model: GoldMeasurementUnit, as: "defaultReportingUnit" },
+        ],
+      },
+      { model: User, as: "submitter", attributes: ["user_id", "full_name", "email"] },
+      { model: User, as: "reviewer", attributes: ["user_id", "full_name", "email"] },
+    ],
+    order: [["created_at", "DESC"]],
   });
 }
 
@@ -1856,6 +2737,31 @@ async function getProductionDetail(assignmentId, companyScope = null) {
     limit: 20,
   });
 
+  // Fetch all amendments for this assignment
+  const allAmendments = await CompanyProductionTargetAmendment.findAll({
+    where: { assignment_id: assignmentId },
+    include: [
+      { model: User, as: "submitter", attributes: ["user_id", "full_name", "email"] },
+      { model: User, as: "reviewer", attributes: ["user_id", "full_name", "email"] },
+    ],
+    order: [["created_at", "DESC"]],
+  });
+
+  const pendingAmendment =
+    allAmendments.find((a) =>
+      ["amendment_submitted", "amendment_under_review", "amendment_revision_requested"].includes(a.status)
+    ) || null;
+
+  const latestAmendment = allAmendments[0] || null;
+  let amendmentComparison = null;
+  if (latestAmendment) {
+    try {
+      amendmentComparison = await getAmendmentComparison({ amendmentId: latestAmendment.amendment_id });
+    } catch (e) {
+      // Comparison optional if target data not present
+    }
+  }
+
   return {
     assignment,
     approvedTarget,
@@ -1868,6 +2774,10 @@ async function getProductionDetail(assignmentId, companyScope = null) {
     licenseIneligibilityReason,
     isReportingUnlocked,
     recentReports,
+    allAmendments,
+    pendingAmendment,
+    latestAmendment,
+    amendmentComparison,
   };
 }
 
@@ -1894,4 +2804,9 @@ module.exports = {
   calculateProductionPerformance,
   getFederalDashboard,
   getCompanyDashboard,
+  submitTargetAmendment,
+  getAmendmentComparison,
+  reviewTargetAmendment,
+  reviseTargetAmendment,
+  listTargetAmendments,
 };

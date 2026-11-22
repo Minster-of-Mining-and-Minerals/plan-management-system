@@ -109,6 +109,15 @@ router.post("/assignments/:id/submit-targets", targetProposalAccess, companyProd
 router.post("/assignments/:id/review-targets", targetReviewAccess, companyProductionController.reviewTargetProposalHandler);
 router.get("/assignments/:id/approval-history", targetReadAccess, companyProductionController.getApprovalHistoryHandler);
 
+// Target Amendment Request & Review Workflow
+router.post("/assignments/:id/amendments", targetProposalAccess, companyProductionController.submitTargetAmendmentHandler);
+router.get("/assignments/:id/amendments", targetReadAccess, companyProductionController.listTargetAmendmentsHandler);
+router.get("/assignments/:id/amendments/comparison", targetReadAccess, companyProductionController.getAmendmentComparisonHandler);
+router.get("/amendments", assignmentReadAccess, companyProductionController.listAllAmendmentsHandler);
+router.get("/amendments/:amendmentId/comparison", targetReadAccess, companyProductionController.getAmendmentComparisonHandler);
+router.post("/amendments/:amendmentId/review", targetReviewAccess, companyProductionController.reviewTargetAmendmentHandler);
+router.put("/amendments/:amendmentId/revise", targetProposalAccess, companyProductionController.reviseTargetAmendmentHandler);
+
 // Reporting Responsibilities (Department, User, Role)
 router.get("/assignments/:id/responsibilities", assignmentReadAccess, companyProductionController.listResponsibilitiesHandler);
 router.post("/assignments/:id/responsibilities", responsibilityAccess, companyProductionController.manageResponsibilitiesHandler);

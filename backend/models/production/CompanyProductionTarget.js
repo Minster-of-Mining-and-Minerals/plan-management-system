@@ -44,6 +44,11 @@ module.exports = (sequelize, DataTypes) => {
         foreignKey: "reviewed_by",
         as: "reviewer",
       });
+
+      CompanyProductionTarget.belongsTo(models.CompanyProductionTargetAmendment, {
+        foreignKey: "amendment_id",
+        as: "amendment",
+      });
     }
   }
 
@@ -135,6 +140,15 @@ module.exports = (sequelize, DataTypes) => {
       reviewed_at: {
         type: DataTypes.DATE,
         allowNull: true,
+      },
+      amendment_id: {
+        type: DataTypes.UUID,
+        allowNull: true,
+      },
+      is_amendment: {
+        type: DataTypes.BOOLEAN,
+        allowNull: false,
+        defaultValue: false,
       },
     },
     {

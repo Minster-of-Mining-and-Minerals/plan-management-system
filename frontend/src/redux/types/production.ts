@@ -315,8 +315,10 @@ export interface ProductionDetailBundle {
     review_comments?: string | null;
     submitted_at?: string | null;
     submitted_by?: any;
+    submitter?: any;
     reviewed_at?: string | null;
     reviewed_by?: any;
+    reviewer?: any;
     periods: Array<CompanyProductionTarget & { department_allocations?: CompanyProductionTarget[] }>;
     all_targets: CompanyProductionTarget[];
   } | null;
@@ -327,6 +329,10 @@ export interface ProductionDetailBundle {
   licenseIneligibilityReason?: string | null;
   isReportingUnlocked: boolean;
   recentReports: CompanyProductionReport[];
+  allAmendments?: CompanyProductionTargetAmendment[];
+  pendingAmendment?: CompanyProductionTargetAmendment | null;
+  latestAmendment?: CompanyProductionTargetAmendment | null;
+  amendmentComparison?: TargetAmendmentComparison | null;
 }
 
 export interface FederalProductionDashboard {
@@ -358,4 +364,76 @@ export interface CompanyProductionDashboard {
     performance: ProductionPerformance;
   }>;
   recent_reports: CompanyProductionReport[];
+}
+
+
+export interface CompanyProductionTargetAmendment {
+  amendment_id: string;
+  assignment_id: string;
+  amendment_reference: string;
+  current_approved_version: number;
+  proposed_version_number: number;
+  current_annual_target: number | string;
+  proposed_annual_target: number | string;
+  amendment_reason: string;
+  submission_notes?: string | null;
+  review_comments?: string | null;
+  effective_date?: string | null;
+  status:
+    | "amendment_draft"
+    | "amendment_submitted"
+    | "amendment_under_review"
+    | "amendment_approved"
+    | "amendment_rejected"
+    | "amendment_revision_requested";
+  submitted_by?: string | null;
+  submitted_at?: string | null;
+  reviewed_by?: string | null;
+  reviewed_at?: string | null;
+  activated_at?: string | null;
+  submitter?: {
+    user_id: string;
+    full_name: string;
+    email: string;
+  };
+  reviewer?: {
+    user_id: string;
+    full_name: string;
+    email: string;
+  };
+  assignment?: CompanyProductionAssignment;
+  created_at?: string;
+  updated_at?: string;
+}
+
+export interface PeriodComparisonItem {
+  period_label: string;
+  period_start_date: string;
+  period_end_date: string;
+  approved_quantity: number;
+  proposed_quantity: number;
+  difference: number;
+  percentage_change: number;
+  department_comparisons?: Array<{
+    department_id?: string;
+    department_name: string;
+    approved_quantity: number;
+    proposed_quantity: number;
+    difference: number;
+    percentage_change: number;
+  }>;
+}
+
+export interface TargetAmendmentComparison {
+  amendment: CompanyProductionTargetAmendment;
+  assignment: CompanyProductionAssignment;
+  approvedProposal?: any;
+  proposedProposal?: any;
+  annualComparison: {
+    approved_annual: number;
+    proposed_annual: number;
+    difference: number;
+    percentage_change: number;
+  };
+  periodComparisons: PeriodComparisonItem[];
 }

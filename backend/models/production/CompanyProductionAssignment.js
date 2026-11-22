@@ -54,6 +54,12 @@ module.exports = (sequelize, DataTypes) => {
         onDelete: "CASCADE",
       });
 
+      CompanyProductionAssignment.hasMany(models.CompanyProductionTargetAmendment, {
+        foreignKey: "assignment_id",
+        as: "amendments",
+        onDelete: "CASCADE",
+      });
+
       CompanyProductionAssignment.belongsTo(models.User, {
         foreignKey: "created_by",
         as: "creator",

@@ -68,6 +68,9 @@ import { useGetUsersQuery } from "@/redux/api/userApi";
 import { actionFeedback } from "@/components/action-feedback";
 import Loading01 from "@/features/template/component/Loading/Loading01";
 import type { TargetPeriodNode, CompanyProductionTarget } from "@/redux/types/production";
+import { CompanyTargetAmendmentModal } from "./CompanyTargetAmendmentModal";
+import { CompanyTargetAmendmentComparisonModal } from "./CompanyTargetAmendmentComparisonModal";
+import { Scale } from "lucide-react";
 
 export function CompanyProductionDetailView({
   overrideCompanyId,
@@ -540,6 +543,25 @@ export function CompanyProductionDetailView({
   const proposalStatus = targetProposal?.status || latestTarget?.status || "draft";
   const isProposalApproved = proposalStatus === "approved" || proposalStatus === "published";
   const isProposalSubmitted = proposalStatus === "submitted" || proposalStatus === "under_review";
+  const isProposalRejected = proposalStatus === "rejected";
+  const isRevisionRequested = proposalStatus === "revision_requested";
+
+  const [isRevisingProposal, setIsRevisingProposal] = useState(false);
+  const [isAmendmentModalOpen, setIsAmendmentModalOpen] = useState(false);
+  const [isComparisonModalOpen, setIsComparisonModalOpen] = useState(false);
+
+  const pendingAmendment = detailBundle?.pendingAmendment;
+  const latestAmendment = detailBundle?.latestAmendment;
+  const amendmentComparison = detailBundle?.amendmentComparison;
+
+  // Form inputs are locked if:
+  // - Approved (permanently locked, must request amendment)
+  // - Submitted / Under Review
+  // - Rejected / Revision Requested AND user hasn't clicked "Revise Proposal"
+  const isInputsLocked =
+    isProposalApproved ||
+    isProposalSubmitted ||
+    ((isProposalRejected || isRevisionRequested) && !isRevisingProposal);
 
   return (
     <div className="space-y-6 animate-in fade-in-50 duration-300">
@@ -1032,7 +1054,87 @@ export function CompanyProductionDetailView({
             </CardHeader>
 
             <CardContent className="p-6 space-y-6">
-              {/* Proposal Status Banner if Submitted or Revision Requested */}
+              {/* 1. Pending Amendment Banner */}
+              {pendingAmendment && (
+                <div className="p-4 rounded-xl border border-blue-500/30 bg-blue-500/10 text-blue-900 dark:text-blue-200 text-xs flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                  <div className="flex items-start gap-3">
+                    <Clock className="h-5 w-5 text-blue-600 shrink-0 mt-0.5" />
+                    <div>
+                      <div className="font-bold flex items-center gap-1.5">
+                        <Scale className="h-4 w-4" />
+                        Target Amendment Request ({pendingAmendment.amendment_reference}) Under Federal Review
+                      </div>
+                      <p className="text-[11px] opacity-90 mt-0.5">
+                        Proposed Annual Target: <strong>{Number(pendingAmendment.proposed_annual_target).toLocaleString()} {unitSymbol}</strong> &bull; Reason: &ldquo;{pendingAmendment.amendment_reason}&rdquo;
+                      </p>
+                    </div>
+                  </div>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => setIsComparisonModalOpen(true)}
+                    className="h-8 text-xs gap-1.5 shrink-0 bg-white dark:bg-card text-foreground"
+                  >
+                    <Scale className="h-3.5 w-3.5 text-blue-600" />
+                    View Amendment Comparison
+                  </Button>
+                </div>
+              )}
+
+              {/* 2. Rejected Amendment Notice if not pending */}
+              {!pendingAmendment && latestAmendment?.status === "amendment_rejected" && (
+                <div className="p-4 rounded-xl border border-destructive/30 bg-destructive/10 text-destructive text-xs flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                  <div className="flex items-start gap-3">
+                    <AlertCircle className="h-5 w-5 shrink-0 mt-0.5" />
+                    <div>
+                      <div className="font-bold">
+                        Last Target Amendment Request ({latestAmendment.amendment_reference}) was Rejected
+                      </div>
+                      <p className="text-[11px] opacity-90 mt-0.5">
+                        Feedback: &ldquo;{latestAmendment.review_comments}&rdquo; &bull; The original approved target remains active.
+                      </p>
+                    </div>
+                  </div>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => setIsAmendmentModalOpen(true)}
+                    className="h-8 text-xs gap-1.5 shrink-0 bg-white dark:bg-card text-foreground"
+                  >
+                    <Scale className="h-3.5 w-3.5 text-amber-600" />
+                    Request New Amendment
+                  </Button>
+                </div>
+              )}
+
+              {/* 3. Approved Target Banner (Locked) */}
+              {isProposalApproved && (
+                <div className="p-4 rounded-xl border border-emerald-500/30 bg-emerald-500/10 text-emerald-900 dark:text-emerald-200 text-xs flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                  <div className="flex items-start gap-3">
+                    <ShieldCheck className="h-5 w-5 text-emerald-600 shrink-0 mt-0.5" />
+                    <div>
+                      <div className="font-bold">
+                        Approved Target Version {targetProposal?.version_number || 1} is Officially Active & Permanently Locked
+                      </div>
+                      <p className="text-[11px] opacity-90 mt-0.5">
+                        Approved by {targetProposal?.reviewed_by?.full_name || targetProposal?.reviewer?.full_name || "Federal Ministry"} &bull; Direct edits are disabled. Periodic production reporting is unlocked.
+                      </p>
+                    </div>
+                  </div>
+                  {!pendingAmendment && (
+                    <Button
+                      size="sm"
+                      onClick={() => setIsAmendmentModalOpen(true)}
+                      className="h-8 text-xs gap-1.5 shrink-0 bg-amber-600 hover:bg-amber-700 text-white font-semibold"
+                    >
+                      <Scale className="h-3.5 w-3.5" />
+                      Request Target Amendment
+                    </Button>
+                  )}
+                </div>
+              )}
+
+              {/* 4. Initial Submitted Banner */}
               {proposalStatus === "submitted" && (
                 <div className="p-4 rounded-xl border border-blue-500/30 bg-blue-500/10 text-blue-900 dark:text-blue-200 text-xs flex items-center gap-3">
                   <Clock className="h-5 w-5 text-blue-600 shrink-0" />
@@ -1043,15 +1145,53 @@ export function CompanyProductionDetailView({
                 </div>
               )}
 
-              {proposalStatus === "revision_requested" && (
-                <div className="p-4 rounded-xl border border-amber-500/30 bg-amber-500/10 text-amber-900 dark:text-amber-200 text-xs flex items-start gap-3">
-                  <RotateCcw className="h-5 w-5 text-amber-600 shrink-0 mt-0.5" />
-                  <div className="space-y-1">
-                    <div className="font-bold">Revision Requested by Federal Reviewer:</div>
-                    <div className="p-2 rounded bg-amber-500/10 border border-amber-500/20 font-mono text-[11px]">
-                      {targetProposal?.review_comments || "Please review and adjust period target allocations."}
+              {/* 5. Rejected Proposal Banner with Revise Action */}
+              {proposalStatus === "rejected" && (
+                <div className="p-4 rounded-xl border border-destructive/30 bg-destructive/10 text-destructive text-xs flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                  <div className="flex items-start gap-3">
+                    <AlertCircle className="h-5 w-5 shrink-0 mt-0.5" />
+                    <div>
+                      <div className="font-bold">Target Proposal Rejected by Federal Ministry</div>
+                      <p className="text-[11px] opacity-90 mt-0.5">
+                        Reviewer Feedback: &ldquo;{targetProposal?.review_comments || "Proposal does not meet standard resource allocation rules."}&rdquo;
+                      </p>
                     </div>
                   </div>
+                  {!isRevisingProposal && (
+                    <Button
+                      size="sm"
+                      onClick={() => setIsRevisingProposal(true)}
+                      className="h-8 text-xs gap-1.5 shrink-0 bg-destructive hover:bg-destructive/90 text-white font-semibold"
+                    >
+                      <RotateCcw className="h-3.5 w-3.5" />
+                      Revise and Resubmit Proposal
+                    </Button>
+                  )}
+                </div>
+              )}
+
+              {/* 6. Revision Requested Banner */}
+              {proposalStatus === "revision_requested" && (
+                <div className="p-4 rounded-xl border border-amber-500/30 bg-amber-500/10 text-amber-900 dark:text-amber-200 text-xs flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                  <div className="flex items-start gap-3">
+                    <RotateCcw className="h-5 w-5 text-amber-600 shrink-0 mt-0.5" />
+                    <div>
+                      <div className="font-bold">Revision Requested by Federal Reviewer</div>
+                      <p className="text-[11px] opacity-90 mt-0.5">
+                        Instructions: &ldquo;{targetProposal?.review_comments || "Please review and adjust period target allocations."}&rdquo;
+                      </p>
+                    </div>
+                  </div>
+                  {!isRevisingProposal && (
+                    <Button
+                      size="sm"
+                      onClick={() => setIsRevisingProposal(true)}
+                      className="h-8 text-xs gap-1.5 shrink-0 bg-amber-600 hover:bg-amber-700 text-white font-semibold"
+                    >
+                      <RotateCcw className="h-3.5 w-3.5" />
+                      Edit Revision & Resubmit
+                    </Button>
+                  )}
                 </div>
               )}
 
@@ -1071,7 +1211,7 @@ export function CompanyProductionDetailView({
                       min="0"
                       placeholder="e.g. 1200"
                       value={annualTargetInput}
-                      disabled={isProposalSubmitted}
+                      disabled={isInputsLocked}
                       onChange={(e) => handleAnnualTargetChange(e.target.value)}
                       className="pr-16 text-base font-bold font-mono"
                     />
@@ -1086,7 +1226,7 @@ export function CompanyProductionDetailView({
                     type="button"
                     variant="outline"
                     className="w-full text-xs h-9 gap-1.5"
-                    disabled={isProposalSubmitted || !targetAnnualNum}
+                    disabled={isInputsLocked || !targetAnnualNum}
                     onClick={() => generatePeriodTemplates(targetDepth, targetAnnualNum)}
                   >
                     <RotateCcw className="h-3.5 w-3.5" />
@@ -1164,7 +1304,7 @@ export function CompanyProductionDetailView({
                                     step="any"
                                     min="0"
                                     value={p.target_quantity ?? ""}
-                                    disabled={isProposalSubmitted}
+                                    disabled={isInputsLocked}
                                     onChange={(e) => handlePeriodQuantityChange(pIdx, e.target.value)}
                                     className="h-8 font-mono text-xs pr-10 font-medium"
                                   />
@@ -1248,7 +1388,7 @@ export function CompanyProductionDetailView({
                                                 step="any"
                                                 min="0"
                                                 placeholder="0"
-                                                disabled={isProposalSubmitted}
+                                                disabled={isInputsLocked}
                                                 value={allocVal}
                                                 onChange={(e) =>
                                                   handleDeptAllocationChange(
@@ -1285,14 +1425,38 @@ export function CompanyProductionDetailView({
                 <Textarea
                   placeholder="Provide operational plan context, expected grade, seasonal constraints, or extraction methodology for Federal reviewers..."
                   value={submissionNotes}
-                  disabled={isProposalSubmitted}
+                  disabled={isInputsLocked}
                   onChange={(e) => setSubmissionNotes(e.target.value)}
                   className="text-xs h-20"
                 />
               </div>
 
               {/* Action Buttons */}
-              {!isProposalSubmitted && (
+              {isProposalApproved ? (
+                <div className="flex flex-col sm:flex-row items-center justify-between gap-3 pt-3 border-t">
+                  <div className="text-xs text-muted-foreground flex items-center gap-1.5">
+                    <ShieldCheck className="h-4 w-4 text-emerald-600" />
+                    <span>Approved targets cannot be directly modified. To request adjustments, submit a formal amendment.</span>
+                  </div>
+                  <Button
+                    type="button"
+                    size="sm"
+                    disabled={Boolean(pendingAmendment)}
+                    onClick={() => setIsAmendmentModalOpen(true)}
+                    className="text-xs h-9 gap-1.5 bg-amber-600 hover:bg-amber-700 text-white font-semibold"
+                  >
+                    <Scale className="h-4 w-4" />
+                    {pendingAmendment ? "Amendment Under Federal Review" : "Request Target Amendment"}
+                  </Button>
+                </div>
+              ) : isProposalSubmitted ? (
+                <div className="flex items-center justify-between pt-3 border-t text-xs text-muted-foreground">
+                  <span className="flex items-center gap-1.5 text-blue-600 font-semibold">
+                    <Clock className="h-4 w-4" />
+                    Target proposal is currently under Federal evaluation. Direct edits are locked.
+                  </span>
+                </div>
+              ) : (
                 <div className="flex flex-col sm:flex-row items-center justify-between gap-3 pt-3 border-t">
                   <div className="text-xs text-muted-foreground">
                     {!isTargetProposalValid ? (
@@ -1325,7 +1489,7 @@ export function CompanyProductionDetailView({
                       className="text-xs h-9 gap-1.5 bg-primary hover:bg-primary/90 text-white"
                     >
                       <Send className="h-4 w-4" />
-                      Submit for Federal Review
+                      {isRevisingProposal ? "Resubmit for Federal Review" : "Submit for Federal Review"}
                     </Button>
                   </div>
                 </div>

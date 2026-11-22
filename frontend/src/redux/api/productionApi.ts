@@ -12,6 +12,8 @@ import type {
   CompanyProductionReportingAssignment,
   ProductionDetailBundle,
   ProductionPerformance,
+  CompanyProductionTargetAmendment,
+  TargetAmendmentComparison,
   FederalProductionDashboard,
   CompanyProductionDashboard,
 } from "../types/production";
@@ -347,6 +349,123 @@ export const productionApi = baseApi.injectEndpoints({
       providesTags: (result, error, { id }) => [{ type: "CompanyProductionTargets", id }],
     }),
 
+    // ------------------------------------------------------------------
+    // Target Amendments Workflow
+    // ------------------------------------------------------------------
+    submitTargetAmendment: builder.mutation<
+      TargetAmendmentComparison,
+      {
+        id: string;
+        proposed_annual_target: number;
+        period_allocations: TargetPeriodNode[];
+        amendment_reason: string;
+        effective_date?: string;
+        submission_notes?: string;
+      }
+    >({
+      query: ({ id, ...body }) => ({
+        url: `/production/company/assignments/${id}/amendments`,
+        method: "POST",
+        body,
+      }),
+      transformResponse: (response: { success: boolean; data: TargetAmendmentComparison }) =>
+        response.data,
+      invalidatesTags: (result, error, { id }) => [
+        { type: "CompanyProductionAssignments", id },
+        { type: "CompanyProductionTargets", id },
+        { type: "ProductionDashboard", id: "FEDERAL" },
+        { type: "ProductionDashboard", id: "COMPANY" },
+      ],
+    }),
+
+    getAmendmentComparison: builder.query<
+      TargetAmendmentComparison,
+      { id?: string; amendmentId?: string }
+    >({
+      query: ({ id, amendmentId }) => ({
+        url: id
+          ? `/production/company/assignments/${id}/amendments/comparison`
+          : `/production/company/amendments/${amendmentId}/comparison`,
+        method: "GET",
+        params: amendmentId ? { amendment_id: amendmentId } : {},
+      }),
+      transformResponse: (response: { success: boolean; data: TargetAmendmentComparison }) =>
+        response.data,
+      providesTags: (result, error, arg) => [
+        { type: "CompanyProductionTargets", id: arg.id || arg.amendmentId },
+      ],
+    }),
+
+    listTargetAmendments: builder.query<
+      CompanyProductionTargetAmendment[],
+      { id?: string; company_id?: string; status?: string } | void
+    >({
+      query: (params) => ({
+        url: params && params.id
+          ? `/production/company/assignments/${params.id}/amendments`
+          : "/production/company/amendments",
+        method: "GET",
+        params: params || {},
+      }),
+      transformResponse: (response: {
+        success: boolean;
+        data: CompanyProductionTargetAmendment[];
+      }) => response.data,
+      providesTags: ["CompanyProductionTargets"],
+    }),
+
+    reviewTargetAmendment: builder.mutation<
+      TargetAmendmentComparison,
+      {
+        amendmentId: string;
+        decision: "amendment_approved" | "amendment_rejected" | "amendment_revision_requested";
+        review_comments?: string;
+        effective_date?: string;
+        assignmentId?: string;
+      }
+    >({
+      query: ({ amendmentId, decision, review_comments, effective_date }) => ({
+        url: `/production/company/amendments/${amendmentId}/review`,
+        method: "POST",
+        body: { decision, review_comments, effective_date },
+      }),
+      transformResponse: (response: { success: boolean; data: TargetAmendmentComparison }) =>
+        response.data,
+      invalidatesTags: (result, error, { assignmentId }) => [
+        { type: "CompanyProductionAssignments", id: assignmentId || "LIST" },
+        { type: "CompanyProductionTargets" },
+        { type: "ProductionDashboard", id: "FEDERAL" },
+        { type: "ProductionDashboard", id: "COMPANY" },
+      ],
+    }),
+
+    reviseTargetAmendment: builder.mutation<
+      TargetAmendmentComparison,
+      {
+        amendmentId: string;
+        proposed_annual_target: number;
+        period_allocations: TargetPeriodNode[];
+        amendment_reason: string;
+        effective_date?: string;
+        submission_notes?: string;
+        assignmentId?: string;
+      }
+    >({
+      query: ({ amendmentId, ...body }) => ({
+        url: `/production/company/amendments/${amendmentId}/revise`,
+        method: "PUT",
+        body,
+      }),
+      transformResponse: (response: { success: boolean; data: TargetAmendmentComparison }) =>
+        response.data,
+      invalidatesTags: (result, error, { assignmentId }) => [
+        { type: "CompanyProductionAssignments", id: assignmentId || "LIST" },
+        { type: "CompanyProductionTargets" },
+        { type: "ProductionDashboard", id: "FEDERAL" },
+        { type: "ProductionDashboard", id: "COMPANY" },
+      ],
+    }),
+
     getReportingResponsibilities: builder.query<CompanyProductionReportingAssignment[], string>({
       query: (id) => ({
         url: `/production/company/assignments/${id}/responsibilities`,
@@ -565,6 +684,11 @@ export const {
   useSubmitTargetProposalMutation,
   useReviewTargetProposalMutation,
   useGetApprovalHistoryQuery,
+  useSubmitTargetAmendmentMutation,
+  useGetAmendmentComparisonQuery,
+  useListTargetAmendmentsQuery,
+  useReviewTargetAmendmentMutation,
+  useReviseTargetAmendmentMutation,
   useGetReportingResponsibilitiesQuery,
   useManageReportingResponsibilitiesMutation,
   useGetReportsQuery,

@@ -14,6 +14,11 @@ module.exports = (sequelize, DataTypes) => {
         foreignKey: "actor_id",
         as: "actor",
       });
+
+      CompanyProductionTargetApprovalHistory.belongsTo(models.CompanyProductionTargetAmendment, {
+        foreignKey: "amendment_id",
+        as: "amendment",
+      });
     }
   }
 
@@ -27,6 +32,10 @@ module.exports = (sequelize, DataTypes) => {
       assignment_id: {
         type: DataTypes.UUID,
         allowNull: false,
+      },
+      amendment_id: {
+        type: DataTypes.UUID,
+        allowNull: true,
       },
       version_number: {
         type: DataTypes.INTEGER,

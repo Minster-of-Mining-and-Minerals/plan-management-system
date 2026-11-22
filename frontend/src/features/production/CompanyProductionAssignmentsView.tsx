@@ -10,6 +10,9 @@ import {
   AlertTriangle,
   Settings2,
   ShieldCheck,
+  Scale,
+  RotateCcw,
+  CheckCircle2,
 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -30,6 +33,7 @@ import {
   useGetProductionItemsQuery,
   useGetFrequenciesQuery,
   useGetTargetPeriodsQuery,
+  useListTargetAmendmentsQuery,
 } from "@/redux/api/productionApi";
 import { useGetCompaniesQuery } from "@/redux/api/companyApi";
 import { useGetCompanyLicensesQuery } from "@/redux/api/licenseApi";
@@ -91,6 +95,12 @@ export function CompanyProductionAssignmentsView() {
   const { data: companies = [] } = useGetCompaniesQuery();
   const { data: items = [] } = useGetProductionItemsQuery();
   const { data: frequencies = [] } = useGetFrequenciesQuery();
+  const { data: allAmendments = [] } = useListTargetAmendmentsQuery();
+
+  const [statusCategoryFilter, setStatusCategoryFilter] = useState<
+    "all" | "submissions" | "amendments" | "revision_requested" | "approved" | "rejected"
+  >("all");
+  const [reviewMode, setReviewMode] = useState<"submission" | "amendment">("submission");
 
   const [createAssignment, { isLoading: isCreatingAssignment }] = useCreateAssignmentMutation();
   const [updateAssignment, { isLoading: isUpdatingAssignment }] = useUpdateAssignmentMutation();
@@ -105,15 +115,68 @@ export function CompanyProductionAssignmentsView() {
     { skip: !targetModalAssignment }
   );
 
+  const pendingAmendmentsMap = useMemo(() => {
+    const map = new Map<string, any>();
+    for (const amd of allAmendments) {
+      if (["amendment_submitted", "amendment_under_review"].includes(amd.status)) {
+        map.set(amd.assignment_id, amd);
+      }
+    }
+    return map;
+  }, [allAmendments]);
+
+  // Compute category counts
+  const categoryCounts = useMemo(() => {
+    let submissions = 0;
+    let amendments = 0;
+    let revisions = 0;
+    let approved = 0;
+    let rejected = 0;
+
+    for (const a of assignments) {
+      const rootTarget = a.targets?.find((t) => t.target_period_type === "year");
+      const hasPendingAmd = pendingAmendmentsMap.has(a.assignment_id);
+
+      if (hasPendingAmd) amendments++;
+      if (rootTarget?.status === "submitted" || rootTarget?.status === "under_review") submissions++;
+      if (rootTarget?.status === "revision_requested") revisions++;
+      if (rootTarget?.status === "approved" || rootTarget?.status === "published") approved++;
+      if (rootTarget?.status === "rejected") rejected++;
+    }
+
+    return {
+      all: assignments.length,
+      submissions,
+      amendments,
+      revisions,
+      approved,
+      rejected,
+    };
+  }, [assignments, pendingAmendmentsMap]);
+
   const filteredAssignments = useMemo(() => {
     return assignments.filter((a) => {
       const companyName = a.company?.name || "";
       const itemName = a.productionItem?.name || "";
       const matchesSearch = matchesSearchQuery(searchQuery, [companyName, itemName, a.company?.code || ""]);
       const matchesCompany = companyFilter === "all" || a.company_id === companyFilter;
-      return matchesSearch && matchesCompany;
+
+      if (!matchesSearch || !matchesCompany) return false;
+
+      if (statusCategoryFilter === "all") return true;
+
+      const rootTarget = a.targets?.find((t) => t.target_period_type === "year");
+      const hasPendingAmd = pendingAmendmentsMap.has(a.assignment_id);
+
+      if (statusCategoryFilter === "amendments") return hasPendingAmd;
+      if (statusCategoryFilter === "submissions") return rootTarget?.status === "submitted" || rootTarget?.status === "under_review";
+      if (statusCategoryFilter === "revision_requested") return rootTarget?.status === "revision_requested";
+      if (statusCategoryFilter === "approved") return rootTarget?.status === "approved" || rootTarget?.status === "published";
+      if (statusCategoryFilter === "rejected") return rootTarget?.status === "rejected";
+
+      return true;
     });
-  }, [assignments, searchQuery, companyFilter]);
+  }, [assignments, searchQuery, companyFilter, statusCategoryFilter, pendingAmendmentsMap]);
 
   // Synchronize assign license default when company or its licenses load
   useEffect(() => {
@@ -387,20 +450,52 @@ export function CompanyProductionAssignmentsView() {
     },
     {
       id: "currentPublishedTarget",
-      header: "Current Published Target",
+      header: "Production Target & Approval Status",
       cell: ({ row }) => {
         const rootTarget = row.original.targets?.find((t) => t.target_period_type === "year");
         const childTargets = row.original.targets?.filter((t) => t.target_period_type !== "year") || [];
+        const pendingAmd = pendingAmendmentsMap.get(row.original.assignment_id);
+
         if (rootTarget) {
+          const status = rootTarget.status;
           return (
-            <div>
-              <div className="font-bold text-foreground text-xs">
-                {Number(rootTarget.target_quantity).toLocaleString()}{" "}
-                {rootTarget.unit?.symbol || "units"}
+            <div className="space-y-1">
+              <div className="font-bold text-foreground text-xs flex items-center gap-1.5">
+                <span>
+                  {Number(rootTarget.target_quantity).toLocaleString()}{" "}
+                  {rootTarget.unit?.symbol || "units"}
+                </span>
+                <span className="text-[10px] font-mono text-muted-foreground">v{rootTarget.version_number}</span>
               </div>
-              <div className="text-[10px] text-muted-foreground flex items-center gap-1">
-                <span>v{rootTarget.version_number}</span>
-                {childTargets.length > 0 && <span>• {childTargets.length} Sub-periods</span>}
+
+              <div className="flex flex-wrap items-center gap-1">
+                {pendingAmd ? (
+                  <Badge variant="outline" className="bg-amber-500/15 text-amber-700 dark:text-amber-300 border-amber-500/30 text-[10px] gap-1 font-mono">
+                    <Scale className="h-2.5 w-2.5" /> Amendment Req
+                  </Badge>
+                ) : status === "approved" || status === "published" ? (
+                  <Badge variant="outline" className="bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border-emerald-500/30 text-[10px] gap-1">
+                    <CheckCircle2 className="h-2.5 w-2.5" /> Approved
+                  </Badge>
+                ) : status === "submitted" || status === "under_review" ? (
+                  <Badge variant="outline" className="bg-blue-500/15 text-blue-700 dark:text-blue-300 border-blue-500/30 text-[10px] gap-1">
+                    <Clock className="h-2.5 w-2.5" /> Under Review
+                  </Badge>
+                ) : status === "revision_requested" ? (
+                  <Badge variant="outline" className="bg-amber-500/15 text-amber-700 dark:text-amber-300 border-amber-500/30 text-[10px] gap-1">
+                    <RotateCcw className="h-2.5 w-2.5" /> Revision Req
+                  </Badge>
+                ) : status === "rejected" ? (
+                  <Badge variant="outline" className="bg-rose-500/15 text-rose-700 dark:text-rose-300 border-rose-500/30 text-[10px] gap-1">
+                    <AlertTriangle className="h-2.5 w-2.5" /> Rejected
+                  </Badge>
+                ) : (
+                  <Badge variant="outline" className="text-[10px]">Draft</Badge>
+                )}
+
+                {childTargets.length > 0 && (
+                  <span className="text-[10px] text-muted-foreground">&bull; {childTargets.length} periods</span>
+                )}
               </div>
             </div>
           );
@@ -429,15 +524,33 @@ export function CompanyProductionAssignmentsView() {
         const rootTarget = row.original.targets?.find((t) => t.target_period_type === "year");
         return (
           <div className="text-right flex items-center justify-end gap-2">
-            <Button
-              variant="default"
-              size="sm"
-              onClick={() => setReviewAssignmentId(row.original.assignment_id)}
-              className="h-8 text-xs flex items-center gap-1.5 font-medium bg-amber-600 hover:bg-amber-700 text-white"
-            >
-              <ShieldCheck className="h-3.5 w-3.5" />
-              Review Targets
-            </Button>
+            {pendingAmendmentsMap.has(row.original.assignment_id) ? (
+              <Button
+                variant="default"
+                size="sm"
+                onClick={() => {
+                  setReviewMode("amendment");
+                  setReviewAssignmentId(row.original.assignment_id);
+                }}
+                className="h-8 text-xs flex items-center gap-1.5 font-medium bg-amber-600 hover:bg-amber-700 text-white"
+              >
+                <Scale className="h-3.5 w-3.5" />
+                Review Amendment
+              </Button>
+            ) : (
+              <Button
+                variant="default"
+                size="sm"
+                onClick={() => {
+                  setReviewMode("submission");
+                  setReviewAssignmentId(row.original.assignment_id);
+                }}
+                className="h-8 text-xs flex items-center gap-1.5 font-medium bg-amber-600 hover:bg-amber-700 text-white"
+              >
+                <ShieldCheck className="h-3.5 w-3.5" />
+                Review Targets
+              </Button>
+            )}
             <Button
               variant="outline"
               size="sm"
@@ -502,6 +615,112 @@ export function CompanyProductionAssignmentsView() {
         filters={filters}
         filterColumnsPerRow={1}
       >
+        {/* Review Category Filter Pills */}
+        <div className="flex flex-wrap items-center gap-2 mb-4 pb-2 border-b text-xs">
+          <span className="text-muted-foreground font-semibold text-[11px] uppercase tracking-wider mr-1">
+            Review Category:
+          </span>
+
+          <button
+            type="button"
+            onClick={() => setStatusCategoryFilter("all")}
+            className={`px-3 py-1.5 rounded-lg font-medium transition-colors flex items-center gap-1.5 ${
+              statusCategoryFilter === "all"
+                ? "bg-primary text-white"
+                : "bg-muted/50 hover:bg-muted text-muted-foreground"
+            }`}
+          >
+            All Assignments
+            <span className="px-1.5 py-0.2 rounded-full text-[10px] bg-black/10 dark:bg-white/20">
+              {categoryCounts.all}
+            </span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setStatusCategoryFilter("amendments")}
+            className={`px-3 py-1.5 rounded-lg font-medium transition-colors flex items-center gap-1.5 ${
+              statusCategoryFilter === "amendments"
+                ? "bg-amber-600 text-white"
+                : "bg-muted/50 hover:bg-muted text-muted-foreground"
+            }`}
+          >
+            <Scale className="h-3.5 w-3.5" />
+            Amendment Requests
+            <span className={`px-1.5 py-0.2 rounded-full text-[10px] ${
+              statusCategoryFilter === "amendments" ? "bg-black/10" : categoryCounts.amendments > 0 ? "bg-amber-500 text-white" : "bg-black/10"
+            }`}>
+              {categoryCounts.amendments}
+            </span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setStatusCategoryFilter("submissions")}
+            className={`px-3 py-1.5 rounded-lg font-medium transition-colors flex items-center gap-1.5 ${
+              statusCategoryFilter === "submissions"
+                ? "bg-blue-600 text-white"
+                : "bg-muted/50 hover:bg-muted text-muted-foreground"
+            }`}
+          >
+            <Clock className="h-3.5 w-3.5" />
+            Initial Submissions
+            <span className={`px-1.5 py-0.2 rounded-full text-[10px] ${
+              statusCategoryFilter === "submissions" ? "bg-black/10" : categoryCounts.submissions > 0 ? "bg-blue-500 text-white" : "bg-black/10"
+            }`}>
+              {categoryCounts.submissions}
+            </span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setStatusCategoryFilter("revision_requested")}
+            className={`px-3 py-1.5 rounded-lg font-medium transition-colors flex items-center gap-1.5 ${
+              statusCategoryFilter === "revision_requested"
+                ? "bg-orange-600 text-white"
+                : "bg-muted/50 hover:bg-muted text-muted-foreground"
+            }`}
+          >
+            <RotateCcw className="h-3.5 w-3.5" />
+            Revision Requested
+            <span className="px-1.5 py-0.2 rounded-full text-[10px] bg-black/10 dark:bg-white/20">
+              {categoryCounts.revisions}
+            </span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setStatusCategoryFilter("approved")}
+            className={`px-3 py-1.5 rounded-lg font-medium transition-colors flex items-center gap-1.5 ${
+              statusCategoryFilter === "approved"
+                ? "bg-emerald-600 text-white"
+                : "bg-muted/50 hover:bg-muted text-muted-foreground"
+            }`}
+          >
+            <CheckCircle2 className="h-3.5 w-3.5" />
+            Approved Targets
+            <span className="px-1.5 py-0.2 rounded-full text-[10px] bg-black/10 dark:bg-white/20">
+              {categoryCounts.approved}
+            </span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setStatusCategoryFilter("rejected")}
+            className={`px-3 py-1.5 rounded-lg font-medium transition-colors flex items-center gap-1.5 ${
+              statusCategoryFilter === "rejected"
+                ? "bg-rose-600 text-white"
+                : "bg-muted/50 hover:bg-muted text-muted-foreground"
+            }`}
+          >
+            <AlertTriangle className="h-3.5 w-3.5" />
+            Rejected
+            <span className="px-1.5 py-0.2 rounded-full text-[10px] bg-black/10 dark:bg-white/20">
+              {categoryCounts.rejected}
+            </span>
+          </button>
+        </div>
+
         <DataTable
           columns={columns}
           data={filteredAssignments}

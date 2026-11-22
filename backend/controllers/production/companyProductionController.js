@@ -507,6 +507,169 @@ async function getCompanyDashboardHandler(req, res, next) {
   }
 }
 
+/**
+ * Submit target amendment request for an approved assignment.
+ */
+async function submitTargetAmendmentHandler(req, res, next) {
+  try {
+    const { id } = req.params;
+    const {
+      proposed_annual_target,
+      period_allocations,
+      amendment_reason,
+      effective_date,
+      submission_notes,
+    } = req.body;
+
+    const companyScope = req.user && req.user.company_id ? req.user.company_id : null;
+
+    const result = await companyProductionService.submitTargetAmendment({
+      assignmentId: id,
+      proposedAnnualTarget: proposed_annual_target,
+      periodAllocations: period_allocations,
+      amendmentReason: amendment_reason,
+      effectiveDate: effective_date,
+      submissionNotes: submission_notes,
+      userId: req.user ? req.user.user_id : null,
+      companyScope,
+    });
+
+    return res.status(201).json({
+      success: true,
+      data: result,
+      message: "Target amendment request submitted successfully for Federal review.",
+    });
+  } catch (error) {
+    next(error);
+  }
+}
+
+/**
+ * Get side-by-side comparison between approved target and proposed amendment target.
+ */
+async function getAmendmentComparisonHandler(req, res, next) {
+  try {
+    const { id, amendmentId } = req.params;
+    const queryAmendmentId = amendmentId || req.query.amendment_id;
+
+    const comparison = await companyProductionService.getAmendmentComparison({
+      assignmentId: id,
+      amendmentId: queryAmendmentId,
+    });
+
+    return res.status(200).json({
+      success: true,
+      data: comparison,
+    });
+  } catch (error) {
+    next(error);
+  }
+}
+
+/**
+ * Review target amendment (Federal/Private level).
+ */
+async function reviewTargetAmendmentHandler(req, res, next) {
+  try {
+    const { amendmentId } = req.params;
+    const { decision, review_comments, effective_date } = req.body;
+
+    const result = await companyProductionService.reviewTargetAmendment({
+      amendmentId,
+      decision,
+      reviewComments: review_comments,
+      effectiveDate: effective_date,
+      userId: req.user ? req.user.user_id : null,
+    });
+
+    return res.status(200).json({
+      success: true,
+      data: result,
+      message: `Target amendment review decision '${decision}' successfully recorded.`,
+    });
+  } catch (error) {
+    next(error);
+  }
+}
+
+/**
+ * Revise and resubmit a target amendment.
+ */
+async function reviseTargetAmendmentHandler(req, res, next) {
+  try {
+    const { amendmentId } = req.params;
+    const {
+      proposed_annual_target,
+      period_allocations,
+      amendment_reason,
+      effective_date,
+      submission_notes,
+    } = req.body;
+
+    const companyScope = req.user && req.user.company_id ? req.user.company_id : null;
+
+    const result = await companyProductionService.reviseTargetAmendment({
+      amendmentId,
+      proposedAnnualTarget: proposed_annual_target,
+      periodAllocations: period_allocations,
+      amendmentReason: amendment_reason,
+      effectiveDate: effective_date,
+      submissionNotes: submission_notes,
+      userId: req.user ? req.user.user_id : null,
+      companyScope,
+    });
+
+    return res.status(200).json({
+      success: true,
+      data: result,
+      message: "Target amendment revision resubmitted successfully for Federal review.",
+    });
+  } catch (error) {
+    next(error);
+  }
+}
+
+/**
+ * List target amendments for an assignment.
+ */
+async function listTargetAmendmentsHandler(req, res, next) {
+  try {
+    const { id } = req.params;
+    const filters = { ...req.query, assignment_id: id };
+    if (req.user && req.user.company_id) {
+      filters.company_id = req.user.company_id;
+    }
+
+    const amendments = await companyProductionService.listTargetAmendments(filters);
+    return res.status(200).json({
+      success: true,
+      data: amendments,
+    });
+  } catch (error) {
+    next(error);
+  }
+}
+
+/**
+ * List all target amendments across companies (Federal review view).
+ */
+async function listAllAmendmentsHandler(req, res, next) {
+  try {
+    const filters = { ...req.query };
+    if (req.user && req.user.company_id) {
+      filters.company_id = req.user.company_id;
+    }
+
+    const amendments = await companyProductionService.listTargetAmendments(filters);
+    return res.status(200).json({
+      success: true,
+      data: amendments,
+    });
+  } catch (error) {
+    next(error);
+  }
+}
+
 module.exports = {
   listAssignmentsHandler,
   getAssignmentByIdHandler,
@@ -529,4 +692,10 @@ module.exports = {
   getPerformanceHandler,
   getFederalDashboardHandler,
   getCompanyDashboardHandler,
+  submitTargetAmendmentHandler,
+  getAmendmentComparisonHandler,
+  reviewTargetAmendmentHandler,
+  reviseTargetAmendmentHandler,
+  listTargetAmendmentsHandler,
+  listAllAmendmentsHandler,
 };
