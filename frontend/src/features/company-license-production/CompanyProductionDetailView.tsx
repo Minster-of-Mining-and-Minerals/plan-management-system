@@ -9,6 +9,7 @@ import {
   Calendar,
   Gem,
   ArrowLeft,
+  ArrowRight,
   CheckCircle2,
   Clock,
   Layers,
@@ -880,6 +881,121 @@ export function CompanyProductionDetailView({
             TAB 2: TARGET ALLOCATION & APPROVAL WORKFLOW
         ========================================================================= */}
         <TabsContent value="target-allocation" className="space-y-6">
+          {/* Top KPI Metrics Banner for Target Allocation */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            <Card className="border shadow-xs bg-gradient-to-br from-card to-muted/20">
+              <CardContent className="p-4 space-y-1.5">
+                <span className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider flex items-center gap-1.5">
+                  <Factory className="h-3.5 w-3.5 text-primary" />
+                  Proposed Annual Target
+                </span>
+                <div className="flex items-baseline gap-2">
+                  <span className="text-2xl font-black font-mono text-foreground">
+                    {targetAnnualNum ? targetAnnualNum.toLocaleString() : "0"}
+                  </span>
+                  <span className="text-xs font-bold text-muted-foreground">
+                    {unitSymbol}
+                  </span>
+                </div>
+                <div className="text-[11px] text-muted-foreground">
+                  Fixed unit: <span className="font-semibold">{unitName}</span>
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card className="border shadow-xs bg-gradient-to-br from-card to-muted/20">
+              <CardContent className="p-4 space-y-1.5">
+                <span className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider flex items-center gap-1.5">
+                  <Layers className="h-3.5 w-3.5 text-primary" />
+                  Allocation Depth
+                </span>
+                <div className="text-xl font-bold font-mono text-foreground capitalize">
+                  {targetDepth.replace("_", " ")}
+                </div>
+                <div className="text-[11px] text-muted-foreground">
+                  Distributed over <span className="font-semibold text-foreground">{periodAllocations.length}</span> periods
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card className="border shadow-xs bg-gradient-to-br from-card to-muted/20">
+              <CardContent className="p-4 space-y-1.5">
+                <div className="flex items-center justify-between">
+                  <span className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">
+                    Reconciliation
+                  </span>
+                  {isPeriodSumValid ? (
+                    <Badge className="bg-emerald-600 text-white text-[10px] h-5 gap-1">
+                      <Check className="h-2.5 w-2.5" /> 100% Balanced
+                    </Badge>
+                  ) : (
+                    <Badge variant="destructive" className="text-[10px] h-5 gap-1">
+                      {periodDifference > 0 ? `+${periodDifference}` : periodDifference} {unitSymbol}
+                    </Badge>
+                  )}
+                </div>
+                <div className="flex items-baseline gap-2">
+                  <span className="text-xl font-black font-mono text-foreground">
+                    {totalAllocatedPeriods.toLocaleString()}
+                  </span>
+                  <span className="text-xs text-muted-foreground">/ {targetAnnualNum ? targetAnnualNum.toLocaleString() : "0"} {unitSymbol}</span>
+                </div>
+                <div className="w-full bg-muted rounded-full h-1.5 overflow-hidden mt-1">
+                  <div
+                    className={`h-full transition-all duration-300 ${
+                      isPeriodSumValid
+                        ? "bg-emerald-500"
+                        : totalAllocatedPeriods > (targetAnnualNum || 0)
+                        ? "bg-destructive"
+                        : "bg-amber-500"
+                    }`}
+                    style={{
+                      width: `${
+                        targetAnnualNum
+                          ? Math.min(100, Math.round((totalAllocatedPeriods / targetAnnualNum) * 100))
+                          : 0
+                      }%`,
+                    }}
+                  />
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card className="border shadow-xs bg-gradient-to-br from-card to-muted/20">
+              <CardContent className="p-4 space-y-1.5">
+                <span className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider flex items-center gap-1.5">
+                  <ShieldCheck className="h-3.5 w-3.5 text-primary" />
+                  Federal Approval Status
+                </span>
+                <div>
+                  <Badge
+                    variant="outline"
+                    className={`capitalize text-xs font-semibold px-2.5 py-0.5 ${
+                      proposalStatus === "approved"
+                        ? "bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border-emerald-500/30"
+                        : proposalStatus === "submitted"
+                        ? "bg-blue-500/15 text-blue-700 dark:text-blue-300 border-blue-500/30"
+                        : proposalStatus === "revision_requested"
+                        ? "bg-amber-500/15 text-amber-700 dark:text-amber-300 border-amber-500/30"
+                        : "bg-slate-500/15 text-slate-700 dark:text-slate-300 border-slate-500/30"
+                    }`}
+                  >
+                    {proposalStatus.replace("_", " ").toUpperCase()}
+                  </Badge>
+                </div>
+                <div className="text-[10px] text-muted-foreground leading-tight">
+                  {proposalStatus === "approved"
+                    ? "Target approved; periodic reporting unlocked."
+                    : proposalStatus === "submitted"
+                    ? "Awaiting Federal Ministry evaluation."
+                    : proposalStatus === "revision_requested"
+                    ? "Revision required before reporting."
+                    : "Draft; submit proposal when ready."}
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+
           {/* Target Proposal Configuration Card */}
           <Card className="border shadow-sm">
             <CardHeader className="border-b bg-muted/15 pb-4">
@@ -1289,26 +1405,77 @@ export function CompanyProductionDetailView({
         ========================================================================= */}
         <TabsContent value="reporting" className="space-y-6">
           {!isReportingUnlocked ? (
-            <Card className="border border-destructive/30 bg-destructive/5 text-center p-8 space-y-4">
-              <div className="w-12 h-12 rounded-full bg-destructive/15 text-destructive flex items-center justify-center mx-auto">
-                <Lock className="h-6 w-6" />
+            <Card className="border border-amber-500/30 bg-gradient-to-b from-amber-500/5 via-card to-card p-8 text-center space-y-6 shadow-sm">
+              <div className="w-16 h-16 rounded-2xl bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20 flex items-center justify-center mx-auto shadow-inner">
+                <Lock className="h-8 w-8" />
               </div>
-              <div className="space-y-2 max-w-lg mx-auto">
-                <h3 className="text-lg font-bold text-foreground">
-                  Production Reporting is Locked
+
+              <div className="space-y-2 max-w-xl mx-auto">
+                <Badge variant="outline" className="bg-amber-500/10 text-amber-700 dark:text-amber-300 border-amber-500/30 px-3 py-1 text-xs">
+                  Federal Compliance Gate
+                </Badge>
+                <h3 className="text-xl font-bold text-foreground">
+                  Production Reporting Gate: Federal Approval Required
                 </h3>
                 <p className="text-xs text-muted-foreground leading-relaxed">
-                  Before you can record or submit actual production actuals, your annual target proposal must be formally reviewed and <strong>Approved</strong> by the Federal Ministry of Mines, and the associated mining license must be currently active.
+                  To preserve statutory compliance and audit integrity, production actual reporting unlocks automatically once your annual production target has been reviewed and <strong>Approved</strong> by the Federal Ministry of Mines, and the underlying concession license is active.
                 </p>
-                <div className="pt-2 flex justify-center gap-3">
-                  <Button
-                    size="sm"
-                    onClick={() => handleTabChange("target-allocation")}
-                    className="gap-1.5 text-xs"
-                  >
-                    Go to Target Allocation Tab
-                  </Button>
+              </div>
+
+              {/* 4-Step Visual Stepper */}
+              <div className="max-w-2xl mx-auto grid grid-cols-2 sm:grid-cols-4 gap-3 text-left">
+                <div className={`p-3 rounded-xl border text-xs space-y-1.5 ${
+                  targetAnnualNum ? "bg-emerald-500/10 border-emerald-500/30 text-emerald-900 dark:text-emerald-200" : "bg-muted/40 border-border"
+                }`}>
+                  <div className="flex items-center justify-between">
+                    <span className="font-bold">Step 1</span>
+                    {targetAnnualNum ? <CheckCircle2 className="h-4 w-4 text-emerald-600" /> : <Clock className="h-4 w-4 text-muted-foreground" />}
+                  </div>
+                  <div className="font-semibold">Propose Target</div>
+                  <div className="text-[10px] text-muted-foreground">Annual & period breakdown</div>
                 </div>
+
+                <div className={`p-3 rounded-xl border text-xs space-y-1.5 ${
+                  proposalStatus === "submitted" ? "bg-blue-500/10 border-blue-500/30 text-blue-900 dark:text-blue-200" : proposalStatus === "approved" ? "bg-emerald-500/10 border-emerald-500/30" : "bg-muted/40 border-border"
+                }`}>
+                  <div className="flex items-center justify-between">
+                    <span className="font-bold">Step 2</span>
+                    {proposalStatus === "approved" ? <CheckCircle2 className="h-4 w-4 text-emerald-600" /> : <Clock className="h-4 w-4 text-blue-600" />}
+                  </div>
+                  <div className="font-semibold">Federal Review</div>
+                  <div className="text-[10px] text-muted-foreground">Ministry evaluation</div>
+                </div>
+
+                <div className={`p-3 rounded-xl border text-xs space-y-1.5 ${
+                  proposalStatus === "approved" ? "bg-emerald-500/10 border-emerald-500/30 text-emerald-900 dark:text-emerald-200" : "bg-muted/40 border-border"
+                }`}>
+                  <div className="flex items-center justify-between">
+                    <span className="font-bold">Step 3</span>
+                    {proposalStatus === "approved" ? <CheckCircle2 className="h-4 w-4 text-emerald-600" /> : <Clock className="h-4 w-4 text-muted-foreground" />}
+                  </div>
+                  <div className="font-semibold">Target Approved</div>
+                  <div className="text-[10px] text-muted-foreground">Versioned baseline</div>
+                </div>
+
+                <div className="p-3 rounded-xl border text-xs space-y-1.5 bg-muted/20 border-dashed border-border opacity-70">
+                  <div className="flex items-center justify-between">
+                    <span className="font-bold">Step 4</span>
+                    <Lock className="h-4 w-4 text-muted-foreground" />
+                  </div>
+                  <div className="font-semibold">Reporting Open</div>
+                  <div className="text-[10px] text-muted-foreground">Submit actuals</div>
+                </div>
+              </div>
+
+              <div className="pt-2 flex justify-center gap-3">
+                <Button
+                  size="sm"
+                  onClick={() => handleTabChange("target-allocation")}
+                  className="gap-2 text-xs font-semibold bg-primary text-white hover:bg-primary/90"
+                >
+                  <ArrowRight className="h-3.5 w-3.5" />
+                  Configure & Submit Targets
+                </Button>
               </div>
             </Card>
           ) : (

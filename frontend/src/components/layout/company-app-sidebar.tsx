@@ -3,62 +3,31 @@
 
 import { useState, useEffect, useMemo } from "react";
 import { Link, usePathname } from "@/i18n/navigation";
-import { useParams, useRouter } from "next/navigation";
+import { useParams } from "next/navigation";
 import Image from "next/image";
-import { ChevronRight, Building2 } from "lucide-react";
+import { Building2 } from "lucide-react";
 import { canAccessItem } from "@/lib/can-access";
 import { usePermissions } from "@/hooks/usePermissions";
 import { useBranding } from "@/providers/BrandingProvider";
 import {
-  sidebarTopNavClasses,
-  sidebarTopNavCollapsibleClasses,
-  sidebarSubNavClasses,
-} from "@/lib/branding/sidebarNavClasses";
-import { isNavChildActive } from "@/lib/navigationActive";
-import { COMPANY_NAVIGATION } from "@/company.navigation.config";
+  COMPANY_CATEGORIZED_NAVIGATION,
+  type NavCategory,
+  type NavItem,
+} from "@/company.navigation.config";
 
 import {
   Sidebar,
   SidebarContent,
-  SidebarGroup,
-  SidebarGroupContent,
   SidebarHeader,
   SidebarMenu,
-  SidebarMenuButton,
   SidebarMenuItem,
-  SidebarMenuSub,
-  SidebarMenuSubItem,
-  SidebarMenuSubButton,
 } from "@/components/ui/sidebar";
-
-import {
-  Collapsible,
-  CollapsibleContent,
-  CollapsibleTrigger,
-} from "@/components/ui/collapsible";
-
-function isNavSectionActive(
-  pathname: string,
-  item: { url: string; children?: { url: string }[] }
-) {
-  if (pathname === item.url || pathname.startsWith(`${item.url}/`)) {
-    return true;
-  }
-
-  const childUrls = item.children?.map((child) => child.url) ?? [];
-  return (
-    item.children?.some((child) =>
-      isNavChildActive(pathname, child.url, childUrls)
-    ) ?? false
-  );
-}
 
 export function CompanyAppSidebar({ companyId }: { companyId?: string }) {
   const [mounted, setMounted] = useState(false);
   const { branding, logoPrimaryUrl } = useBranding();
   const { permissions: userPermissions } = usePermissions();
   const pathname = usePathname();
-  const router = useRouter();
   const params = useParams<{ id?: string }>();
 
   useEffect(() => {
@@ -68,70 +37,105 @@ export function CompanyAppSidebar({ companyId }: { companyId?: string }) {
   const activeCompanyId = companyId || params?.id;
   const basePath = `/companies/${activeCompanyId}`;
 
-  const companyNavItems = useMemo(() => {
-    return COMPANY_NAVIGATION.map((item) => {
-      const mappedUrl =
-        item.url === "/company" || item.url === "/company/dashboard"
-          ? basePath
-          : item.url.replace(/^\/company/, basePath);
+  // Map category navigation URLs with active company basePath
+  const categorizedNav = useMemo<NavCategory[]>(() => {
+    return COMPANY_CATEGORIZED_NAVIGATION.map((cat) => {
+      const mappedItems = cat.items.map((item) => {
+        const mappedUrl =
+          item.url === "/company" || item.url === "/company/dashboard"
+            ? basePath
+            : item.url.replace(/^\/company/, basePath);
 
-      const mappedChildren = item.children?.map((child) => ({
-        ...child,
-        url: child.url.replace(/^\/company/, basePath),
-      }));
+        const mappedChildren = item.children?.map((child) => ({
+          ...child,
+          url: child.url.replace(/^\/company/, basePath),
+        }));
+
+        return {
+          ...item,
+          url: mappedUrl,
+          children: mappedChildren,
+        };
+      });
 
       return {
-        ...item,
-        url: mappedUrl,
-        children: mappedChildren,
+        category: cat.category,
+        items: mappedItems,
       };
     });
   }, [basePath]);
 
-  const visibleNav = useMemo(
-    () =>
-      companyNavItems
-        .filter((item) => canAccessItem(item, userPermissions))
-        .map((item) => ({
-          ...item,
-          children: item.children?.filter((child) =>
-            canAccessItem(child, userPermissions)
-          ),
-        }))
-        .filter((item) => !item.children || item.children.length > 0),
-    [companyNavItems, userPermissions]
-  );
+  // Filter accessible items based on user permissions
+  const visibleCategories = useMemo<NavCategory[]>(() => {
+    return categorizedNav
+      .map((cat) => {
+        const visibleItems = cat.items
+          .filter((item) => canAccessItem(item, userPermissions))
+          .map((item) => ({
+            ...item,
+            children: item.children?.filter((child) =>
+              canAccessItem(child, userPermissions)
+            ),
+          }))
+          .filter((item) => !item.children || item.children.length > 0);
+
+        return {
+          category: cat.category,
+          items: visibleItems,
+        };
+      })
+      .filter((cat) => cat.items.length > 0);
+  }, [categorizedNav, userPermissions]);
+
+  // Active check helper:
+  // Root Dashboard is ONLY active on exact match with basePath or basePath/dashboard.
+  // Other items are active on exact match or subpath.
+  const isDashboardUrl = (url: string) =>
+    url === basePath || url === `${basePath}/dashboard`;
+
+  const isItemActive = (itemUrl: string) => {
+    if (isDashboardUrl(itemUrl)) {
+      return (
+        pathname === basePath ||
+        pathname === `${basePath}/dashboard` ||
+        pathname === `${basePath}/`
+      );
+    }
+    return pathname === itemUrl || pathname.startsWith(`${itemUrl}/`);
+  };
 
   return (
-    <Sidebar collapsible="icon" variant="floating" className="hide-scrollbar">
+    <Sidebar
+      collapsible="icon"
+      variant="floating"
+      className="bg-[#0B1E33] border-r border-[#152E4A] text-slate-100 hide-scrollbar"
+    >
       {/* ---------- HEADER ---------- */}
-      <SidebarHeader className="py-8">
+      <SidebarHeader className="py-6 px-4 border-b border-slate-800/80 bg-[#0B1E33]">
         <SidebarMenu>
           <SidebarMenuItem>
-            <Link href={basePath} className="flex flex-col items-center">
+            <Link href={basePath} className="flex items-center gap-3">
               {logoPrimaryUrl ? (
-                <div className="relative w-16 h-16 rounded-xl border border-border/80 bg-white/90 p-1.5 shadow-xs mb-2 overflow-hidden">
+                <div className="relative w-11 h-11 rounded-full border border-amber-500/30 bg-white/95 p-1 shadow-sm shrink-0 overflow-hidden">
                   <Image
                     src={logoPrimaryUrl}
                     alt={`${branding.system_name_short || "Company"} logo`}
                     fill
-                    className="object-contain p-1"
+                    className="object-contain p-0.5"
                     unoptimized
                   />
                 </div>
               ) : (
-                <div className="w-12 h-12 rounded-xl bg-primary/10 text-primary flex items-center justify-center mb-2">
-                  <Building2 className="w-6 h-6" />
+                <div className="w-11 h-11 rounded-full bg-gradient-to-br from-amber-400 to-amber-600 text-slate-950 flex items-center justify-center shrink-0 shadow-sm font-bold">
+                  <Building2 className="w-5 h-5" />
                 </div>
               )}
-              <div className="grid flex-1 text-center gap-1 text-sm leading-tight group-data-[collapsible=icon]:opacity-0">
-                <span className="truncate font-semibold text-sidebar-header-text">
+              <div className="grid flex-1 text-left leading-tight group-data-[collapsible=icon]:hidden">
+                <span className="truncate font-bold text-sm text-white tracking-tight">
                   {branding.system_name_short || "Company Workspace"}
                 </span>
-                <span className="truncate text-xs text-sidebar-header-text/80">
-                  {branding.system_tagline ||
-                    branding.system_name_full ||
-                    "Mining Enterprise Operations"}
+                <span className="truncate text-[11px] text-slate-400">
+                  {branding.system_tagline || "Mining Operations & Target Management"}
                 </span>
               </div>
             </Link>
@@ -139,135 +143,77 @@ export function CompanyAppSidebar({ companyId }: { companyId?: string }) {
         </SidebarMenu>
       </SidebarHeader>
 
-      {/* ---------- CONTENT ---------- */}
-      <SidebarContent className="hide-scrollbar [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
-        <SidebarGroup className="px-5 group-data-[collapsible=icon]:px-0">
-          <SidebarGroupContent>
-            <SidebarMenu className="gap-2 group-data-[collapsible=icon]:items-center">
-              {visibleNav.map((item) => {
+      {/* ---------- CATEGORIZED SIDEBAR CONTENT ---------- */}
+      <SidebarContent className="px-3 py-3 space-y-4 hide-scrollbar [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden bg-[#0B1E33]">
+        {visibleCategories.map((cat, catIdx) => (
+          <div key={cat.category || catIdx} className="space-y-1">
+            {/* Category Header Label */}
+            <div className="px-3 pt-2 pb-1 text-[10px] font-bold tracking-wider text-slate-400 uppercase select-none group-data-[collapsible=icon]:hidden">
+              {cat.category}
+            </div>
+
+            {/* Category Items */}
+            <div className="space-y-1">
+              {cat.items.map((item) => {
                 const hasChildren = item.children && item.children.length > 0;
-                const childUrls = item.children?.map((child) => child.url) ?? [];
-
-                if (hasChildren) {
-                  if (!mounted) {
-                    return (
-                      <SidebarMenuItem
-                        key={item.title}
-                        className="group-data-[collapsible=icon]:w-fit"
-                      >
-                        <SidebarMenuButton
-                          asChild
-                          isActive={isNavSectionActive(pathname, item)}
-                          tooltip={item.title}
-                          className={sidebarTopNavClasses}
-                        >
-                          <Link
-                            href={item.url}
-                            className="flex items-center gap-4 group-data-[collapsible=icon]:justify-center"
-                          >
-                            <item.icon className="group-data-[collapsible=icon]:size-5 shrink-0" />
-                            <span className="text-base whitespace-nowrap truncate group-data-[collapsible=icon]:hidden">
-                              {item.title}
-                            </span>
-                          </Link>
-                        </SidebarMenuButton>
-                      </SidebarMenuItem>
-                    );
-                  }
-
-                  return (
-                    <Collapsible
-                      key={item.title}
-                      asChild
-                      defaultOpen={isNavSectionActive(pathname, item)}
-                      className="group/collapsible"
-                    >
-                      <SidebarMenuItem className="group-data-[collapsible=icon]:w-fit">
-                        <CollapsibleTrigger asChild>
-                          <SidebarMenuButton
-                            tooltip={item.title}
-                            isActive={isNavSectionActive(pathname, item)}
-                            className={sidebarTopNavCollapsibleClasses}
-                          >
-                            <Link
-                              href={item.url}
-                              onClick={() => router.push(item.url)}
-                              className="flex-1 flex items-center gap-4 group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:items-center"
-                            >
-                              <item.icon className="group-data-[collapsible=icon]:size-5 shrink-0" />
-                              <span className="text-base whitespace-nowrap truncate group-data-[collapsible=icon]:hidden">
-                                {item.title}
-                              </span>
-                            </Link>
-                            <ChevronRight className="ml-auto size-4 transition-transform duration-200 group-data-[state=open]/collapsible:rotate-90 group-data-[collapsible=icon]:hidden" />
-                          </SidebarMenuButton>
-                        </CollapsibleTrigger>
-
-                        <CollapsibleContent>
-                          <SidebarMenuSub className="gap-1.5 pl-6 group-data-[collapsible=icon]:hidden">
-                            {item.children?.map((child) => {
-                              const isChildActive = isNavChildActive(
-                                pathname,
-                                child.url,
-                                childUrls
-                              );
-
-                              return (
-                                <SidebarMenuSubItem key={child.title}>
-                                  <SidebarMenuSubButton
-                                    asChild
-                                    isActive={isChildActive}
-                                    className={sidebarSubNavClasses}
-                                  >
-                                    <Link
-                                      href={child.url}
-                                      className="flex items-center gap-3 text-sm py-2 px-3"
-                                    >
-                                      <child.icon className="size-4 shrink-0" />
-                                      <span className="truncate">
-                                        {child.title}
-                                      </span>
-                                    </Link>
-                                  </SidebarMenuSubButton>
-                                </SidebarMenuSubItem>
-                              );
-                            })}
-                          </SidebarMenuSub>
-                        </CollapsibleContent>
-                      </SidebarMenuItem>
-                    </Collapsible>
-                  );
-                }
-
-                const isActive = isNavSectionActive(pathname, item);
+                const active = isItemActive(item.url);
 
                 return (
-                  <SidebarMenuItem
-                    key={item.title}
-                    className="group-data-[collapsible=icon]:w-fit"
-                  >
-                    <SidebarMenuButton
-                      asChild
-                      isActive={isActive}
-                      tooltip={item.title}
-                      className={sidebarTopNavClasses}
+                  <div key={item.title} className="space-y-1">
+                    {/* Top Level Item */}
+                    <Link
+                      href={item.url}
+                      className={`flex items-center gap-3 px-3 py-2 rounded-lg text-sm transition-all group-data-[collapsible=icon]:justify-center ${
+                        active
+                          ? "bg-[#E5A93C] text-slate-950 font-bold shadow-xs hover:bg-[#d89c30]"
+                          : "text-slate-300 hover:text-white hover:bg-white/10"
+                      }`}
+                      title={item.title}
                     >
-                      <Link
-                        href={item.url}
-                        className="flex items-center gap-4 group-data-[collapsible=icon]:justify-center"
-                      >
-                        <item.icon className="group-data-[collapsible=icon]:size-5 shrink-0" />
-                        <span className="text-base whitespace-nowrap truncate group-data-[collapsible=icon]:hidden">
-                          {item.title}
-                        </span>
-                      </Link>
-                    </SidebarMenuButton>
-                  </SidebarMenuItem>
+                      <item.icon
+                        className={`size-4.5 shrink-0 ${
+                          active ? "text-slate-950" : "text-slate-400"
+                        }`}
+                      />
+                      <span className="truncate group-data-[collapsible=icon]:hidden">
+                        {item.title}
+                      </span>
+                    </Link>
+
+                    {/* Directly Displayed Indented Children */}
+                    {hasChildren && (
+                      <div className="ml-4 pl-3 border-l border-slate-700/60 my-1 space-y-1 group-data-[collapsible=icon]:hidden">
+                        {item.children?.map((child) => {
+                          const childActive = isItemActive(child.url);
+
+                          return (
+                            <Link
+                              key={child.title}
+                              href={child.url}
+                              className={`flex items-center gap-2.5 px-2.5 py-1.5 rounded-md text-xs transition-all ${
+                                childActive
+                                  ? "bg-[#E5A93C] text-slate-950 font-bold shadow-xs hover:bg-[#d89c30]"
+                                  : "text-slate-300 hover:text-white hover:bg-white/10"
+                              }`}
+                              title={child.title}
+                            >
+                              <child.icon
+                                className={`size-3.5 shrink-0 ${
+                                  childActive ? "text-slate-950" : "text-slate-400"
+                                }`}
+                              />
+                              <span className="truncate">{child.title}</span>
+                            </Link>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
                 );
               })}
-            </SidebarMenu>
-          </SidebarGroupContent>
-        </SidebarGroup>
+            </div>
+          </div>
+        ))}
       </SidebarContent>
     </Sidebar>
   );

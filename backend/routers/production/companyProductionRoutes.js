@@ -24,6 +24,17 @@ const targetManageAccess = checkAnyPermission([
   { resource: "company_production_targets", action: "manage" },
 ]);
 
+const targetProposalAccess = checkAnyPermission([
+  { resource: "company_production_targets", action: "create" },
+  { resource: "company_production_targets", action: "update" },
+  { resource: "company_production_targets", action: "manage" },
+  { resource: "company_production_targets", action: "read" },
+  { resource: "company_production", action: "manage" },
+  { resource: "company_production", action: "read" },
+  { resource: "company_production_reports", action: "create" },
+  { resource: "company_dashboard", action: "view" },
+]);
+
 const targetReadAccess = checkAnyPermission([
   { resource: "company_production_targets", action: "read" },
   { resource: "company_production_targets", action: "manage" },
@@ -39,7 +50,9 @@ const responsibilityAccess = checkAnyPermission([
   { resource: "company_production_responsibilities", action: "manage" },
   { resource: "company_production_responsibilities", action: "create" },
   { resource: "company_production_responsibilities", action: "update" },
+  { resource: "company_production_responsibilities", action: "read" },
   { resource: "company_production", action: "manage" },
+  { resource: "company_production", action: "read" },
 ]);
 
 const reportSubmitAccess = checkAnyPermission([
@@ -91,8 +104,8 @@ router.post("/assignments/:id/targets", targetManageAccess, companyProductionCon
 router.get("/assignments/:id/targets", targetReadAccess, companyProductionController.getTargetsByAssignmentHandler);
 
 // Target Proposal, Submission & Federal Review Lifecycle
-router.post("/assignments/:id/propose-targets", targetManageAccess, companyProductionController.saveTargetProposalHandler);
-router.post("/assignments/:id/submit-targets", targetManageAccess, companyProductionController.submitTargetProposalHandler);
+router.post("/assignments/:id/propose-targets", targetProposalAccess, companyProductionController.saveTargetProposalHandler);
+router.post("/assignments/:id/submit-targets", targetProposalAccess, companyProductionController.submitTargetProposalHandler);
 router.post("/assignments/:id/review-targets", targetReviewAccess, companyProductionController.reviewTargetProposalHandler);
 router.get("/assignments/:id/approval-history", targetReadAccess, companyProductionController.getApprovalHistoryHandler);
 
