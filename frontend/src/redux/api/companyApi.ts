@@ -204,7 +204,7 @@ export const companyApi = baseApi.injectEndpoints({
     // Company Roles
     getCompanyRoles: builder.query<Role[], string | void>({
       query: (company_id) => ({
-        url: "/company/roles",
+        url: "/roles",
         params: company_id ? { company_id } : undefined,
       }),
       transformResponse: (res: { data: Role[] }) => res.data,

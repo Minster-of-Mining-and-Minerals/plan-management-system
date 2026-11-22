@@ -170,6 +170,7 @@ app.use("/api-docs", swaggerUi.serve, swaggerUi.setup(swaggerSpec));
 // User Management Routes
 app.use("/api/users", userRoute);
 app.use("/api/roles", roleRoute);
+app.use("/api/company/roles", roleRoute);
 app.use("/api/user-roles", userRoleRoute);
 app.use("/api/auth", authRoute);
 app.use("/api/auth/forgot-password", forgotPasswordRoutes);

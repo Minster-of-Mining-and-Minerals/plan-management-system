@@ -22,12 +22,10 @@ router.use(authenticateToken);
 
 router.get(
   "/",
-  checkPermission("PLANS", "READ"),
   getPerformanceColorThresholds
 );
 router.get(
   "/resolve",
-  checkPermission("PLANS", "READ"),
   resolvePerformanceColor
 );
 router.get(

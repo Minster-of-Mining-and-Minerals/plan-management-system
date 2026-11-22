@@ -41,8 +41,18 @@ module.exports = (sequelize, DataTypes) => {
       });
 
       CompanyProductionReport.belongsTo(models.User, {
+        foreignKey: "submitted_by",
+        as: "submittedByUser",
+      });
+
+      CompanyProductionReport.belongsTo(models.User, {
         foreignKey: "reviewed_by",
         as: "reviewer",
+      });
+
+      CompanyProductionReport.belongsTo(models.User, {
+        foreignKey: "reviewed_by",
+        as: "reviewedByUser",
       });
 
       CompanyProductionReport.belongsTo(models.CompanyProductionTarget, {

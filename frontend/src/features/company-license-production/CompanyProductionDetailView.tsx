@@ -156,6 +156,13 @@ export function CompanyProductionDetailView({
   const [assignTargetId, setAssignTargetId] = useState<string>("");
   const [assignNotes, setAssignNotes] = useState<string>("");
 
+  // -------------------------------------------------------------
+  // TARGET AMENDMENT & REVISION MODAL STATE
+  // -------------------------------------------------------------
+  const [isRevisingProposal, setIsRevisingProposal] = useState(false);
+  const [isAmendmentModalOpen, setIsAmendmentModalOpen] = useState(false);
+  const [isComparisonModalOpen, setIsComparisonModalOpen] = useState(false);
+
   const assignment = detailBundle?.assignment;
   const license = assignment?.license;
   const approvedTarget = detailBundle?.approvedTarget;
@@ -564,10 +571,6 @@ export function CompanyProductionDetailView({
   const isProposalRejected = proposalStatus === "rejected";
   const isRevisionRequested = proposalStatus === "revision_requested";
   const isReportingUnlocked = Boolean(detailBundle?.isReportingUnlocked || hasApprovedTarget);
-
-  const [isRevisingProposal, setIsRevisingProposal] = useState(false);
-  const [isAmendmentModalOpen, setIsAmendmentModalOpen] = useState(false);
-  const [isComparisonModalOpen, setIsComparisonModalOpen] = useState(false);
 
   const pendingAmendment = detailBundle?.pendingAmendment;
   const latestAmendment = detailBundle?.latestAmendment;
