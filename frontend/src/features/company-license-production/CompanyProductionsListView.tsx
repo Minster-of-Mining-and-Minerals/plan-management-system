@@ -179,7 +179,8 @@ export function CompanyProductionsListView({ overrideCompanyId }: { overrideComp
         cell: ({ row }) => {
           const targets = row.original.targets || [];
           const hasApprovedTarget = targets.some((t) => t.status === "approved" || t.status === "published");
-          const licActive = (row.original.license?.status || "active").toLowerCase() === "active";
+          const licStatus = (row.original.license?.status || "active").toLowerCase();
+          const licActive = !row.original.license || (licStatus !== "suspended" && licStatus !== "terminated" && licStatus !== "inactive");
           const isEnabled = hasApprovedTarget && licActive;
 
           return (

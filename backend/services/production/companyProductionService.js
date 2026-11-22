@@ -94,7 +94,6 @@ async function listAssignments(query = {}) {
       {
         model: CompanyProductionTarget,
         as: "targets",
-        where: { status: "published" },
         required: false,
         include: [{ model: GoldMeasurementUnit, as: "unit" }],
       },
@@ -155,7 +154,6 @@ async function getAssignmentById(assignmentId) {
       {
         model: CompanyProductionTarget,
         as: "targets",
-        where: { status: "published" },
         required: false,
         include: [{ model: GoldMeasurementUnit, as: "unit" }],
       },
@@ -1196,7 +1194,6 @@ async function getFederalDashboard(query = {}) {
       {
         model: CompanyProductionTarget,
         as: "targets",
-        where: { status: "published" },
         required: false,
         include: [{ model: GoldMeasurementUnit, as: "unit" }],
       },
@@ -1270,7 +1267,6 @@ async function getCompanyDashboard(companyId, query = {}) {
       {
         model: CompanyProductionTarget,
         as: "targets",
-        where: { status: "published" },
         required: false,
         include: [{ model: GoldMeasurementUnit, as: "unit" }],
       },

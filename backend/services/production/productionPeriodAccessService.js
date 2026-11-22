@@ -402,7 +402,7 @@ async function buildTargetAlignedReportingHierarchy({ assignmentId, year = null,
     },
     include: [
       { model: GoldMeasurementUnit, as: "reportedUnit" },
-      { model: User, as: "submitter", attributes: ["user_id", "first_name", "last_name", "email"] },
+      { model: User, as: "submitter", attributes: ["user_id", "full_name", "email"] },
     ],
     order: [["report_date", "ASC"]],
   });
@@ -827,7 +827,7 @@ async function buildDailyReportingMatrix({ assignmentId, monthStr, dateOverride 
     },
     include: [
       { model: GoldMeasurementUnit, as: "reportedUnit" },
-      { model: User, as: "submitter", attributes: ["user_id", "first_name", "last_name", "email"] },
+      { model: User, as: "submitter", attributes: ["user_id", "full_name", "email"] },
     ],
   });
 
@@ -903,7 +903,7 @@ async function buildDailyReportingMatrix({ assignmentId, monthStr, dateOverride 
             status: report.status,
             notes: report.notes,
             submitted_by_name: report.submitter
-              ? `${report.submitter.first_name} ${report.submitter.last_name}`
+              ? report.submitter.full_name || `${report.submitter.first_name || ""} ${report.submitter.last_name || ""}`.trim() || "Company Representative"
               : "Company Representative",
             created_at: report.created_at,
           }

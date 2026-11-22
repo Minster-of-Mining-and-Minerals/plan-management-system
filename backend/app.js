@@ -195,6 +195,7 @@ app.use("/api/licenses", companyLicenseRoutes);
 app.use("/api/license-types", licenseTypeRoutes);
 app.use("/api/company-structures", companyStructureRoutes);
 app.use("/api/company-branding", companyBrandingRoutes);
+app.use("/api/companybranding", companyBrandingRoutes);
 app.use("/api/company/plans", companyPlanRoutes);
 app.use("/api/company", companyOperationalRoutes);
 

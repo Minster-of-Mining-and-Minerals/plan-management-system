@@ -10,6 +10,8 @@ router.get("/public", companyBrandingController.getPublicCompanyBranding);
 
 router.use(authenticateToken);
 
+router.get("/resolve", companyBrandingController.getCompanyBranding);
+
 router.get(
   "/",
   checkPermission("COMPANY_BRANDING", "READ"),
