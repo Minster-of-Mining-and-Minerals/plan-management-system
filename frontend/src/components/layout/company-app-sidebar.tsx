@@ -253,7 +253,7 @@ export function CompanyAppSidebar({ companyId }: { companyId?: string }) {
                               href={child.url}
                               className={`flex items-center gap-2.5 px-2.5 py-1.5 rounded-md text-xs transition-all ${
                                 childActive
-                                  ? "bg-[#E5A93C] text-slate-950 font-bold shadow-xs hover:bg-[#d89c30]"
+                                  ? "bg-[#E5A93C]/20 text-amber-950 dark:text-amber-200 font-semibold border-l-2 border-[#E5A93C] shadow-2xs hover:bg-[#E5A93C]/30"
                                   : "text-slate-600 hover:text-slate-950 hover:bg-slate-100 dark:text-slate-400 dark:hover:text-white dark:hover:bg-slate-800/60"
                               }`}
                               title={child.title}
@@ -261,7 +261,7 @@ export function CompanyAppSidebar({ companyId }: { companyId?: string }) {
                               <child.icon
                                 className={`size-3.5 shrink-0 ${
                                   childActive
-                                    ? "text-slate-950"
+                                    ? "text-[#C7871C] dark:text-[#F3C973]"
                                     : "text-slate-400 dark:text-slate-500"
                                 }`}
                               />
