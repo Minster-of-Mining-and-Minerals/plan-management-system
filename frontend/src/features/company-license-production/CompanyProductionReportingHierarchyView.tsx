@@ -172,6 +172,7 @@ export function CompanyProductionReportingHierarchyView({
                 )}
               </div>
               <p className="text-xs text-muted-foreground">
+                Schedule: <strong className="text-foreground font-mono">{assignment.effective_from || "N/A"} ~ {assignment.effective_to || "Indefinite"}</strong> | 
                 Target Depth: <strong className="text-foreground capitalize">{assignment.target_allocation_depth.replace("_", "-")}</strong> | 
                 Reporting Frequency: <strong className="text-foreground capitalize">{assignment.reporting_frequency}</strong>
               </p>
@@ -193,7 +194,7 @@ export function CompanyProductionReportingHierarchyView({
             <div className="flex items-center justify-between text-xs font-semibold">
               <span className="flex items-center gap-1.5">
                 <TrendingUp className="h-4 w-4 text-primary" />
-                Annual Performance ({selectedYear})
+                Target Performance ({hierarchy.label || selectedYear})
               </span>
               <span className="font-mono">
                 {hierarchy.actualQuantity.toLocaleString()} / {hierarchy.targetQuantity.toLocaleString()} {unitSymbol} (
@@ -221,7 +222,7 @@ export function CompanyProductionReportingHierarchyView({
           }`}
         >
           <Layers className="h-3.5 w-3.5" />
-          <span>Annual {selectedYear}</span>
+          <span>{hierarchy.label || `Annual ${selectedYear}`}</span>
         </button>
 
         {activePath.map((node, idx) => {

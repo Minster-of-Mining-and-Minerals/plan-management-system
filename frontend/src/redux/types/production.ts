@@ -496,6 +496,8 @@ export interface TargetAlignedReportingHierarchyResponse {
     allow_past_reporting?: boolean;
     past_reporting_duration?: number | null;
     past_reporting_unit?: string | null;
+    effective_from?: string | null;
+    effective_to?: string | null;
   };
   today: string;
   allowanceWindow: {

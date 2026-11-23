@@ -195,100 +195,80 @@ export function CompanyProductionDetailView({
         }))
       );
     } else if (assignment && periodAllocations.length === 0) {
-      // Generate initial blank period template according to target_allocation_depth
+      // Generate initial blank period template according to configured effective date range and depth
       generatePeriodTemplates(targetDepth, 0);
     }
-  }, [targetProposalId, assignmentKey, targetDepth]);
+  }, [targetProposalId, assignmentKey, targetDepth, assignment?.effective_from, assignment?.effective_to]);
 
-  // Helper to generate period templates
-  function generatePeriodTemplates(depth: string, totalAnnual: number) {
-    const currentYear = new Date().getFullYear();
+  // Helper to divide a date range [startDateStr, endDateStr] into N contiguous non-overlapping intervals
+  function generateIntervalsFromDates(
+    startDateStr: string,
+    endDateStr: string,
+    count: number,
+    prefix: string,
+    periodType: "year" | "month" | "half_year" | "quarter" | "day",
+    totalAnnual: number
+  ): TargetPeriodNode[] {
+    const [sY, sM, sD] = startDateStr.split("-").map(Number);
+    const [eY, eM, eD] = endDateStr.split("-").map(Number);
+    const startUtc = Date.UTC(sY, sM - 1, sD);
+    const endUtc = Date.UTC(eY, eM - 1, eD);
+    const oneDay = 24 * 60 * 60 * 1000;
+    const totalDays = Math.max(1, Math.round((endUtc - startUtc) / oneDay) + 1);
+    const daysPerSlice = totalDays / count;
+    const perPeriodQty = totalAnnual > 0 ? Number((totalAnnual / count).toFixed(4)) : "";
+
     const periods: TargetPeriodNode[] = [];
+    let currentStartDay = 0;
+    for (let i = 0; i < count; i++) {
+      const nextStartDay = i === count - 1 ? totalDays : Math.round((i + 1) * daysPerSlice);
+      const pStart = new Date(startUtc + currentStartDay * oneDay);
+      const pEnd = new Date(startUtc + (nextStartDay - 1) * oneDay);
+      currentStartDay = nextStartDay;
 
-    if (depth === "monthly") {
-      const perMonth = totalAnnual > 0 ? Number((totalAnnual / 12).toFixed(4)) : "";
-      for (let m = 1; m <= 12; m++) {
-        const mm = String(m).padStart(2, "0");
-        const lastDay = new Date(currentYear, m, 0).getDate();
-        const monthNames = [
-          "January", "February", "March", "April", "May", "June",
-          "July", "August", "September", "October", "November", "December",
-        ];
-        periods.push({
-          target_period_type: "month",
-          period_label: `${monthNames[m - 1]} (${currentYear}-${mm})`,
-          period_start_date: `${currentYear}-${mm}-01`,
-          period_end_date: `${currentYear}-${mm}-${lastDay}`,
-          target_quantity: perMonth,
-          department_allocations: [],
-        });
-      }
-    } else if (depth === "semi_annual") {
-      const perHalf = totalAnnual > 0 ? Number((totalAnnual / 2).toFixed(4)) : "";
-      periods.push(
-        {
-          target_period_type: "half_year",
-          period_label: `H1 (${currentYear} Jan - Jun)`,
-          period_start_date: `${currentYear}-01-01`,
-          period_end_date: `${currentYear}-06-30`,
-          target_quantity: perHalf,
-          department_allocations: [],
-        },
-        {
-          target_period_type: "half_year",
-          period_label: `H2 (${currentYear} Jul - Dec)`,
-          period_start_date: `${currentYear}-07-01`,
-          period_end_date: `${currentYear}-12-31`,
-          target_quantity: perHalf,
-          department_allocations: [],
-        }
-      );
-    } else if (depth === "annual") {
+      const pStartStr = pStart.toISOString().slice(0, 10);
+      const pEndStr = pEnd.toISOString().slice(0, 10);
+      const label =
+        count === 1
+          ? `Full Period (${pStartStr} ~ ${pEndStr})`
+          : `${prefix}${i + 1} (${pStartStr} ~ ${pEndStr})`;
+
       periods.push({
-        target_period_type: "year",
-        period_label: `Full Year ${currentYear}`,
-        period_start_date: `${currentYear}-01-01`,
-        period_end_date: `${currentYear}-12-31`,
-        target_quantity: totalAnnual > 0 ? totalAnnual : "",
+        target_period_type: periodType,
+        period_label: label,
+        period_start_date: pStartStr,
+        period_end_date: pEndStr,
+        target_quantity: perPeriodQty,
         department_allocations: [],
       });
+    }
+    return periods;
+  }
+
+  // Helper to generate period templates based on configured effective date range
+  function generatePeriodTemplates(depth: string, totalAnnual: number) {
+    const effStart = assignment?.effective_from || `${new Date().getFullYear()}-01-01`;
+    let effEnd = assignment?.effective_to;
+    if (!effEnd) {
+      if (assignment?.effective_from) {
+        const [sY, sM, sD] = assignment.effective_from.split("-").map(Number);
+        const nextYear = new Date(Date.UTC(sY + 1, sM - 1, sD - 1));
+        effEnd = nextYear.toISOString().slice(0, 10);
+      } else {
+        effEnd = `${new Date().getFullYear()}-12-31`;
+      }
+    }
+
+    let periods: TargetPeriodNode[] = [];
+    if (depth === "monthly") {
+      periods = generateIntervalsFromDates(effStart, effEnd, 12, "M", "month", totalAnnual);
+    } else if (depth === "semi_annual") {
+      periods = generateIntervalsFromDates(effStart, effEnd, 2, "H", "half_year", totalAnnual);
+    } else if (depth === "annual") {
+      periods = generateIntervalsFromDates(effStart, effEnd, 1, "", "year", totalAnnual);
     } else {
       // Default: quarterly
-      const perQ = totalAnnual > 0 ? Number((totalAnnual / 4).toFixed(4)) : "";
-      periods.push(
-        {
-          target_period_type: "quarter",
-          period_label: `Q1 (${currentYear} Jan - Mar)`,
-          period_start_date: `${currentYear}-01-01`,
-          period_end_date: `${currentYear}-03-31`,
-          target_quantity: perQ,
-          department_allocations: [],
-        },
-        {
-          target_period_type: "quarter",
-          period_label: `Q2 (${currentYear} Apr - Jun)`,
-          period_start_date: `${currentYear}-04-01`,
-          period_end_date: `${currentYear}-06-30`,
-          target_quantity: perQ,
-          department_allocations: [],
-        },
-        {
-          target_period_type: "quarter",
-          period_label: `Q3 (${currentYear} Jul - Sep)`,
-          period_start_date: `${currentYear}-07-01`,
-          period_end_date: `${currentYear}-09-30`,
-          target_quantity: perQ,
-          department_allocations: [],
-        },
-        {
-          target_period_type: "quarter",
-          period_label: `Q4 (${currentYear} Oct - Dec)`,
-          period_start_date: `${currentYear}-10-01`,
-          period_end_date: `${currentYear}-12-31`,
-          target_quantity: perQ,
-          department_allocations: [],
-        }
-      );
+      periods = generateIntervalsFromDates(effStart, effEnd, 4, "Q", "quarter", totalAnnual);
     }
 
     setPeriodAllocations(periods);
@@ -1055,7 +1035,10 @@ export function CompanyProductionDetailView({
                   </CardDescription>
                 </div>
 
-                <div className="flex items-center gap-2">
+                <div className="flex flex-wrap items-center gap-2">
+                  <Badge variant="outline" className="text-xs font-mono">
+                    Schedule: {assignment?.effective_from || "N/A"} ~ {assignment?.effective_to || "Indefinite"}
+                  </Badge>
                   <Badge variant="outline" className="text-xs font-mono">
                     Depth: {targetDepth.toUpperCase()}
                   </Badge>

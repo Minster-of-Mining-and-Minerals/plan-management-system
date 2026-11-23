@@ -95,6 +95,41 @@ const MONTH_NAMES = [
 ];
 
 /**
+ * Helper to divide a date range [startDateStr, endDateStr] into N contiguous non-overlapping intervals
+ */
+function divideDateRange(startDateStr, endDateStr, count, prefix = "", periodType = "quarter") {
+  const [sY, sM, sD] = startDateStr.split("-").map(Number);
+  const [eY, eM, eD] = endDateStr.split("-").map(Number);
+  const startUtc = Date.UTC(sY, sM - 1, sD);
+  const endUtc = Date.UTC(eY, eM - 1, eD);
+  const oneDay = 24 * 60 * 60 * 1000;
+  const totalDays = Math.max(1, Math.round((endUtc - startUtc) / oneDay) + 1);
+  const daysPerSlice = totalDays / count;
+
+  const periods = [];
+  let currentStartDay = 0;
+  for (let i = 0; i < count; i++) {
+    const nextStartDay = i === count - 1 ? totalDays : Math.round((i + 1) * daysPerSlice);
+    const pStart = new Date(startUtc + currentStartDay * oneDay);
+    const pEnd = new Date(startUtc + (nextStartDay - 1) * oneDay);
+    currentStartDay = nextStartDay;
+
+    const pStartStr = pStart.toISOString().slice(0, 10);
+    const pEndStr = pEnd.toISOString().slice(0, 10);
+    const label = count === 1 ? `Full Period (${pStartStr} ~ ${pEndStr})` : `${prefix}${i + 1} (${pStartStr} ~ ${pEndStr})`;
+
+    periods.push({
+      period_type: periodType,
+      period_code: prefix ? `${prefix}${i + 1}` : `P${i + 1}`,
+      period_label: label,
+      period_start_date: pStartStr,
+      period_end_date: pEndStr,
+    });
+  }
+  return periods;
+}
+
+/**
  * Calculate the rolling past-reporting allowance access window
  */
 function calculateAllowanceWindow(assignment, todayStr) {
@@ -344,17 +379,35 @@ async function buildTargetAlignedReportingHierarchy({ assignmentId, year = null,
   const unitSymbol = assignment.defaultReportingUnit?.symbol || "units";
   const unitName = assignment.defaultReportingUnit?.name || "Standard Unit";
 
-  // Fetch approved target for this assignment and year
+  // Determine effective schedule range from assignment or fallback to calendar year
+  let effStart = assignment.effective_from || `${currentYear}-01-01`;
+  let effEnd = assignment.effective_to;
+  if (!effEnd) {
+    if (assignment.effective_from) {
+      const [sY, sM, sD] = assignment.effective_from.split("-").map(Number);
+      const nextYear = new Date(Date.UTC(sY + 1, sM - 1, sD - 1));
+      effEnd = nextYear.toISOString().slice(0, 10);
+    } else {
+      effEnd = `${currentYear}-12-31`;
+    }
+  }
+
+  // Fetch approved root target for this assignment that overlaps with [effStart, effEnd]
   const approvedRootTarget = await CompanyProductionTarget.findOne({
     where: {
       assignment_id: assignmentId,
       status: ["approved", "published"],
       target_period_type: "year",
-      period_start_date: { [Op.lte]: `${currentYear}-12-31` },
-      period_end_date: { [Op.gte]: `${currentYear}-01-01` },
+      period_start_date: { [Op.lte]: effEnd },
+      period_end_date: { [Op.gte]: effStart },
     },
     order: [["version_number", "DESC"]],
   });
+
+  if (approvedRootTarget) {
+    if (approvedRootTarget.period_start_date) effStart = approvedRootTarget.period_start_date;
+    if (approvedRootTarget.period_end_date) effEnd = approvedRootTarget.period_end_date;
+  }
 
   // Fetch all child target allocations for this version
   let periodTargetAllocations = [];
@@ -369,12 +422,12 @@ async function buildTargetAlignedReportingHierarchy({ assignmentId, year = null,
     });
   }
 
-  // Fetch all reports submitted for this assignment within this year
+  // Fetch all reports submitted for this assignment within this effective range
   const reports = await CompanyProductionReport.findAll({
     where: {
       assignment_id: assignmentId,
       report_date: {
-        [Op.between]: [`${currentYear}-01-01`, `${currentYear}-12-31`],
+        [Op.between]: [effStart, effEnd],
       },
     },
     include: [
@@ -387,65 +440,24 @@ async function buildTargetAlignedReportingHierarchy({ assignmentId, year = null,
   const allowanceWindow = calculateAllowanceWindow(assignment, todayStr);
   const license = assignment.license;
 
-  // Build target lookups by period_label (e.g. 'Q1', 'Q2', '2026-01', 'H1', etc.)
-  const targetByPeriodKey = {};
-  for (const t of periodTargetAllocations) {
-    const rawLabel = (t.period_label || "").trim();
-    if (rawLabel) {
-      targetByPeriodKey[rawLabel] = t;
-      // Index by short quarter code if label is like "Q1 (2026 Jan - Mar)"
-      const matchQ = rawLabel.match(/Q[1-4]/i);
-      if (matchQ) {
-        targetByPeriodKey[matchQ[0].toUpperCase()] = t;
-      }
-      // Index by short half-year code if label is like "H1 (Jan - Jun)"
-      const matchH = rawLabel.match(/H[1-2]/i);
-      if (matchH) {
-        targetByPeriodKey[matchH[0].toUpperCase()] = t;
-      }
-    }
-    // Also index by period_start_date (e.g. YYYY-MM)
-    if (t.period_start_date) {
-      targetByPeriodKey[t.period_start_date.slice(0, 7)] = t;
-    }
-  }
-
-  // Pre-index reports by date (YYYY-MM-DD), month (YYYY-MM), quarter (Q1-Q4), half-year (H1-H2)
-  const reportsByDate = {};
-  const actualsByMonth = {};
-  const actualsByQuarter = { Q1: 0, Q2: 0, Q3: 0, Q4: 0 };
-  const actualsByHalfYear = { H1: 0, H2: 0 };
+  // Calculate annual actual total
   let annualActualTotal = 0;
-
   for (const r of reports) {
-    const dStr = r.report_date;
-    reportsByDate[dStr] = r;
-
-    const qty = Number(r.quantity_reported) || 0;
-    annualActualTotal += qty;
-
-    const mKey = dStr.slice(0, 7);
-    actualsByMonth[mKey] = (actualsByMonth[mKey] || 0) + qty;
-
-    const monthNum = parseInt(dStr.slice(5, 7), 10);
-    const qNum = getQuarterFromMonth(monthNum);
-    const qKey = `Q${qNum}`;
-    actualsByQuarter[qKey] = (actualsByQuarter[qKey] || 0) + qty;
-
-    const hKey = qNum <= 2 ? "H1" : "H2";
-    actualsByHalfYear[hKey] = (actualsByHalfYear[hKey] || 0) + qty;
+    annualActualTotal += Number(r.quantity_reported) || 0;
   }
 
   const annualTargetQuantity = approvedRootTarget ? Number(approvedRootTarget.target_quantity) || 0 : 0;
   const annualAchievementPct = annualTargetQuantity > 0 ? (annualActualTotal / annualTargetQuantity) * 100 : 0;
 
+  const rootLabel = approvedRootTarget?.period_label || `Schedule (${effStart} ~ ${effEnd})`;
+
   const rootNode = {
-    id: approvedRootTarget ? approvedRootTarget.target_id : `annual-${currentYear}`,
+    id: approvedRootTarget ? approvedRootTarget.target_id : `annual-${effStart}`,
     level: "annual",
-    label: `Calendar Year ${currentYear}`,
+    label: rootLabel,
     year: currentYear,
-    startDate: `${currentYear}-01-01`,
-    endDate: `${currentYear}-12-31`,
+    startDate: effStart,
+    endDate: effEnd,
     targetQuantity: annualTargetQuantity,
     actualQuantity: Number(annualActualTotal.toFixed(4)),
     remainingTarget: Number(Math.max(0, annualTargetQuantity - annualActualTotal).toFixed(4)),
@@ -455,8 +467,8 @@ async function buildTargetAlignedReportingHierarchy({ assignmentId, year = null,
     targetDepth,
     reportingFrequency: reportingFreq,
     classification: classifyPeriodRange({
-      startDate: `${currentYear}-01-01`,
-      endDate: `${currentYear}-12-31`,
+      startDate: effStart,
+      endDate: effEnd,
       todayStr,
       allowanceWindow,
       license,
@@ -466,224 +478,108 @@ async function buildTargetAlignedReportingHierarchy({ assignmentId, year = null,
     children: [],
   };
 
-  // -----------------------------------------------------------------------------------
-  // GENERATE INTERMEDIATE & REPORTING NODES (SCENARIOS A THROUGH H)
-  // -----------------------------------------------------------------------------------
-
-  // SCENARIO A, B, C, D (Target Depth = 'quarterly')
-  if (targetDepth === "quarterly") {
-    for (let q = 1; q <= 4; q++) {
-      const qKey = `Q${q}`;
-      const qDates = getQuarterDateRange(currentYear, q);
-      const allocatedTarget = targetByPeriodKey[qKey];
-      const qTargetQty = allocatedTarget ? Number(allocatedTarget.target_quantity) || 0 : 0;
-      const qActualQty = actualsByQuarter[qKey] || 0;
-      const qAchievement = qTargetQty > 0 ? (qActualQty / qTargetQty) * 100 : 0;
-
-      const qClassification = classifyPeriodRange({
-        startDate: qDates.startDate,
-        endDate: qDates.endDate,
-        todayStr,
-        allowanceWindow,
-        license,
-        assignment,
-        approvedTarget: approvedRootTarget,
-      });
-
-      const quarterNode = {
-        id: allocatedTarget ? allocatedTarget.target_id : `quarter-${currentYear}-${qKey}`,
-        level: "quarter",
-        label: `${qKey} ${currentYear}`,
-        periodCode: qKey,
-        startDate: qDates.startDate,
-        endDate: qDates.endDate,
-        targetQuantity: qTargetQty,
-        actualQuantity: Number(qActualQty.toFixed(4)),
-        remainingTarget: Number(Math.max(0, qTargetQty - qActualQty).toFixed(4)),
-        achievementPct: Number(qAchievement.toFixed(2)),
-        unitSymbol,
-        classification: qClassification,
-        targetPeriodId: allocatedTarget ? allocatedTarget.target_id : null,
-        children: [],
-      };
-
-      // If Daily or Monthly reporting, populate child months
-      if (reportingFreq === "daily" || reportingFreq === "monthly") {
-        const startMonth = (q - 1) * 3 + 1;
-        for (let m = startMonth; m <= startMonth + 2; m++) {
-          const mDates = getMonthDateRange(currentYear, m);
-          const mKey = `${currentYear}-${String(m).padStart(2, "0")}`;
-          const mActualQty = actualsByMonth[mKey] || 0;
-          const mName = MONTH_NAMES[m - 1];
-
-          const mClassification = classifyPeriodRange({
-            startDate: mDates.startDate,
-            endDate: mDates.endDate,
-            todayStr,
-            allowanceWindow,
-            license,
-            assignment,
-            approvedTarget: approvedRootTarget,
-          });
-
-          const monthNode = {
-            id: `month-${mKey}`,
-            level: "month",
-            label: `${mName} ${currentYear}`,
-            monthKey: mKey,
-            startDate: mDates.startDate,
-            endDate: mDates.endDate,
-            targetQuantity: Number((qTargetQty / 3).toFixed(4)), // Informational proportional share
-            actualQuantity: Number(mActualQty.toFixed(4)),
-            unitSymbol,
-            classification: mClassification,
-            targetPeriodId: allocatedTarget ? allocatedTarget.target_id : null,
-            isReportingLevel: reportingFreq === "monthly",
-            requiresDailyMatrix: reportingFreq === "daily",
-            children: [],
-          };
-
-          quarterNode.children.push(monthNode);
-        }
-      }
-
-      rootNode.children.push(quarterNode);
+  // Determine Primary Child Periods
+  let primaryPeriods = [];
+  if (periodTargetAllocations.length > 0) {
+    primaryPeriods = periodTargetAllocations.map((t) => ({
+      id: t.target_id,
+      targetId: t.target_id,
+      periodCode: t.period_label,
+      label: t.period_label || `${t.period_start_date} ~ ${t.period_end_date}`,
+      startDate: t.period_start_date,
+      endDate: t.period_end_date,
+      targetQuantity: Number(t.target_quantity) || 0,
+      level: t.target_period_type || (targetDepth === "semi_annual" ? "half_year" : targetDepth === "monthly" ? "month" : "quarter"),
+    }));
+  } else {
+    // Generate primary periods based on configured targetDepth across [effStart, effEnd]
+    let count = 4;
+    let prefix = "Q";
+    let periodType = "quarter";
+    if (targetDepth === "semi_annual") {
+      count = 2;
+      prefix = "H";
+      periodType = "half_year";
+    } else if (targetDepth === "monthly") {
+      count = 12;
+      prefix = "M";
+      periodType = "month";
+    } else if (targetDepth === "annual") {
+      count = 1;
+      prefix = "";
+      periodType = "year";
     }
+
+    const intervals = divideDateRange(effStart, effEnd, count, prefix, periodType);
+    const sliceTarget = annualTargetQuantity > 0 ? Number((annualTargetQuantity / count).toFixed(4)) : 0;
+    primaryPeriods = intervals.map((inv) => ({
+      id: `period-${inv.period_start_date}-${inv.period_end_date}`,
+      targetId: approvedRootTarget ? approvedRootTarget.target_id : null,
+      periodCode: inv.period_code,
+      label: inv.period_label,
+      startDate: inv.period_start_date,
+      endDate: inv.period_end_date,
+      targetQuantity: sliceTarget,
+      level: inv.period_type,
+    }));
   }
 
-  // SCENARIO E, F (Target Depth = 'monthly')
-  else if (targetDepth === "monthly") {
-    for (let m = 1; m <= 12; m++) {
-      const mDates = getMonthDateRange(currentYear, m);
-      const mKey = `${currentYear}-${String(m).padStart(2, "0")}`;
-      const mName = MONTH_NAMES[m - 1];
-      const allocatedTarget = targetByPeriodKey[mKey] || targetByPeriodKey[mName];
-      const mTargetQty = allocatedTarget ? Number(allocatedTarget.target_quantity) || 0 : 0;
-      const mActualQty = actualsByMonth[mKey] || 0;
-      const mAchievement = mTargetQty > 0 ? (mActualQty / mTargetQty) * 100 : 0;
+  // Iterate over primary periods and build hierarchy nodes
+  for (const p of primaryPeriods) {
+    const periodReports = reports.filter((r) => r.report_date >= p.startDate && r.report_date <= p.endDate);
+    const pActualQty = periodReports.reduce((sum, r) => sum + (Number(r.quantity_reported) || 0), 0);
+    const pAchievement = p.targetQuantity > 0 ? (pActualQty / p.targetQuantity) * 100 : 0;
 
-      const mClassification = classifyPeriodRange({
-        startDate: mDates.startDate,
-        endDate: mDates.endDate,
-        todayStr,
-        allowanceWindow,
-        license,
-        assignment,
-        approvedTarget: approvedRootTarget,
-      });
+    const pClassification = classifyPeriodRange({
+      startDate: p.startDate,
+      endDate: p.endDate,
+      todayStr,
+      allowanceWindow,
+      license,
+      assignment,
+      approvedTarget: approvedRootTarget,
+    });
 
-      const monthNode = {
-        id: allocatedTarget ? allocatedTarget.target_id : `month-${mKey}`,
-        level: "month",
-        label: `${mName} ${currentYear}`,
-        monthKey: mKey,
-        startDate: mDates.startDate,
-        endDate: mDates.endDate,
-        targetQuantity: mTargetQty,
-        actualQuantity: Number(mActualQty.toFixed(4)),
-        remainingTarget: Number(Math.max(0, mTargetQty - mActualQty).toFixed(4)),
-        achievementPct: Number(mAchievement.toFixed(2)),
-        unitSymbol,
-        classification: mClassification,
-        targetPeriodId: allocatedTarget ? allocatedTarget.target_id : null,
-        isReportingLevel: reportingFreq === "monthly",
-        requiresDailyMatrix: reportingFreq === "daily",
-        children: [],
-      };
+    const isDirectReportingLevel =
+      (targetDepth === "quarterly" && reportingFreq === "quarterly") ||
+      (targetDepth === "semi_annual" && (reportingFreq === "semi_annual" || reportingFreq === "quarterly")) ||
+      (targetDepth === "monthly" && reportingFreq === "monthly") ||
+      (targetDepth === "annual" && reportingFreq === "annual");
 
-      rootNode.children.push(monthNode);
-    }
-  }
+    const pNode = {
+      id: p.id,
+      level: p.level,
+      label: p.label,
+      periodCode: p.periodCode,
+      startDate: p.startDate,
+      endDate: p.endDate,
+      targetQuantity: p.targetQuantity,
+      actualQuantity: Number(pActualQty.toFixed(4)),
+      remainingTarget: Number(Math.max(0, p.targetQuantity - pActualQty).toFixed(4)),
+      achievementPct: Number(pAchievement.toFixed(2)),
+      unitSymbol,
+      classification: pClassification,
+      targetPeriodId: p.targetId,
+      isReportingLevel: isDirectReportingLevel,
+      children: [],
+    };
 
-  // SCENARIO G (Target Depth = 'semi_annual')
-  else if (targetDepth === "semi_annual") {
-    for (let h = 1; h <= 2; h++) {
-      const hKey = `H${h}`;
-      const hDates = getHalfYearDateRange(currentYear, h);
-      const allocatedTarget = targetByPeriodKey[hKey] || targetByPeriodKey[`Semi-Annual ${h}`];
-      const hTargetQty = allocatedTarget ? Number(allocatedTarget.target_quantity) || 0 : 0;
-      const hActualQty = actualsByHalfYear[hKey] || 0;
-      const hAchievement = hTargetQty > 0 ? (hActualQty / hTargetQty) * 100 : 0;
+    // Sub-period decomposition (e.g. daily matrix or monthly breakdown under quarter or half-year)
+    if (!isDirectReportingLevel && (reportingFreq === "daily" || reportingFreq === "monthly")) {
+      let subCount = 3;
+      if (p.level === "half_year") subCount = 6;
+      else if (p.level === "year") subCount = 12;
 
-      const hClassification = classifyPeriodRange({
-        startDate: hDates.startDate,
-        endDate: hDates.endDate,
-        todayStr,
-        allowanceWindow,
-        license,
-        assignment,
-        approvedTarget: approvedRootTarget,
-      });
+      const subIntervals = divideDateRange(p.startDate, p.endDate, subCount, `${p.periodCode || ""}-M`, "month");
+      const subTargetQty = Number((p.targetQuantity / subCount).toFixed(4));
 
-      const halfYearNode = {
-        id: allocatedTarget ? allocatedTarget.target_id : `half-year-${currentYear}-${hKey}`,
-        level: "half_year",
-        label: `${hKey === "H1" ? "First Half (H1)" : "Second Half (H2)"} ${currentYear}`,
-        periodCode: hKey,
-        startDate: hDates.startDate,
-        endDate: hDates.endDate,
-        targetQuantity: hTargetQty,
-        actualQuantity: Number(hActualQty.toFixed(4)),
-        remainingTarget: Number(Math.max(0, hTargetQty - hActualQty).toFixed(4)),
-        achievementPct: Number(hAchievement.toFixed(2)),
-        unitSymbol,
-        classification: hClassification,
-        targetPeriodId: allocatedTarget ? allocatedTarget.target_id : null,
-        children: [],
-      };
+      for (const sm of subIntervals) {
+        const smReports = reports.filter((r) => r.report_date >= sm.period_start_date && r.report_date <= sm.period_end_date);
+        const smActualQty = smReports.reduce((sum, r) => sum + (Number(r.quantity_reported) || 0), 0);
 
-      if (reportingFreq === "daily" || reportingFreq === "monthly") {
-        const startMonth = h === 1 ? 1 : 7;
-        for (let m = startMonth; m <= startMonth + 5; m++) {
-          const mDates = getMonthDateRange(currentYear, m);
-          const mKey = `${currentYear}-${String(m).padStart(2, "0")}`;
-          const mActualQty = actualsByMonth[mKey] || 0;
-          const mName = MONTH_NAMES[m - 1];
-
-          const mClassification = classifyPeriodRange({
-            startDate: mDates.startDate,
-            endDate: mDates.endDate,
-            todayStr,
-            allowanceWindow,
-            license,
-            assignment,
-            approvedTarget: approvedRootTarget,
-          });
-
-          halfYearNode.children.push({
-            id: `month-${mKey}`,
-            level: "month",
-            label: `${mName} ${currentYear}`,
-            monthKey: mKey,
-            startDate: mDates.startDate,
-            endDate: mDates.endDate,
-            targetQuantity: Number((hTargetQty / 6).toFixed(4)),
-            actualQuantity: Number(mActualQty.toFixed(4)),
-            unitSymbol,
-            classification: mClassification,
-            targetPeriodId: allocatedTarget ? allocatedTarget.target_id : null,
-            isReportingLevel: reportingFreq === "monthly",
-            requiresDailyMatrix: reportingFreq === "daily",
-            children: [],
-          });
-        }
-      }
-
-      rootNode.children.push(halfYearNode);
-    }
-  }
-
-  // SCENARIO H (Target Depth = 'annual')
-  else {
-    // Dynamically decompose based on reporting frequency
-    if (reportingFreq === "quarterly") {
-      for (let q = 1; q <= 4; q++) {
-        const qKey = `Q${q}`;
-        const qDates = getQuarterDateRange(currentYear, q);
-        const qActualQty = actualsByQuarter[qKey] || 0;
-        const qClassification = classifyPeriodRange({
-          startDate: qDates.startDate,
-          endDate: qDates.endDate,
+        const smClassification = classifyPeriodRange({
+          startDate: sm.period_start_date,
+          endDate: sm.period_end_date,
           todayStr,
           allowanceWindow,
           license,
@@ -691,57 +587,26 @@ async function buildTargetAlignedReportingHierarchy({ assignmentId, year = null,
           approvedTarget: approvedRootTarget,
         });
 
-        rootNode.children.push({
-          id: `quarter-${currentYear}-${qKey}`,
-          level: "quarter",
-          label: `${qKey} ${currentYear}`,
-          periodCode: qKey,
-          startDate: qDates.startDate,
-          endDate: qDates.endDate,
-          targetQuantity: Number((annualTargetQuantity / 4).toFixed(4)),
-          actualQuantity: Number(qActualQty.toFixed(4)),
-          unitSymbol,
-          classification: qClassification,
-          targetPeriodId: approvedRootTarget ? approvedRootTarget.target_id : null,
-          isReportingLevel: true,
-          children: [],
-        });
-      }
-    } else if (reportingFreq === "monthly" || reportingFreq === "daily") {
-      for (let m = 1; m <= 12; m++) {
-        const mDates = getMonthDateRange(currentYear, m);
-        const mKey = `${currentYear}-${String(m).padStart(2, "0")}`;
-        const mName = MONTH_NAMES[m - 1];
-        const mActualQty = actualsByMonth[mKey] || 0;
-
-        const mClassification = classifyPeriodRange({
-          startDate: mDates.startDate,
-          endDate: mDates.endDate,
-          todayStr,
-          allowanceWindow,
-          license,
-          assignment,
-          approvedTarget: approvedRootTarget,
-        });
-
-        rootNode.children.push({
-          id: `month-${mKey}`,
+        pNode.children.push({
+          id: `sub-${sm.period_start_date}-${sm.period_end_date}`,
           level: "month",
-          label: `${mName} ${currentYear}`,
-          monthKey: mKey,
-          startDate: mDates.startDate,
-          endDate: mDates.endDate,
-          targetQuantity: Number((annualTargetQuantity / 12).toFixed(4)),
-          actualQuantity: Number(mActualQty.toFixed(4)),
+          label: sm.period_label,
+          monthKey: sm.period_start_date.slice(0, 7),
+          startDate: sm.period_start_date,
+          endDate: sm.period_end_date,
+          targetQuantity: subTargetQty,
+          actualQuantity: Number(smActualQty.toFixed(4)),
           unitSymbol,
-          classification: mClassification,
-          targetPeriodId: approvedRootTarget ? approvedRootTarget.target_id : null,
+          classification: smClassification,
+          targetPeriodId: p.targetId,
           isReportingLevel: reportingFreq === "monthly",
           requiresDailyMatrix: reportingFreq === "daily",
           children: [],
         });
       }
     }
+
+    rootNode.children.push(pNode);
   }
 
   return {
@@ -758,6 +623,8 @@ async function buildTargetAlignedReportingHierarchy({ assignmentId, year = null,
       allow_past_reporting: assignment.allow_past_reporting,
       past_reporting_duration: assignment.past_reporting_duration,
       past_reporting_unit: assignment.past_reporting_unit,
+      effective_from: assignment.effective_from,
+      effective_to: assignment.effective_to,
     },
     today: todayStr,
     allowanceWindow,
@@ -792,26 +659,22 @@ async function buildDailyReportingMatrix({ assignmentId, monthStr, dateOverride 
     throw err;
   }
 
-  // Find approved target
+  // Days in month
+  const totalDaysInMonth = new Date(Date.UTC(year, month, 0)).getUTCDate();
+  const startDate = `${yearStr}-${mStr.padStart(2, "0")}-01`;
+  const endDate = `${yearStr}-${mStr.padStart(2, "0")}-${String(totalDaysInMonth).padStart(2, "0")}`;
+
+  // Find approved target overlapping with this month
   const approvedRootTarget = await CompanyProductionTarget.findOne({
     where: {
       assignment_id: assignmentId,
       status: ["approved", "published"],
       target_period_type: "year",
-      period_start_date: { [Op.lte]: `${year}-12-31` },
-      period_end_date: { [Op.gte]: `${year}-01-01` },
+      period_start_date: { [Op.lte]: endDate },
+      period_end_date: { [Op.gte]: startDate },
     },
     order: [["version_number", "DESC"]],
   });
-
-  const allowanceWindow = calculateAllowanceWindow(assignment, todayStr);
-  const license = assignment.license;
-  const unitSymbol = assignment.defaultReportingUnit?.symbol || "units";
-
-  // Days in month
-  const totalDaysInMonth = new Date(Date.UTC(year, month, 0)).getUTCDate();
-  const startDate = `${yearStr}-${mStr.padStart(2, "0")}-01`;
-  const endDate = `${yearStr}-${mStr.padStart(2, "0")}-${String(totalDaysInMonth).padStart(2, "0")}`;
 
   // Fetch reports for this month
   const existingReports = await CompanyProductionReport.findAll({
