@@ -342,7 +342,8 @@ export function CompanyDailyReportSubmitView({ companyId: propCompanyId }: { com
                 >
                   {assignments.map((a) => (
                     <option key={a.assignment_id} value={a.assignment_id}>
-                      {a.productionItem?.name} ({a.productionItem?.code}) — {a.reportingFrequency?.name || "Daily"}
+                      {a.productionItem?.name} ({a.productionItem?.code})
+                      {a.license?.license_number ? ` [License: ${a.license.license_number}]` : ""} — {a.reportingFrequency?.name || "Daily"}
                     </option>
                   ))}
                 </select>

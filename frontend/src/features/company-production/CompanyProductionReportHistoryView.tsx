@@ -300,10 +300,19 @@ export function CompanyProductionReportHistoryView({ companyId: propCompanyId }:
             },
             options: [
               { label: "All Items", value: "all" },
-              ...assignments.map((a) => ({
-                label: `${a.productionItem?.name} (${a.productionItem?.code})`,
-                value: a.production_item_id,
-              })),
+              ...Array.from(
+                new Map(
+                  assignments
+                    .filter((a) => a.productionItem)
+                    .map((a) => [
+                      a.production_item_id,
+                      {
+                        label: `${a.productionItem?.name} (${a.productionItem?.code})`,
+                        value: a.production_item_id,
+                      },
+                    ])
+                ).values()
+              ),
             ],
           },
         ]

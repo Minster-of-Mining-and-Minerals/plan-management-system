@@ -115,39 +115,35 @@ export function CompanyProductionReportingHierarchyView({
     }
   };
 
-  const getStatusBadge = (classification: { status: ReportingPeriodClassification; isAccessible: boolean; reason?: string }) => {
-    const { status } = classification;
-    if (status === "CURRENT") {
+  const getStatusBadge = (
+    classification: { status: ReportingPeriodClassification; isAccessible: boolean; reason?: string },
+    actualQuantity: number = 0
+  ) => {
+    const { status, isAccessible } = classification;
+    if (actualQuantity > 0 || status === "COMPLETED" || status === "SUBMITTED") {
       return (
-        <Badge className="bg-primary/10 text-primary border-primary/30 text-[10px] font-semibold gap-1">
-          <Clock className="h-3 w-3" /> Current Period
-        </Badge>
-      );
-    }
-    if (status === "COMPLETED" || status === "SUBMITTED") {
-      return (
-        <Badge className="bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/30 text-[10px] font-semibold gap-1">
+        <Badge className="bg-emerald-600 text-white text-[10px] font-semibold gap-1 shadow-xs">
           <CheckCircle2 className="h-3 w-3" /> Reported
         </Badge>
       );
     }
-    if (status === "AVAILABLE" || status === "AVAILABLE_PAST") {
+    if (status === "CURRENT" || isAccessible) {
       return (
-        <Badge className="bg-blue-500/10 text-blue-600 dark:text-blue-400 border-blue-500/30 text-[10px] font-semibold gap-1">
-          <Plus className="h-3 w-3" /> Open for Report
+        <Badge className="bg-emerald-50 text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-700 text-[10px] font-semibold gap-1">
+          <Clock className="h-3 w-3" /> Window Open
         </Badge>
       );
     }
-    if (status === "LOCKED_PAST") {
+    if (status === "LOCKED_FUTURE") {
       return (
-        <Badge variant="outline" className="text-muted-foreground text-[10px] gap-1">
-          <Lock className="h-3 w-3" /> Closed
+        <Badge className="bg-rose-100 text-rose-800 dark:bg-rose-950 dark:text-rose-300 border border-rose-300 dark:border-rose-800 text-[10px] font-semibold gap-1">
+          <Lock className="h-3 w-3" /> Upcoming
         </Badge>
       );
     }
     return (
-      <Badge variant="outline" className="text-muted-foreground/60 text-[10px] gap-1">
-        <Lock className="h-3 w-3" /> Future
+      <Badge className="bg-rose-100 text-rose-800 dark:bg-rose-950 dark:text-rose-300 border border-rose-300 dark:border-rose-800 text-[10px] font-semibold gap-1">
+        <Lock className="h-3 w-3" /> Window Locked
       </Badge>
     );
   };
@@ -305,7 +301,7 @@ export function CompanyProductionReportingHierarchyView({
                     <CardTitle className="text-sm font-bold text-foreground">
                       {node.label}
                     </CardTitle>
-                    {getStatusBadge(node.classification)}
+                    {getStatusBadge(node.classification, node.actualQuantity)}
                   </div>
                   <div className="text-[11px] font-mono text-muted-foreground flex items-center gap-1">
                     <Calendar className="h-3 w-3 shrink-0" />
@@ -379,12 +375,21 @@ export function CompanyProductionReportingHierarchyView({
                       Explore Breakdown
                       <ChevronRight className="h-3.5 w-3.5 ml-auto" />
                     </Button>
+                  ) : !node.classification.isAccessible ? (
+                    <Button
+                      size="sm"
+                      disabled={true}
+                      title={node.classification.reason || "Reporting window is locked for this period."}
+                      className="w-full text-xs font-semibold gap-1.5 opacity-60 cursor-not-allowed bg-slate-200 dark:bg-slate-800 text-slate-500 border border-slate-300 dark:border-slate-700 h-8"
+                    >
+                      <Lock className="h-3.5 w-3.5" />
+                      Locked
+                    </Button>
                   ) : (
                     <Button
                       size="sm"
-                      disabled={!node.classification.isAccessible}
                       onClick={() => handleNavigateDown(node)}
-                      className="w-full text-xs font-semibold gap-1.5 bg-primary text-white hover:bg-primary/90 h-8"
+                      className="w-full text-xs font-semibold gap-1.5 bg-emerald-600 hover:bg-emerald-700 text-white h-8"
                     >
                       <Plus className="h-3.5 w-3.5" />
                       Submit {node.label} Report

@@ -252,27 +252,11 @@ function classifyReportingDate({
     };
   }
 
-  // Past check: evaluate rolling allowance
-  if (allowanceWindow.allowPast) {
-    if (dateStr >= allowanceWindow.earliestAllowedDate) {
-      return {
-        status: PERIOD_STATUS.AVAILABLE_PAST,
-        isAccessible: true,
-        reason: `Eligible past reporting date within the ${allowanceWindow.duration} ${allowanceWindow.unit} window.`,
-      };
-    } else {
-      return {
-        status: PERIOD_STATUS.LOCKED_PAST,
-        isAccessible: false,
-        reason: `Reporting is closed. You can submit reports for the previous ${allowanceWindow.duration} ${allowanceWindow.unit} only.`,
-      };
-    }
-  }
-
+  // Past date check: strictly locked (matching Plan Hierarchy KPI reporting rules)
   return {
     status: PERIOD_STATUS.LOCKED_PAST,
     isAccessible: false,
-    reason: "Past reporting is disabled for this production assignment.",
+    reason: "Past date is locked. Only the current active date is open for reporting.",
   };
 }
 
@@ -309,7 +293,11 @@ function classifyPeriodRange({
   }
 
   if (startDate > todayStr) {
-    return { status: PERIOD_STATUS.LOCKED_FUTURE, isAccessible: false, reason: "Future period." };
+    return {
+      status: PERIOD_STATUS.LOCKED_FUTURE,
+      isAccessible: false,
+      reason: `Upcoming period. Reporting window opens on ${startDate}.`,
+    };
   }
 
   const isCurrent = todayStr >= startDate && todayStr <= endDate;
@@ -321,22 +309,11 @@ function classifyPeriodRange({
     };
   }
 
-  // It is a past period (endDate < todayStr)
-  if (allowanceWindow.allowPast) {
-    // If the period's end date or any portion overlaps with the rolling allowance window
-    if (endDate >= allowanceWindow.earliestAllowedDate) {
-      return {
-        status: PERIOD_STATUS.AVAILABLE_PAST,
-        isAccessible: true,
-        reason: `Accessible under ${allowanceWindow.duration} ${allowanceWindow.unit} past-reporting allowance.`,
-      };
-    }
-  }
-
+  // Strictly lock past periods (matching Plan Hierarchy KPI reporting rules)
   return {
     status: PERIOD_STATUS.LOCKED_PAST,
     isAccessible: false,
-    reason: `Past period closed. Outside permitted past-reporting window.`,
+    reason: `Past reporting window closed on ${endDate}.`,
   };
 }
 
@@ -413,7 +390,24 @@ async function buildTargetAlignedReportingHierarchy({ assignmentId, year = null,
   // Build target lookups by period_label (e.g. 'Q1', 'Q2', '2026-01', 'H1', etc.)
   const targetByPeriodKey = {};
   for (const t of periodTargetAllocations) {
-    targetByPeriodKey[t.period_label.trim()] = t;
+    const rawLabel = (t.period_label || "").trim();
+    if (rawLabel) {
+      targetByPeriodKey[rawLabel] = t;
+      // Index by short quarter code if label is like "Q1 (2026 Jan - Mar)"
+      const matchQ = rawLabel.match(/Q[1-4]/i);
+      if (matchQ) {
+        targetByPeriodKey[matchQ[0].toUpperCase()] = t;
+      }
+      // Index by short half-year code if label is like "H1 (Jan - Jun)"
+      const matchH = rawLabel.match(/H[1-2]/i);
+      if (matchH) {
+        targetByPeriodKey[matchH[0].toUpperCase()] = t;
+      }
+    }
+    // Also index by period_start_date (e.g. YYYY-MM)
+    if (t.period_start_date) {
+      targetByPeriodKey[t.period_start_date.slice(0, 7)] = t;
+    }
   }
 
   // Pre-index reports by date (YYYY-MM-DD), month (YYYY-MM), quarter (Q1-Q4), half-year (H1-H2)

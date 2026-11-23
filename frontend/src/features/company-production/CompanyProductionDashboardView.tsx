@@ -311,12 +311,19 @@ export function CompanyProductionDashboardView({ companyId: propCompanyId }: { c
                 className="h-9 px-3 rounded-lg border border-input bg-background text-sm font-medium focus:outline-none focus:ring-2 focus:ring-primary"
               >
                 <option value="all">All Assigned Items ({performances.length})</option>
-                {performances.map((p) => (
+                {Array.from(
+                  new Map(
+                    performances.map((p) => [
+                      p.assignment.production_item_id,
+                      p,
+                    ])
+                  ).values()
+                ).map((p) => (
                   <option
                     key={p.assignment.assignment_id}
                     value={p.assignment.production_item_id}
                   >
-                    {p.performance.production_item?.name} ({p.assignment.productionItem?.code})
+                    {p.performance.production_item?.name || p.assignment.productionItem?.name} ({p.assignment.productionItem?.code})
                   </option>
                 ))}
               </select>

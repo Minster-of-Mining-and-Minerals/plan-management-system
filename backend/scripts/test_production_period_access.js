@@ -97,7 +97,7 @@ assert.strictEqual(classFuture.status, PERIOD_STATUS.LOCKED_FUTURE);
 assert.strictEqual(classFuture.isAccessible, false);
 console.log("  ✓ Future date (2026-11-23) is LOCKED_FUTURE");
 
-// 2c. Past date inside 7-day allowance
+// 2c. Past date strictly locked
 const classPastAllowed = classifyReportingDate({
   dateStr: "2026-11-18",
   todayStr,
@@ -106,11 +106,11 @@ const classPastAllowed = classifyReportingDate({
   assignment: activeAssignment,
   approvedTarget,
 });
-assert.strictEqual(classPastAllowed.status, PERIOD_STATUS.AVAILABLE_PAST);
-assert.strictEqual(classPastAllowed.isAccessible, true);
-console.log("  ✓ Past date within allowance (2026-11-18) is AVAILABLE_PAST and accessible");
+assert.strictEqual(classPastAllowed.status, PERIOD_STATUS.LOCKED_PAST);
+assert.strictEqual(classPastAllowed.isAccessible, false);
+console.log("  ✓ Past date (2026-11-18) is LOCKED_PAST and locked");
 
-// 2d. Boundary date: exactly 7 days ago
+// 2d. Boundary date: past date
 const classBoundary = classifyReportingDate({
   dateStr: "2026-11-15",
   todayStr,
@@ -119,9 +119,9 @@ const classBoundary = classifyReportingDate({
   assignment: activeAssignment,
   approvedTarget,
 });
-assert.strictEqual(classBoundary.status, PERIOD_STATUS.AVAILABLE_PAST);
-assert.strictEqual(classBoundary.isAccessible, true);
-console.log("  ✓ Exact boundary date (2026-11-15) is AVAILABLE_PAST and accessible");
+assert.strictEqual(classBoundary.status, PERIOD_STATUS.LOCKED_PAST);
+assert.strictEqual(classBoundary.isAccessible, false);
+console.log("  ✓ Past boundary date (2026-11-15) is LOCKED_PAST and locked");
 
 // 2e. Past date outside 7-day allowance (8 days ago)
 const classPastLocked = classifyReportingDate({
@@ -262,25 +262,19 @@ assert.strictEqual(qFutureClass.status, PERIOD_STATUS.LOCKED_FUTURE);
 assert.strictEqual(qFutureClass.isAccessible, false);
 console.log("  ✓ Future period is LOCKED_FUTURE");
 
-// Past quarter with 1 quarter allowance
-const assignQuarter1 = {
-  allow_past_reporting: true,
-  past_reporting_duration: 1,
-  past_reporting_unit: "quarters",
-};
-const winQuarter1 = calculateAllowanceWindow(assignQuarter1, todayStr);
+// Past quarter is strictly locked
 const q3Class = classifyPeriodRange({
   startDate: "2026-07-01",
   endDate: "2026-09-30",
   todayStr,
-  allowanceWindow: winQuarter1,
+  allowanceWindow: winDaily7,
   license: activeLicense,
   assignment: activeAssignment,
   approvedTarget,
 });
-assert.strictEqual(q3Class.status, PERIOD_STATUS.AVAILABLE_PAST);
-assert.strictEqual(q3Class.isAccessible, true);
-console.log("  ✓ Q3 with 1 quarter allowance is AVAILABLE_PAST");
+assert.strictEqual(q3Class.status, PERIOD_STATUS.LOCKED_PAST);
+assert.strictEqual(q3Class.isAccessible, false);
+console.log("  ✓ Past period Q3 is LOCKED_PAST");
 
 console.log("\n=====================================================================");
 console.log(">>> ALL PRODUCTION PERIOD ACCESS TESTS PASSED SUCCESSFULLY (15/15) <<<");

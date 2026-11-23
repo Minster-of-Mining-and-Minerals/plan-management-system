@@ -998,6 +998,7 @@ async function listReports(query = {}, companyScope = null) {
 async function calculateProductionPerformance({
   companyId,
   productionItemId,
+  assignmentId = null,
   startDate,
   endDate,
   periodType = null,
@@ -1005,22 +1006,47 @@ async function calculateProductionPerformance({
   asOfDate = null,
 }) {
   // 1. Fetch assignment and item
-  const assignment = await CompanyProductionAssignment.findOne({
-    where: {
-      company_id: companyId,
-      production_item_id: productionItemId,
-      is_active: true,
-    },
-    include: [
-      {
-        model: ProductionItem,
-        as: "productionItem",
-        include: [{ model: GoldMeasurementUnit, as: "baseUnit" }],
+  let assignment;
+  if (assignmentId) {
+    assignment = await CompanyProductionAssignment.findByPk(assignmentId, {
+      include: [
+        {
+          model: ProductionItem,
+          as: "productionItem",
+          include: [{ model: GoldMeasurementUnit, as: "baseUnit" }],
+        },
+        { model: ProductionReportingFrequency, as: "reportingFrequency" },
+        { model: GoldMeasurementUnit, as: "defaultReportingUnit" },
+      ],
+    });
+  } else {
+    // If not specified by assignmentId, find active assignments prioritizing the one with targets
+    const assignments = await CompanyProductionAssignment.findAll({
+      where: {
+        company_id: companyId,
+        production_item_id: productionItemId,
+        is_active: true,
       },
-      { model: ProductionReportingFrequency, as: "reportingFrequency" },
-      { model: GoldMeasurementUnit, as: "defaultReportingUnit" },
-    ],
-  });
+      include: [
+        {
+          model: ProductionItem,
+          as: "productionItem",
+          include: [{ model: GoldMeasurementUnit, as: "baseUnit" }],
+        },
+        { model: ProductionReportingFrequency, as: "reportingFrequency" },
+        { model: GoldMeasurementUnit, as: "defaultReportingUnit" },
+        {
+          model: CompanyProductionTarget,
+          as: "targets",
+          required: false,
+        },
+      ],
+    });
+
+    if (assignments.length > 0) {
+      assignment = assignments.find((a) => a.targets && a.targets.length > 0) || assignments[0];
+    }
+  }
 
   if (!assignment) {
     return {
@@ -1029,10 +1055,10 @@ async function calculateProductionPerformance({
     };
   }
 
-  // 2. Fetch published target for the period
+  // 2. Fetch published or approved target for the period
   const targetWhere = {
     assignment_id: assignment.assignment_id,
-    status: "published",
+    status: ["approved", "published"],
   };
   if (periodLabel) {
     targetWhere.period_label = periodLabel;
@@ -1052,10 +1078,10 @@ async function calculateProductionPerformance({
     order: [["version_number", "DESC"], ["period_start_date", "ASC"]],
   });
 
-  // Fallback to any published target if year target is not present
+  // Fallback to any approved target if year target is not present
   if (!target && !periodLabel && !startDate) {
     target = await CompanyProductionTarget.findOne({
-      where: { assignment_id: assignment.assignment_id, status: "published" },
+      where: { assignment_id: assignment.assignment_id, status: ["approved", "published"] },
       include: [{ model: GoldMeasurementUnit, as: "unit" }],
       order: [["version_number", "DESC"], ["period_start_date", "ASC"]],
     });
@@ -1065,10 +1091,9 @@ async function calculateProductionPerformance({
   const effStart = startDate || (target ? target.period_start_date : assignment.effective_from);
   const effEnd = endDate || (target ? target.period_end_date : new Date().toISOString().slice(0, 10));
 
-  // 3. Sum cumulative actual production reports in this period
+  // 3. Sum cumulative actual production reports in this period strictly for this assignment
   const reportWhere = {
-    company_id: companyId,
-    production_item_id: productionItemId,
+    assignment_id: assignment.assignment_id,
     report_date: {
       [Op.gte]: effStart,
       [Op.lte]: effEnd,
@@ -1246,14 +1271,26 @@ async function getFederalDashboard(query = {}) {
   let totalCompanies = new Set();
   let totalItems = new Set();
 
+  // Deduplicate assignments by unique (company_id, production_item_id) to eliminate 4x redundancy
+  const uniqueItemMap = new Map();
   for (const assign of assignments) {
     totalCompanies.add(assign.company_id);
     totalItems.add(assign.production_item_id);
 
+    const key = `${assign.company_id}_${assign.production_item_id}`;
+    const existing = uniqueItemMap.get(key);
+    const hasTargets = assign.targets && assign.targets.length > 0;
+    if (!existing || (!existing.hasTargets && hasTargets)) {
+      uniqueItemMap.set(key, { assign, hasTargets });
+    }
+  }
+
+  for (const { assign } of uniqueItemMap.values()) {
     // Calculate current quarter / annual performance
     const perf = await calculateProductionPerformance({
       companyId: assign.company_id,
       productionItemId: assign.production_item_id,
+      assignmentId: assign.assignment_id,
       startDate: query.start_date,
       endDate: query.end_date,
       periodLabel: query.period_label,
@@ -1283,7 +1320,7 @@ async function getFederalDashboard(query = {}) {
 
   return {
     kpis: {
-      active_assignments: assignments.length,
+      active_assignments: uniqueItemMap.size,
       reporting_companies: totalCompanies.size,
       active_production_items: totalItems.size,
     },
@@ -1315,11 +1352,23 @@ async function getCompanyDashboard(companyId, query = {}) {
     ],
   });
 
-  const itemPerformances = [];
+  // Group assignments by unique production_item_id to eliminate redundant cards for the same mineral/item
+  const uniqueItemMap = new Map();
   for (const assign of assignments) {
+    const itemId = assign.production_item_id;
+    const existing = uniqueItemMap.get(itemId);
+    const hasTargets = assign.targets && assign.targets.length > 0;
+    if (!existing || (!existing.hasTargets && hasTargets)) {
+      uniqueItemMap.set(itemId, { assign, hasTargets });
+    }
+  }
+
+  const itemPerformances = [];
+  for (const { assign } of uniqueItemMap.values()) {
     const perf = await calculateProductionPerformance({
       companyId,
       productionItemId: assign.production_item_id,
+      assignmentId: assign.assignment_id,
       startDate: query.start_date,
       endDate: query.end_date,
       periodLabel: query.period_label,
@@ -1344,7 +1393,7 @@ async function getCompanyDashboard(companyId, query = {}) {
 
   return {
     company_id: companyId,
-    active_assignments_count: assignments.length,
+    active_assignments_count: uniqueItemMap.size,
     performances: itemPerformances,
     recent_reports: recentReports,
   };
