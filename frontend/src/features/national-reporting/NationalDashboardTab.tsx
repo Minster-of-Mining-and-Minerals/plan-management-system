@@ -2,7 +2,10 @@
 
 import React, { useState, useMemo } from "react";
 import { useRouter } from "next/navigation";
-import { useGetNationalDashboardSummaryQuery } from "@/redux/api/nationalReportingApi";
+import {
+  useGetNationalDashboardSummaryQuery,
+  useGetNationalCategoriesQuery,
+} from "@/redux/api/nationalReportingApi";
 import { useGetRegionsQuery } from "@/redux/api/regionApi";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -73,12 +76,21 @@ export function NationalDashboardTab() {
   const [indicatorOverachievedOnly, setIndicatorOverachievedOnly] = useState<boolean>(false);
 
   const { data: regions = [] } = useGetRegionsQuery({ is_active: true });
+  const { data: customCategories = [] } = useGetNationalCategoriesQuery();
 
   const { data: summary, isLoading } = useGetNationalDashboardSummaryQuery({
     reporting_year: yearFilter !== "all" ? parseInt(yearFilter, 10) : undefined,
     reporting_period_label: periodFilter !== "all" ? periodFilter : undefined,
     region_id: regionFilter !== "all" ? regionFilter : undefined,
   });
+
+  const categoryMap = useMemo(() => {
+    const map = new Map<string, { code: string; label: string; icon?: string }>();
+    (customCategories || []).forEach((c) => {
+      map.set(c.code, c);
+    });
+    return map;
+  }, [customCategories]);
 
   const kpis = summary?.kpis || {
     totalRequirementsCount: 0,
@@ -111,14 +123,24 @@ export function NationalDashboardTab() {
     });
   }, [regionalCompliance, regionalSearchQuery, regionalStatusFilter]);
 
-  // Unique categories for filtering
-  const uniqueCategories = useMemo(() => {
+  // Canonical seeded categories present in data or all registered categories
+  const categoryFilterOptions = useMemo(() => {
+    if (customCategories && customCategories.length > 0) {
+      const presentCodes = new Set(requirementSummaries.map((r) => r.category));
+      return customCategories.filter(
+        (c) => presentCodes.size === 0 || presentCodes.has(c.code)
+      );
+    }
     const set = new Set<string>();
     requirementSummaries.forEach((r) => {
       if (r.category) set.add(r.category);
     });
-    return Array.from(set);
-  }, [requirementSummaries]);
+    return Array.from(set).map((cat) => ({
+      code: cat,
+      label: cat,
+      icon: "📊",
+    }));
+  }, [customCategories, requirementSummaries]);
 
   // Indicator Summaries Filtered Dataset
   const filteredIndicators = useMemo(() => {
@@ -131,10 +153,12 @@ export function NationalDashboardTab() {
 
       if (!indicatorSearchQuery.trim()) return true;
       const q = indicatorSearchQuery.toLowerCase();
+      const catLabel = req.categoryLabel || categoryMap.get(req.category)?.label || "";
       return (
         req.title.toLowerCase().includes(q) ||
         req.code.toLowerCase().includes(q) ||
         req.category.toLowerCase().includes(q) ||
+        catLabel.toLowerCase().includes(q) ||
         req.expectedUnit.toLowerCase().includes(q)
       );
     });
@@ -144,6 +168,7 @@ export function NationalDashboardTab() {
     indicatorCategoryFilter,
     indicatorCompletenessFilter,
     indicatorOverachievedOnly,
+    categoryMap,
   ]);
 
   // Regional Submissions Bar Chart Data
@@ -305,7 +330,7 @@ export function NationalDashboardTab() {
         },
       },
     ],
-    [router, yearFilter, periodFilter]
+    [router, yearFilter, periodFilter, categoryMap]
   );
 
   // TanStack Columns: National Indicator Aggregates Table
@@ -326,8 +351,9 @@ export function NationalDashboardTab() {
                   {req.code}
                 </span>
                 <span className="text-slate-300 dark:text-slate-700">•</span>
-                <Badge variant="outline" className="text-[9px] capitalize px-1.5 py-0">
-                  {req.category?.replace(/_/g, " ")}
+                <Badge variant="outline" className="text-[10px] font-medium px-2 py-0.5 border-emerald-200 dark:border-emerald-800 bg-emerald-50/50 dark:bg-emerald-950/30 text-emerald-800 dark:text-emerald-300">
+                  {req.categoryIcon || categoryMap.get(req.category)?.icon || "📊"}{" "}
+                  {req.categoryLabel || categoryMap.get(req.category)?.label || req.category}
                 </Badge>
                 <span className="text-[10px] font-mono text-slate-400 capitalize">
                   ({req.frequency})
@@ -489,7 +515,7 @@ export function NationalDashboardTab() {
         },
       },
     ],
-    [router, yearFilter, periodFilter]
+    [router, yearFilter, periodFilter, categoryMap]
   );
 
   return (
@@ -706,36 +732,43 @@ export function NationalDashboardTab() {
             Performance by Category & Thematic Domain
           </h3>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-            {summary.categoryBreakdown.map((cat) => (
-              <Card key={cat.category} className="bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 shadow-sm p-3.5">
-                <div className="flex items-center justify-between mb-2">
-                  <span className="text-xs font-semibold capitalize text-slate-800 dark:text-slate-200">
-                    {cat.category.replace(/_/g, " ")}
-                  </span>
-                  <Badge variant="outline" className="text-[10px] font-mono">
-                    {cat.publishedCount} / {cat.assignmentsCount}
-                  </Badge>
-                </div>
-                <div className="w-full bg-slate-100 dark:bg-slate-800 rounded-full h-2 overflow-hidden mb-1.5">
-                  <div
-                    className={`h-full rounded-full ${
-                      cat.complianceRate >= 80
-                        ? "bg-emerald-600"
-                        : cat.complianceRate >= 50
-                        ? "bg-teal-500"
-                        : "bg-amber-500"
-                    }`}
-                    style={{ width: `${Math.min(100, cat.complianceRate)}%` }}
-                  />
-                </div>
-                <div className="flex items-center justify-between text-[11px] text-slate-500">
-                  <span>Compliance</span>
-                  <span className="font-mono font-bold text-slate-800 dark:text-slate-200">
-                    {cat.complianceRate}%
-                  </span>
-                </div>
-              </Card>
-            ))}
+            {summary.categoryBreakdown.map((cat) => {
+              const catMeta = categoryMap.get(cat.category);
+              const label = cat.categoryLabel || catMeta?.label || cat.category;
+              const icon = cat.icon || catMeta?.icon || "📊";
+
+              return (
+                <Card key={cat.category} className="bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 shadow-sm p-3.5">
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-xs font-semibold text-slate-800 dark:text-slate-200 flex items-center gap-1.5 line-clamp-1" title={label}>
+                      <span>{icon}</span>
+                      <span className="truncate">{label}</span>
+                    </span>
+                    <Badge variant="outline" className="text-[10px] font-mono shrink-0 ml-1">
+                      {cat.publishedCount} / {cat.assignmentsCount}
+                    </Badge>
+                  </div>
+                  <div className="w-full bg-slate-100 dark:bg-slate-800 rounded-full h-2 overflow-hidden mb-1.5">
+                    <div
+                      className={`h-full rounded-full ${
+                        cat.complianceRate >= 80
+                          ? "bg-emerald-600"
+                          : cat.complianceRate >= 50
+                          ? "bg-teal-500"
+                          : "bg-amber-500"
+                      }`}
+                      style={{ width: `${Math.min(100, cat.complianceRate)}%` }}
+                    />
+                  </div>
+                  <div className="flex items-center justify-between text-[11px] text-slate-500">
+                    <span>Compliance</span>
+                    <span className="font-mono font-bold text-slate-800 dark:text-slate-200">
+                      {cat.complianceRate}%
+                    </span>
+                  </div>
+                </Card>
+              );
+            })}
           </div>
         </div>
       )}
@@ -965,14 +998,17 @@ export function NationalDashboardTab() {
             <div className="flex flex-wrap items-center gap-2">
               {/* Category Filter */}
               <Select value={indicatorCategoryFilter} onValueChange={setIndicatorCategoryFilter}>
-                <SelectTrigger className="w-[170px] h-8 text-xs bg-slate-50 dark:bg-slate-950">
+                <SelectTrigger className="w-[220px] h-8 text-xs bg-slate-50 dark:bg-slate-950">
                   <SelectValue placeholder="All Categories" />
                 </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Categories</SelectItem>
-                  {uniqueCategories.map((cat) => (
-                    <SelectItem key={cat} value={cat}>
-                      <span className="capitalize">{cat.replace(/_/g, " ")}</span>
+                <SelectContent className="max-h-72">
+                  <SelectItem value="all">ሁሉም ምድቦች (All Categories)</SelectItem>
+                  {categoryFilterOptions.map((cat) => (
+                    <SelectItem key={cat.code} value={cat.code}>
+                      <span className="flex items-center gap-1.5 text-xs truncate">
+                        <span>{cat.icon || "📊"}</span>
+                        <span>{cat.label}</span>
+                      </span>
                     </SelectItem>
                   ))}
                 </SelectContent>

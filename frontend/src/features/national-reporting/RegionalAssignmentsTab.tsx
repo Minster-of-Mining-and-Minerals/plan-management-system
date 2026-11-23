@@ -4,6 +4,7 @@ import React, { useMemo, useState } from "react";
 import {
   useGetNationalAssignmentsQuery,
   useUpdateNationalAssignmentMutation,
+  useGetNationalCategoriesQuery,
 } from "@/redux/api/nationalReportingApi";
 import { useGetRegionsQuery } from "@/redux/api/regionApi";
 import { NationalReportingAssignment } from "@/redux/types/nationalReporting";
@@ -78,7 +79,16 @@ export function RegionalAssignmentsTab() {
   } = useGetNationalAssignmentsQuery({});
 
   const { data: regions = [] } = useGetRegionsQuery({ is_active: true });
+  const { data: customCategories = [] } = useGetNationalCategoriesQuery();
   const [updateAssignment, { isLoading: isUpdating }] = useUpdateNationalAssignmentMutation();
+
+  const categoryMap = useMemo(() => {
+    const map = new Map<string, { code: string; label: string; icon?: string }>();
+    (customCategories || []).forEach((c) => {
+      map.set(c.code, c);
+    });
+    return map;
+  }, [customCategories]);
 
   const handleOpenEdit = (a: NationalReportingAssignment) => {
     setEditingAssignment(a);
@@ -115,19 +125,22 @@ export function RegionalAssignmentsTab() {
       if (mandatoryFilter === "mandatory" && !a.is_mandatory) return false;
       if (mandatoryFilter === "optional" && a.is_mandatory) return false;
 
+      const catMeta = categoryMap.get(a.requirement?.category || "");
       return matchesSearchQuery(searchQuery, [
         a.region?.name,
         a.region?.code,
         a.requirement?.code,
         a.requirement?.title,
         a.requirement?.category,
+        catMeta?.label,
         a.requirement?.expected_unit,
       ]);
     });
-  }, [assignments, regionFilter, statusFilter, mandatoryFilter, searchQuery]);
+  }, [assignments, regionFilter, statusFilter, mandatoryFilter, searchQuery, categoryMap]);
 
   // Columns definition
-  const columns: ColumnDef<NationalReportingAssignment>[] = [
+  const columns: ColumnDef<NationalReportingAssignment>[] = useMemo(
+    () => [
     {
       id: "region",
       header: "Regional State & Method",
@@ -182,11 +195,15 @@ export function RegionalAssignmentsTab() {
     {
       id: "category",
       header: "Category",
-      cell: ({ row }) => (
-        <Badge variant="outline" className="text-xs capitalize bg-slate-50 dark:bg-slate-900">
-          {row.original.requirement?.category?.replace(/_/g, " ")}
-        </Badge>
-      ),
+      cell: ({ row }) => {
+        const catCode = row.original.requirement?.category;
+        const catMeta = categoryMap.get(catCode || "");
+        return (
+          <Badge variant="outline" className="text-xs font-medium border-emerald-200 dark:border-emerald-800 bg-emerald-50/50 dark:bg-emerald-950/30 text-emerald-800 dark:text-emerald-300">
+            {catMeta?.icon || "📊"} {catMeta?.label || catCode}
+          </Badge>
+        );
+      },
     },
     {
       id: "annual_target",
@@ -391,7 +408,7 @@ export function RegionalAssignmentsTab() {
         );
       },
     },
-  ];
+  ], [categoryMap]);
 
   // Filters for TableLayout
   const filters: FilterField[] = [

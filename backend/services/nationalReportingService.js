@@ -213,33 +213,44 @@ class NationalReportingService {
       ];
     }
 
-    const requirements = await NationalReportingRequirement.findAll({
-      where,
-      include: [
-        {
-          model: NationalReportingAssignment,
-          as: "assignments",
-          where: { status: "active" },
-          required: false,
-          include: [
-            {
-              model: Region,
-              as: "region",
-              attributes: ["region_id", "name", "code"],
-            },
-          ],
-        },
-        {
-          model: User,
-          as: "creator",
-          attributes: ["user_id", "full_name", "email"],
-        },
-      ],
-      order: [["created_at", "DESC"]],
-    });
+    const [requirements, customCategories] = await Promise.all([
+      NationalReportingRequirement.findAll({
+        where,
+        include: [
+          {
+            model: NationalReportingAssignment,
+            as: "assignments",
+            where: { status: "active" },
+            required: false,
+            include: [
+              {
+                model: Region,
+                as: "region",
+                attributes: ["region_id", "name", "code"],
+              },
+            ],
+          },
+          {
+            model: User,
+            as: "creator",
+            attributes: ["user_id", "full_name", "email"],
+          },
+        ],
+        order: [["created_at", "DESC"]],
+      }),
+      NationalReportingCustomCategory.findAll({
+        attributes: ["category_id", "code", "label", "icon"],
+      }),
+    ]);
+
+    const categoryMap = new Map();
+    customCategories.forEach((c) => categoryMap.set(c.code, c));
 
     return requirements.map((req) => {
       const item = req.toJSON();
+      const catMeta = categoryMap.get(item.category);
+      item.categoryLabel = catMeta?.label || item.category;
+      item.categoryIcon = catMeta?.icon || null;
       item.assignedRegionsCount = item.assignments ? item.assignments.length : 0;
       item.periods = generateReportingPeriods(
         item.effective_start_date,
@@ -288,6 +299,14 @@ class NationalReportingService {
     }
 
     const item = requirement.toJSON();
+    if (item.category) {
+      const catMeta = await NationalReportingCustomCategory.findOne({
+        where: { code: item.category },
+        attributes: ["category_id", "code", "label", "icon"],
+      });
+      item.categoryLabel = catMeta?.label || item.category;
+      item.categoryIcon = catMeta?.icon || null;
+    }
     item.periods = generateReportingPeriods(
       item.effective_start_date,
       item.effective_end_date,
@@ -904,6 +923,14 @@ class NationalReportingService {
     regionalCompliance.sort((a, b) => b.complianceRate - a.complianceRate);
 
     // 5. Indicator / Requirement Aggregates (Standardized National Totals)
+    const customCategories = await NationalReportingCustomCategory.findAll({
+      attributes: ["category_id", "code", "label", "icon", "mandate_level", "frequency_default"],
+    });
+    const categoryMap = new Map();
+    customCategories.forEach((c) => {
+      categoryMap.set(c.code, c);
+    });
+
     const requirementSummaries = [];
     const requirementsMap = new Map();
     const categoryBreakdownMap = new Map();
@@ -920,25 +947,29 @@ class NationalReportingService {
       requirementsMap.get(a.requirement_id).assignedRegionsCount += 1;
       requirementsMap.get(a.requirement_id).assignments.push(a);
 
-      // Category breakdown aggregation
-      const cat = a.requirement?.category || "general";
-      if (!categoryBreakdownMap.has(cat)) {
-        categoryBreakdownMap.set(cat, {
-          category: cat,
+      // Category breakdown aggregation with canonical Amharic category mapping
+      const catCode = a.requirement?.category || "general";
+      if (!categoryBreakdownMap.has(catCode)) {
+        const catMeta = categoryMap.get(catCode);
+        categoryBreakdownMap.set(catCode, {
+          category: catCode,
+          categoryLabel: catMeta?.label || catCode,
+          icon: catMeta?.icon || "📊",
+          mandateLevel: catMeta?.mandate_level || "standard",
           assignmentsCount: 0,
           publishedCount: 0,
         });
       }
-      categoryBreakdownMap.get(cat).assignmentsCount += 1;
+      categoryBreakdownMap.get(catCode).assignmentsCount += 1;
     });
 
     publishedRecords.forEach((p) => {
       if (requirementsMap.has(p.requirement_id)) {
         requirementsMap.get(p.requirement_id).publishedRecords.push(p);
       }
-      const cat = p.requirement?.category || "general";
-      if (categoryBreakdownMap.has(cat)) {
-        categoryBreakdownMap.get(cat).publishedCount += 1;
+      const catCode = p.requirement?.category || "general";
+      if (categoryBreakdownMap.has(catCode)) {
+        categoryBreakdownMap.get(catCode).publishedCount += 1;
       }
     });
 
@@ -995,12 +1026,16 @@ class NationalReportingService {
         };
       });
 
+      const catMeta = categoryMap.get(req.category);
+
       requirementSummaries.push({
         requirementId: req.requirement_id,
         code: req.code,
         title: req.title,
         description: req.description || null,
         category: req.category,
+        categoryLabel: catMeta?.label || req.category,
+        categoryIcon: catMeta?.icon || null,
         expectedUnit: req.expected_unit,
         frequency: req.frequency,
         assignedRegionsCount: info.assignedRegionsCount,

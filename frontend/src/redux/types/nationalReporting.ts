@@ -4,6 +4,8 @@ export interface NationalReportingRequirement {
   title: string;
   description?: string | null;
   category: string;
+  categoryLabel?: string;
+  categoryIcon?: string | null;
   expected_unit: string;
   unit_category: string;
   frequency: string;
@@ -299,6 +301,9 @@ export interface NationalDashboardSummary {
   };
   categoryBreakdown?: Array<{
     category: string;
+    categoryLabel?: string;
+    icon?: string;
+    mandateLevel?: string;
     assignmentsCount: number;
     publishedCount: number;
     complianceRate: number;
@@ -319,6 +324,8 @@ export interface NationalDashboardSummary {
     title: string;
     description?: string | null;
     category: string;
+    categoryLabel?: string;
+    categoryIcon?: string | null;
     expectedUnit: string;
     frequency: string;
     assignedRegionsCount: number;

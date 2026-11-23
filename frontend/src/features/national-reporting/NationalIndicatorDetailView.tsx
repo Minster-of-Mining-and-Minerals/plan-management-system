@@ -2,6 +2,7 @@
 
 import React, { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
+import { useGetNationalCategoriesQuery } from "@/redux/api/nationalReportingApi";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -70,6 +71,8 @@ export interface NationalIndicatorDetailData {
   title: string;
   description?: string | null;
   category: string;
+  categoryLabel?: string;
+  categoryIcon?: string | null;
   expectedUnit: string;
   frequency: string;
   assignedRegionsCount: number;
@@ -97,6 +100,15 @@ export function NationalIndicatorDetailView({
   periodLabel = "all",
 }: Props) {
   const router = useRouter();
+  const { data: customCategories = [] } = useGetNationalCategoriesQuery();
+
+  const categoryMap = useMemo(() => {
+    const map = new Map<string, { code: string; label: string; icon?: string }>();
+    (customCategories || []).forEach((c) => {
+      map.set(c.code, c);
+    });
+    return map;
+  }, [customCategories]);
 
   // Search and filter state for regional assignments table
   const [searchQuery, setSearchQuery] = useState("");
@@ -335,8 +347,9 @@ export function NationalIndicatorDetailView({
             <span className="font-mono text-xs font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950 px-2 py-0.5 rounded">
               {indicator.code}
             </span>
-            <Badge variant="outline" className="text-xs capitalize">
-              {indicator.category?.replace(/_/g, " ")}
+            <Badge variant="outline" className="text-xs font-medium border-emerald-200 dark:border-emerald-800 bg-emerald-50/50 dark:bg-emerald-950/30 text-emerald-800 dark:text-emerald-300">
+              {indicator.categoryIcon || categoryMap.get(indicator.category)?.icon || "📊"}{" "}
+              {indicator.categoryLabel || categoryMap.get(indicator.category)?.label || indicator.category}
             </Badge>
             <Badge variant="secondary" className="text-xs capitalize font-mono">
               Cycle: {indicator.frequency}

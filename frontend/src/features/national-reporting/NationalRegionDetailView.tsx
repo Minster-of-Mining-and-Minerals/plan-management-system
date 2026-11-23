@@ -50,6 +50,7 @@ import {
   NationalPublishedRecord,
   ReportingPeriod,
 } from "@/redux/types/nationalReporting";
+import { useGetNationalCategoriesQuery } from "@/redux/api/nationalReportingApi";
 import { PeriodLockOverrideModal } from "./PeriodLockOverrideModal";
 
 interface Props {
@@ -80,6 +81,15 @@ export function NationalRegionDetailView({
   onBack,
 }: Props) {
   const router = useRouter();
+  const { data: customCategories = [] } = useGetNationalCategoriesQuery();
+
+  const categoryMap = useMemo(() => {
+    const map = new Map<string, { code: string; label: string; icon?: string }>();
+    (customCategories || []).forEach((c) => {
+      map.set(c.code, c);
+    });
+    return map;
+  }, [customCategories]);
 
   // Filters for Assigned KPIs DataTable
   const [searchQuery, setSearchQuery] = useState("");
@@ -92,14 +102,27 @@ export function NationalRegionDetailView({
   const [selectedAssignmentForLock, setSelectedAssignmentForLock] =
     useState<NationalReportingAssignment | null>(null);
 
-  // Unique categories across assigned requirements
-  const uniqueCategories = useMemo(() => {
+  // Canonical category filter options
+  const categoryFilterOptions = useMemo(() => {
+    if (customCategories && customCategories.length > 0) {
+      const assignedCodes = new Set<string>();
+      assignments.forEach((a) => {
+        if (a.requirement?.category) assignedCodes.add(a.requirement.category);
+      });
+      return customCategories.filter(
+        (c) => assignedCodes.size === 0 || assignedCodes.has(c.code)
+      );
+    }
     const set = new Set<string>();
     assignments.forEach((a) => {
       if (a.requirement?.category) set.add(a.requirement.category);
     });
-    return Array.from(set);
-  }, [assignments]);
+    return Array.from(set).map((cat) => ({
+      code: cat,
+      label: cat,
+      icon: "📊",
+    }));
+  }, [customCategories, assignments]);
 
   // Flattened KPI reporting dataset for the active period/year
   const kpiDataset = useMemo(() => {
@@ -221,10 +244,12 @@ export function NationalRegionDetailView({
 
       if (!searchQuery.trim()) return true;
       const q = searchQuery.toLowerCase();
+      const catLabel = categoryMap.get(item.category)?.label || "";
       return (
         item.title.toLowerCase().includes(q) ||
         item.code.toLowerCase().includes(q) ||
         item.category.toLowerCase().includes(q) ||
+        catLabel.toLowerCase().includes(q) ||
         item.expectedUnit.toLowerCase().includes(q)
       );
     });
@@ -235,6 +260,7 @@ export function NationalRegionDetailView({
     statusFilter,
     mandateFilter,
     overachievedOnly,
+    categoryMap,
   ]);
 
   // Executive Rollup Statistics
@@ -286,8 +312,9 @@ export function NationalRegionDetailView({
                 <span className="font-mono text-xs font-bold text-emerald-700 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950 px-2 py-0.5 rounded border border-emerald-200 dark:border-emerald-800">
                   {item.code}
                 </span>
-                <Badge variant="outline" className="text-[10px] capitalize">
-                  {item.category?.replace(/_/g, " ")}
+                <Badge variant="outline" className="text-[10px] font-medium border-emerald-200 dark:border-emerald-800 bg-emerald-50/50 dark:bg-emerald-950/30 text-emerald-800 dark:text-emerald-300">
+                  {categoryMap.get(item.category)?.icon || "📊"}{" "}
+                  {categoryMap.get(item.category)?.label || item.category}
                 </Badge>
               </div>
               <p
@@ -499,7 +526,7 @@ export function NationalRegionDetailView({
         },
       },
     ],
-    [router, reportingYear, periodLabel]
+    [router, reportingYear, periodLabel, categoryMap]
   );
 
   return (
@@ -770,16 +797,19 @@ export function NationalRegionDetailView({
 
               {/* Category Filter */}
               <Select value={categoryFilter} onValueChange={setCategoryFilter}>
-                <SelectTrigger className="w-[130px] h-8 text-xs">
+                <SelectTrigger className="w-[180px] h-8 text-xs">
                   <SelectValue placeholder="Category" />
                 </SelectTrigger>
-                <SelectContent>
+                <SelectContent className="max-h-72">
                   <SelectItem value="all" className="text-xs">
-                    All Categories
+                    ሁሉም ምድቦች (All Categories)
                   </SelectItem>
-                  {uniqueCategories.map((c) => (
-                    <SelectItem key={c} value={c} className="text-xs capitalize">
-                      {c.replace(/_/g, " ")}
+                  {categoryFilterOptions.map((c) => (
+                    <SelectItem key={c.code} value={c.code} className="text-xs">
+                      <span className="flex items-center gap-1.5 truncate">
+                        <span>{c.icon || "📊"}</span>
+                        <span>{c.label}</span>
+                      </span>
                     </SelectItem>
                   ))}
                 </SelectContent>
