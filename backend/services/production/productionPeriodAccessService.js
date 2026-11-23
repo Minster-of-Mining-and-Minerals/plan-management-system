@@ -404,7 +404,7 @@ async function buildTargetAlignedReportingHierarchy({ assignmentId, year = null,
     order: [["version_number", "DESC"]],
   });
 
-  if (approvedRootTarget) {
+  if (!assignment.effective_from && approvedRootTarget) {
     if (approvedRootTarget.period_start_date) effStart = approvedRootTarget.period_start_date;
     if (approvedRootTarget.period_end_date) effEnd = approvedRootTarget.period_end_date;
   }
@@ -479,40 +479,60 @@ async function buildTargetAlignedReportingHierarchy({ assignmentId, year = null,
   };
 
   // Determine Primary Child Periods
+  let count = 4;
+  let prefix = "Q";
+  let periodType = "quarter";
+  if (targetDepth === "semi_annual") {
+    count = 2;
+    prefix = "H";
+    periodType = "half_year";
+  } else if (targetDepth === "monthly") {
+    count = 12;
+    prefix = "M";
+    periodType = "month";
+  } else if (targetDepth === "annual") {
+    count = 1;
+    prefix = "";
+    periodType = "year";
+  }
+
+  const configuredIntervals = divideDateRange(effStart, effEnd, count, prefix, periodType);
+
   let primaryPeriods = [];
   if (periodTargetAllocations.length > 0) {
-    primaryPeriods = periodTargetAllocations.map((t) => ({
-      id: t.target_id,
-      targetId: t.target_id,
-      periodCode: t.period_label,
-      label: t.period_label || `${t.period_start_date} ~ ${t.period_end_date}`,
-      startDate: t.period_start_date,
-      endDate: t.period_end_date,
-      targetQuantity: Number(t.target_quantity) || 0,
-      level: t.target_period_type || (targetDepth === "semi_annual" ? "half_year" : targetDepth === "monthly" ? "month" : "quarter"),
-    }));
+    const targetsAlignWithConfig = periodTargetAllocations[0].period_start_date === effStart;
+
+    if (targetsAlignWithConfig && periodTargetAllocations.length === count) {
+      primaryPeriods = periodTargetAllocations.map((t) => ({
+        id: t.target_id,
+        targetId: t.target_id,
+        periodCode: t.period_label,
+        label: t.period_label || `${t.period_start_date} ~ ${t.period_end_date}`,
+        startDate: t.period_start_date,
+        endDate: t.period_end_date,
+        targetQuantity: Number(t.target_quantity) || 0,
+        level: t.target_period_type || (targetDepth === "semi_annual" ? "half_year" : targetDepth === "monthly" ? "month" : "quarter"),
+      }));
+    } else {
+      // Re-align targets to the configured date intervals, mapping target quantities & IDs proportionally
+      primaryPeriods = configuredIntervals.map((inv, idx) => {
+        const matchingTarget = periodTargetAllocations[idx] || periodTargetAllocations.find((t) => t.period_label && t.period_label.startsWith(inv.period_code));
+        return {
+          id: matchingTarget ? matchingTarget.target_id : `period-${inv.period_start_date}-${inv.period_end_date}`,
+          targetId: matchingTarget ? matchingTarget.target_id : (approvedRootTarget ? approvedRootTarget.target_id : null),
+          periodCode: inv.period_code,
+          label: inv.period_label,
+          startDate: inv.period_start_date,
+          endDate: inv.period_end_date,
+          targetQuantity: matchingTarget ? Number(matchingTarget.target_quantity) || 0 : (annualTargetQuantity > 0 ? Number((annualTargetQuantity / count).toFixed(4)) : 0),
+          level: inv.period_type,
+        };
+      });
+    }
   } else {
     // Generate primary periods based on configured targetDepth across [effStart, effEnd]
-    let count = 4;
-    let prefix = "Q";
-    let periodType = "quarter";
-    if (targetDepth === "semi_annual") {
-      count = 2;
-      prefix = "H";
-      periodType = "half_year";
-    } else if (targetDepth === "monthly") {
-      count = 12;
-      prefix = "M";
-      periodType = "month";
-    } else if (targetDepth === "annual") {
-      count = 1;
-      prefix = "";
-      periodType = "year";
-    }
-
-    const intervals = divideDateRange(effStart, effEnd, count, prefix, periodType);
     const sliceTarget = annualTargetQuantity > 0 ? Number((annualTargetQuantity / count).toFixed(4)) : 0;
-    primaryPeriods = intervals.map((inv) => ({
+    primaryPeriods = configuredIntervals.map((inv) => ({
       id: `period-${inv.period_start_date}-${inv.period_end_date}`,
       targetId: approvedRootTarget ? approvedRootTarget.target_id : null,
       periodCode: inv.period_code,

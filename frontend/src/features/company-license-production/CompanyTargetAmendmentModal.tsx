@@ -69,30 +69,139 @@ export function CompanyTargetAmendmentModal({
 
   const [submitAmendment, { isLoading: isSubmitting }] = useSubmitTargetAmendmentMutation();
 
-  // Populate proposed periods based on current approved tree when modal opens
+  // Helper to divide a date range [startDateStr, endDateStr] into N contiguous non-overlapping intervals
+  function generateIntervalsFromDates(
+    startDateStr: string,
+    endDateStr: string,
+    count: number,
+    prefix: string,
+    periodType: "year" | "month" | "half_year" | "quarter" | "day",
+    totalAnnual: number
+  ): TargetPeriodNode[] {
+    const [sY, sM, sD] = startDateStr.split("-").map(Number);
+    const [eY, eM, eD] = endDateStr.split("-").map(Number);
+    const startUtc = Date.UTC(sY, sM - 1, sD);
+    const endUtc = Date.UTC(eY, eM - 1, eD);
+    const oneDay = 24 * 60 * 60 * 1000;
+    const totalDays = Math.max(1, Math.round((endUtc - startUtc) / oneDay) + 1);
+    const daysPerSlice = totalDays / count;
+    const perPeriodQty = totalAnnual > 0 ? Number((totalAnnual / count).toFixed(4)) : 0;
+
+    const periods: TargetPeriodNode[] = [];
+    let currentStartDay = 0;
+    for (let i = 0; i < count; i++) {
+      const nextStartDay = i === count - 1 ? totalDays : Math.round((i + 1) * daysPerSlice);
+      const pStart = new Date(startUtc + currentStartDay * oneDay);
+      const pEnd = new Date(startUtc + (nextStartDay - 1) * oneDay);
+      currentStartDay = nextStartDay;
+
+      const pStartStr = pStart.toISOString().slice(0, 10);
+      const pEndStr = pEnd.toISOString().slice(0, 10);
+      const label =
+        count === 1
+          ? `Full Period (${pStartStr} ~ ${pEndStr})`
+          : `${prefix}${i + 1} (${pStartStr} ~ ${pEndStr})`;
+
+      periods.push({
+        target_period_type: periodType,
+        period_label: label,
+        period_start_date: pStartStr,
+        period_end_date: pEndStr,
+        target_quantity: perPeriodQty,
+        department_allocations: [],
+      });
+    }
+    return periods;
+  }
+
+  // Populate proposed periods strictly adhering to configured assignment schedule
   useEffect(() => {
-    if (isOpen && approvedTree && approvedTree.periods) {
+    if (isOpen) {
       setProposedAnnualInput(String(currentApprovedAnnual || ""));
-      const initialPeriods: TargetPeriodNode[] = approvedTree.periods.map(
-        (p: CompanyProductionTarget & { department_allocations?: CompanyProductionTarget[] }) => ({
-          target_period_type: p.target_period_type as any,
-          period_label: p.period_label,
-          period_start_date: p.period_start_date,
-          period_end_date: p.period_end_date,
-          target_quantity: Number(p.target_quantity) || 0,
-          department_allocations: (p.department_allocations || []).map((d) => ({
-            company_structure_id: d.company_structure_id || "",
-            target_quantity: Number(d.target_quantity) || 0,
-            name: d.department?.name,
-            level: d.department?.level,
-          })),
-        })
-      );
-      setPeriodAllocations(initialPeriods);
       setAmendmentReason("");
       setSubmissionNotes("");
+
+      const effStart = assignment?.effective_from || `${new Date().getFullYear()}-01-01`;
+      let effEnd = assignment?.effective_to;
+      if (!effEnd) {
+        if (assignment?.effective_from) {
+          const [sY, sM, sD] = assignment.effective_from.split("-").map(Number);
+          const nextYear = new Date(Date.UTC(sY + 1, sM - 1, sD - 1));
+          effEnd = nextYear.toISOString().slice(0, 10);
+        } else {
+          effEnd = `${new Date().getFullYear()}-12-31`;
+        }
+      }
+
+      let count = 4;
+      let prefix = "Q";
+      let periodType: "year" | "month" | "half_year" | "quarter" | "day" = "quarter";
+      if (targetDepth === "semi_annual") {
+        count = 2;
+        prefix = "H";
+        periodType = "half_year";
+      } else if (targetDepth === "monthly") {
+        count = 12;
+        prefix = "M";
+        periodType = "month";
+      } else if (targetDepth === "annual") {
+        count = 1;
+        prefix = "";
+        periodType = "year";
+      }
+
+      const configuredIntervals = generateIntervalsFromDates(
+        effStart,
+        effEnd,
+        count,
+        prefix,
+        periodType,
+        currentApprovedAnnual
+      );
+
+      if (approvedTree && approvedTree.periods && approvedTree.periods.length > 0) {
+        const approvedPeriods = approvedTree.periods;
+        const matchesConfig = approvedPeriods[0]?.period_start_date === effStart;
+
+        if (matchesConfig && approvedPeriods.length === count) {
+          setPeriodAllocations(
+            approvedPeriods.map((p: any) => ({
+              target_period_type: p.target_period_type as any,
+              period_label: p.period_label,
+              period_start_date: p.period_start_date,
+              period_end_date: p.period_end_date,
+              target_quantity: Number(p.target_quantity) || 0,
+              department_allocations: (p.department_allocations || []).map((d: any) => ({
+                company_structure_id: d.company_structure_id || "",
+                target_quantity: Number(d.target_quantity) || 0,
+                name: d.department?.name,
+                level: d.department?.level,
+              })),
+            }))
+          );
+        } else {
+          // Re-align periods to configured schedule, preserving existing approved target quantities
+          setPeriodAllocations(
+            configuredIntervals.map((inv, idx) => {
+              const matching = approvedPeriods[idx] || approvedPeriods.find((ap: any) => ap.period_label?.startsWith(prefix + (idx + 1)));
+              return {
+                ...inv,
+                target_quantity: matching ? Number(matching.target_quantity) || 0 : inv.target_quantity,
+                department_allocations: (matching?.department_allocations || []).map((d: any) => ({
+                  company_structure_id: d.company_structure_id || "",
+                  target_quantity: Number(d.target_quantity) || 0,
+                  name: d.department?.name,
+                  level: d.department?.level,
+                })),
+              };
+            })
+          );
+        }
+      } else {
+        setPeriodAllocations(configuredIntervals);
+      }
     }
-  }, [isOpen, approvedTree, currentApprovedAnnual]);
+  }, [isOpen, approvedTree, currentApprovedAnnual, assignment?.effective_from, assignment?.effective_to, targetDepth]);
 
   const proposedAnnualNum = parseFloat(proposedAnnualInput) || 0;
 
@@ -180,11 +289,21 @@ export function CompanyTargetAmendmentModal({
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
       <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <div className="flex items-center gap-2">
-            <Scale className="h-5 w-5 text-amber-600" />
-            <DialogTitle className="text-base font-bold">
-              Request Production Target Amendment
-            </DialogTitle>
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+            <div className="flex items-center gap-2">
+              <Scale className="h-5 w-5 text-amber-600" />
+              <DialogTitle className="text-base font-bold">
+                Request Production Target Amendment
+              </DialogTitle>
+            </div>
+            <div className="flex items-center gap-1.5">
+              <Badge variant="outline" className="text-xs font-mono">
+                Schedule: {assignment?.effective_from || "N/A"} ~ {assignment?.effective_to || "Indefinite"}
+              </Badge>
+              <Badge variant="outline" className="text-xs font-mono uppercase">
+                {targetDepth}
+              </Badge>
+            </div>
           </div>
           <DialogDescription className="text-xs">
             Approved targets are legally bound and locked against direct edits. Submit a formal amendment request for Federal Ministry review and authorization.

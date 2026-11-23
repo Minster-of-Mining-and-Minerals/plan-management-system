@@ -177,29 +177,6 @@ export function CompanyProductionDetailView({
   const targetProposalId = targetProposal?.root?.target_id;
   const assignmentKey = assignment?.assignment_id;
 
-  useEffect(() => {
-    if (targetProposal && targetProposal.periods && targetProposal.periods.length > 0) {
-      setAnnualTargetInput(String(targetProposal.annual_target || ""));
-      setSubmissionNotes(targetProposal.submission_notes || "");
-      setPeriodAllocations(
-        targetProposal.periods.map((p) => ({
-          target_period_type: p.target_period_type,
-          period_label: p.period_label,
-          period_start_date: p.period_start_date,
-          period_end_date: p.period_end_date,
-          target_quantity: p.target_quantity,
-          department_allocations: (p.department_allocations || []).map((d) => ({
-            company_structure_id: d.company_structure_id || "",
-            target_quantity: d.target_quantity,
-          })),
-        }))
-      );
-    } else if (assignment && periodAllocations.length === 0) {
-      // Generate initial blank period template according to configured effective date range and depth
-      generatePeriodTemplates(targetDepth, 0);
-    }
-  }, [targetProposalId, assignmentKey, targetDepth, assignment?.effective_from, assignment?.effective_to]);
-
   // Helper to divide a date range [startDateStr, endDateStr] into N contiguous non-overlapping intervals
   function generateIntervalsFromDates(
     startDateStr: string,
@@ -273,6 +250,107 @@ export function CompanyProductionDetailView({
 
     setPeriodAllocations(periods);
   }
+
+  useEffect(() => {
+    if (targetProposal && targetProposal.periods && targetProposal.periods.length > 0) {
+      const effStart = assignment?.effective_from;
+      const proposalStart = targetProposal.periods[0]?.period_start_date;
+
+      setAnnualTargetInput(String(targetProposal.annual_target || ""));
+      setSubmissionNotes(targetProposal.submission_notes || "");
+
+      if (!effStart || proposalStart === effStart) {
+        setPeriodAllocations(
+          targetProposal.periods.map((p) => ({
+            target_period_type: p.target_period_type,
+            period_label: p.period_label,
+            period_start_date: p.period_start_date,
+            period_end_date: p.period_end_date,
+            target_quantity: p.target_quantity,
+            department_allocations: (p.department_allocations || []).map((d) => ({
+              company_structure_id: d.company_structure_id || "",
+              target_quantity: d.target_quantity,
+            })),
+          }))
+        );
+      } else {
+        // Re-align periods to configured schedule
+        const annualNum = Number(targetProposal.annual_target) || 0;
+        let effEnd = assignment?.effective_to;
+        if (!effEnd) {
+          const [sY, sM, sD] = effStart.split("-").map(Number);
+          const nextYear = new Date(Date.UTC(sY + 1, sM - 1, sD - 1));
+          effEnd = nextYear.toISOString().slice(0, 10);
+        }
+        let count = 4;
+        let prefix = "Q";
+        let periodType: "year" | "month" | "half_year" | "quarter" | "day" = "quarter";
+        if (targetDepth === "semi_annual") {
+          count = 2;
+          prefix = "H";
+          periodType = "half_year";
+        } else if (targetDepth === "monthly") {
+          count = 12;
+          prefix = "M";
+          periodType = "month";
+        } else if (targetDepth === "annual") {
+          count = 1;
+          prefix = "";
+          periodType = "year";
+        }
+        const intervals = generateIntervalsFromDates(effStart, effEnd, count, prefix, periodType, annualNum);
+        setPeriodAllocations(
+          intervals.map((inv, idx) => ({
+            ...inv,
+            target_quantity: targetProposal.periods[idx]?.target_quantity ?? inv.target_quantity,
+            department_allocations: (targetProposal.periods[idx]?.department_allocations || []).map((d) => ({
+              company_structure_id: d.company_structure_id || "",
+              target_quantity: d.target_quantity,
+            })),
+          }))
+        );
+      }
+    } else if (assignment && periodAllocations.length === 0) {
+      // Generate initial blank period template according to configured effective date range and depth
+      generatePeriodTemplates(targetDepth, 0);
+    }
+  }, [targetProposalId, assignmentKey, targetDepth, assignment?.effective_from, assignment?.effective_to]);
+
+  // Derived periods for Approved Target Allocation table strictly respecting configured effective dates
+  const displayedApprovedPeriods = useMemo(() => {
+    const rawPeriods = detailBundle?.approvedTargetsTree?.periods || targetProposal?.periods || periodAllocations;
+    if (!rawPeriods || rawPeriods.length === 0) return [];
+
+    const effStart = assignment?.effective_from;
+    if (effStart && rawPeriods[0]?.period_start_date !== effStart) {
+      let effEnd = assignment?.effective_to;
+      if (!effEnd) {
+        const [sY, sM, sD] = effStart.split("-").map(Number);
+        const nextYear = new Date(Date.UTC(sY + 1, sM - 1, sD - 1));
+        effEnd = nextYear.toISOString().slice(0, 10);
+      }
+      const count = rawPeriods.length;
+      let prefix = "Q";
+      let periodType: "year" | "month" | "half_year" | "quarter" | "day" = "quarter";
+      if (targetDepth === "semi_annual") {
+        prefix = "H";
+        periodType = "half_year";
+      } else if (targetDepth === "monthly") {
+        prefix = "M";
+        periodType = "month";
+      } else if (targetDepth === "annual") {
+        prefix = "";
+        periodType = "year";
+      }
+      const intervals = generateIntervalsFromDates(effStart, effEnd, count, prefix, periodType, 0);
+      return intervals.map((inv, idx) => ({
+        ...inv,
+        target_quantity: rawPeriods[idx]?.target_quantity ?? inv.target_quantity,
+        department_allocations: rawPeriods[idx]?.department_allocations || [],
+      }));
+    }
+    return rawPeriods;
+  }, [detailBundle?.approvedTargetsTree?.periods, targetProposal?.periods, periodAllocations, assignment?.effective_from, assignment?.effective_to, targetDepth]);
 
   // Handle annual target change & auto-distribute
   const handleAnnualTargetChange = (val: string) => {
@@ -1198,7 +1276,7 @@ export function CompanyProductionDetailView({
                           </tr>
                         </thead>
                         <tbody className="divide-y">
-                          {(detailBundle?.approvedTargetsTree?.periods || targetProposal?.periods || periodAllocations).map((p: any) => {
+                          {displayedApprovedPeriods.map((p: any) => {
                             const isExpanded = !!expandedDeptPeriods[p.period_label];
                             const deptAllocations = p.department_allocations || [];
 
