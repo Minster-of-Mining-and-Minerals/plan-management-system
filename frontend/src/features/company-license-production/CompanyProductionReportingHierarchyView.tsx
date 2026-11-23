@@ -353,16 +353,18 @@ export function CompanyProductionReportingHierarchyView({
                           {node.achievementPct !== undefined ? node.achievementPct.toFixed(1) : 0}%
                         </span>
                       </div>
-                      <div className="w-full h-2 bg-muted/60 rounded-full overflow-hidden p-0.5 border border-border/40">
+                      <div className="w-full h-2.5 bg-muted/60 rounded-full overflow-hidden p-0.5 border border-border/40">
                         <div
                           className={`h-full rounded-full transition-all duration-500 ${
                             (node.achievementPct || 0) >= 100
-                              ? "bg-gradient-to-r from-emerald-500 to-teal-400"
-                              : (node.achievementPct || 0) >= 50
-                              ? "bg-gradient-to-r from-amber-500 to-amber-400"
-                              : "bg-primary"
+                              ? "bg-gradient-to-r from-emerald-500 via-green-500 to-emerald-600 shadow-2xs shadow-emerald-500/50"
+                              : (node.achievementPct || 0) >= 70
+                              ? "bg-gradient-to-r from-lime-500 to-emerald-500"
+                              : (node.achievementPct || 0) >= 40
+                              ? "bg-gradient-to-r from-orange-500 via-amber-500 to-yellow-500"
+                              : "bg-gradient-to-r from-red-600 via-rose-500 to-orange-500"
                           }`}
-                          style={{ width: `${Math.min(100, Math.max(0, node.achievementPct || 0))}%` }}
+                          style={{ width: `${Math.min(100, Math.max(2, node.achievementPct || 0))}%` }}
                         />
                       </div>
                     </div>

@@ -2806,8 +2806,16 @@ function AnalyticsTabContent({
         </Card>
       </div>
 
-      {/* Target Completion Progress Bar */}
-      <Card className="border border-slate-200 dark:border-slate-800 p-5 shadow-xs space-y-2.5">
+      {/* Target Completion Progress Bar with Dynamic Red-to-Green Health Coloring */}
+      <Card className={`border p-5 shadow-xs space-y-3 transition-colors ${
+        achievementPct >= 100
+          ? "border-emerald-300/60 bg-emerald-500/5 dark:border-emerald-900/40"
+          : achievementPct >= 75
+          ? "border-teal-300/60 bg-teal-500/5 dark:border-teal-900/40"
+          : achievementPct >= 40
+          ? "border-amber-300/60 bg-amber-500/5 dark:border-amber-900/40"
+          : "border-rose-300/60 bg-rose-500/5 dark:border-rose-900/40"
+      }`}>
         <div className="flex items-center justify-between text-xs">
           <div className="flex items-center gap-2">
             <span className="font-bold text-slate-800 dark:text-slate-200">Overall Concession Target Completion</span>
@@ -2816,24 +2824,36 @@ function AnalyticsTabContent({
               {totalActual.toLocaleString()} of {targetQty.toLocaleString()} {unitSymbol} Extracted
             </span>
           </div>
-          <Badge className={`font-mono text-[10px] font-semibold ${
+          <Badge className={`font-mono text-[10.5px] font-bold border px-2.5 py-0.5 shadow-2xs ${
             achievementPct >= 100
               ? "bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300 border-emerald-300"
-              : achievementPct >= 50
-              ? "bg-indigo-100 text-indigo-800 dark:bg-indigo-950 dark:text-indigo-300 border-indigo-300"
-              : "bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300 border-amber-300"
+              : achievementPct >= 75
+              ? "bg-teal-100 text-teal-800 dark:bg-teal-950 dark:text-teal-300 border-teal-300"
+              : achievementPct >= 40
+              ? "bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300 border-amber-300"
+              : "bg-rose-100 text-rose-800 dark:bg-rose-950 dark:text-rose-300 border-rose-300"
           }`}>
-            {achievementPct.toFixed(2)}% Fulfilled
+            {achievementPct >= 100
+              ? `Fully Completed (${achievementPct.toFixed(1)}%)`
+              : achievementPct >= 75
+              ? `On Track (${achievementPct.toFixed(1)}%)`
+              : achievementPct >= 40
+              ? `Moderate Progress (${achievementPct.toFixed(1)}%)`
+              : `At Risk / Deficit (${achievementPct.toFixed(1)}%)`}
           </Badge>
         </div>
-        <div className="w-full h-3 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden shadow-inner">
+        <div className="w-full h-3.5 bg-slate-200/80 dark:bg-slate-800 rounded-full overflow-hidden p-0.5 border border-slate-300/60 dark:border-slate-700 shadow-inner">
           <div
             className={`h-full transition-all duration-700 rounded-full ${
               achievementPct >= 100
-                ? "bg-gradient-to-r from-emerald-500 to-teal-400"
-                : "bg-gradient-to-r from-indigo-500 via-amber-500 to-emerald-500"
+                ? "bg-gradient-to-r from-emerald-500 via-green-500 to-emerald-600 shadow-sm shadow-emerald-500/50"
+                : achievementPct >= 75
+                ? "bg-gradient-to-r from-lime-500 to-emerald-500 shadow-sm shadow-emerald-500/40"
+                : achievementPct >= 40
+                ? "bg-gradient-to-r from-orange-500 via-amber-500 to-yellow-500 shadow-sm shadow-amber-500/30"
+                : "bg-gradient-to-r from-red-600 via-rose-500 to-orange-500 shadow-sm shadow-red-500/40"
             }`}
-            style={{ width: `${Math.min(100, Math.max(0, achievementPct))}%` }}
+            style={{ width: `${Math.min(100, Math.max(2, achievementPct))}%` }}
           />
         </div>
       </Card>
