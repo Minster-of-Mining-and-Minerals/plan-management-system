@@ -696,6 +696,10 @@ async function buildDailyReportingMatrix({ assignmentId, monthStr, dateOverride 
     order: [["version_number", "DESC"]],
   });
 
+  const allowanceWindow = calculateAllowanceWindow(assignment, todayStr);
+  const license = assignment.license;
+  const unitSymbol = assignment.defaultReportingUnit?.symbol || "units";
+
   // Fetch reports for this month
   const existingReports = await CompanyProductionReport.findAll({
     where: {
