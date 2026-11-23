@@ -32,7 +32,34 @@ import {
   Unlock,
   Check,
   HelpCircle,
+  BarChart3,
+  Target,
+  Activity,
+  TrendingDown,
+  ArrowUpRight,
+  ArrowDownRight,
+  Compass,
+  Sparkles,
+  PieChart as PieChartIcon,
 } from "lucide-react";
+import {
+  ResponsiveContainer,
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip as RechartsTooltip,
+  Legend,
+  AreaChart,
+  Area,
+  LineChart,
+  Line,
+  ReferenceLine,
+  PieChart,
+  Pie,
+  Cell,
+} from "recharts";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardHeader, CardTitle, CardContent, CardDescription, CardFooter } from "@/components/ui/card";
@@ -62,6 +89,8 @@ import {
   useSubmitReportMutation,
   useManageReportingResponsibilitiesMutation,
   useGetProductionPerformanceQuery,
+  useGetReportsQuery,
+  useGetReportingHierarchyQuery,
 } from "@/redux/api/productionApi";
 import { useGetCompanyStructuresQuery, useGetCompanyRolesQuery } from "@/redux/api/companyApi";
 import { useGetUsersQuery } from "@/redux/api/userApi";
@@ -87,7 +116,7 @@ export function CompanyProductionDetailView({
   const companyId = overrideCompanyId || params?.id;
   const assignmentId = overrideAssignmentId || params?.assignmentId;
 
-  const defaultTab = searchParams.get("tab") || "overview";
+  const defaultTab = searchParams.get("tab") || "analytics";
   const [activeTab, setActiveTab] = useState(defaultTab);
 
   // Sync tab with URL
@@ -765,218 +794,88 @@ export function CompanyProductionDetailView({
 
       {/* 5 TABS NAVIGATION */}
       <Tabs value={activeTab} onValueChange={handleTabChange} className="space-y-6">
-        <TabsList className="grid grid-cols-5 w-full max-w-3xl h-11 p-1 bg-muted/60">
-          <TabsTrigger value="overview" className="text-xs font-medium gap-1.5">
-            Overview
-          </TabsTrigger>
-          <TabsTrigger value="target-allocation" className="text-xs font-medium gap-1.5">
-            Target Allocation
-          </TabsTrigger>
-          <TabsTrigger value="reporting" className="text-xs font-medium gap-1.5">
-            Reporting
-          </TabsTrigger>
-          <TabsTrigger value="analytics" className="text-xs font-medium gap-1.5">
-            Analytics
-          </TabsTrigger>
-          <TabsTrigger value="responsibilities" className="text-xs font-medium gap-1.5">
-            Responsibilities
-          </TabsTrigger>
-        </TabsList>
+        {/* 5 ACTION-STYLE TABS NAVIGATION */}
+        <div className="flex items-center overflow-x-auto pb-1 -mx-1 px-1">
+          <TabsList className="flex flex-wrap sm:inline-flex items-center gap-2 p-1.5 bg-slate-100/90 dark:bg-slate-900/90 border border-slate-200 dark:border-slate-800 rounded-2xl h-auto shadow-xs">
+            {/* TAB 1: ANALYTICS (1ST) */}
+            <TabsTrigger
+              value="analytics"
+              className="flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-semibold transition-all duration-200 border border-transparent data-[state=active]:border-amber-400/80 data-[state=active]:bg-gradient-to-r data-[state=active]:from-amber-500/20 data-[state=active]:via-amber-500/10 data-[state=active]:to-amber-500/5 data-[state=active]:text-amber-950 dark:data-[state=active]:text-amber-200 data-[state=active]:shadow-sm data-[state=active]:ring-1 data-[state=active]:ring-amber-500/30 data-[state=inactive]:text-slate-600 dark:data-[state=inactive]:text-slate-400 data-[state=inactive]:hover:bg-white/70 dark:data-[state=inactive]:hover:bg-slate-800/70"
+            >
+              <BarChart3 className="h-4 w-4 text-amber-600 dark:text-amber-400" />
+              <span>Production Analytics</span>
+              <Badge variant="outline" className="text-[10px] px-1.5 py-0 h-4 border-amber-300 dark:border-amber-700 bg-amber-50 dark:bg-amber-950/60 text-amber-700 dark:text-amber-300">
+                Live
+              </Badge>
+            </TabsTrigger>
+
+            {/* TAB 2: TARGET ALLOCATION (2ND) */}
+            <TabsTrigger
+              value="target-allocation"
+              className="flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-semibold transition-all duration-200 border border-transparent data-[state=active]:border-amber-400/80 data-[state=active]:bg-gradient-to-r data-[state=active]:from-amber-500/20 data-[state=active]:via-amber-500/10 data-[state=active]:to-amber-500/5 data-[state=active]:text-amber-950 dark:data-[state=active]:text-amber-200 data-[state=active]:shadow-sm data-[state=active]:ring-1 data-[state=active]:ring-amber-500/30 data-[state=inactive]:text-slate-600 dark:data-[state=inactive]:text-slate-400 data-[state=inactive]:hover:bg-white/70 dark:data-[state=inactive]:hover:bg-slate-800/70"
+            >
+              <Target className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
+              <span>Target Allocation</span>
+              {approvedTarget && (
+                <Badge variant="outline" className="text-[10px] px-1.5 py-0 h-4 border-emerald-300 text-emerald-700 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-950/50">
+                  v{approvedTarget.version_number}
+                </Badge>
+              )}
+            </TabsTrigger>
+
+            {/* TAB 3: REPORTING (3RD) */}
+            <TabsTrigger
+              value="reporting"
+              className="flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-semibold transition-all duration-200 border border-transparent data-[state=active]:border-amber-400/80 data-[state=active]:bg-gradient-to-r data-[state=active]:from-amber-500/20 data-[state=active]:via-amber-500/10 data-[state=active]:to-amber-500/5 data-[state=active]:text-amber-950 dark:data-[state=active]:text-amber-200 data-[state=active]:shadow-sm data-[state=active]:ring-1 data-[state=active]:ring-amber-500/30 data-[state=inactive]:text-slate-600 dark:data-[state=inactive]:text-slate-400 data-[state=inactive]:hover:bg-white/70 dark:data-[state=inactive]:hover:bg-slate-800/70"
+            >
+              <Calendar className="h-4 w-4 text-blue-600 dark:text-blue-400" />
+              <span>Periodic Reporting</span>
+              {isReportingUnlocked ? (
+                <span className="flex h-2 w-2 relative">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                  <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+                </span>
+              ) : (
+                <Lock className="h-3.5 w-3.5 text-muted-foreground/60" />
+              )}
+            </TabsTrigger>
+
+            {/* TAB 4: OVERVIEW (4TH) */}
+            <TabsTrigger
+              value="overview"
+              className="flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-semibold transition-all duration-200 border border-transparent data-[state=active]:border-amber-400/80 data-[state=active]:bg-gradient-to-r data-[state=active]:from-amber-500/20 data-[state=active]:via-amber-500/10 data-[state=active]:to-amber-500/5 data-[state=active]:text-amber-950 dark:data-[state=active]:text-amber-200 data-[state=active]:shadow-sm data-[state=active]:ring-1 data-[state=active]:ring-amber-500/30 data-[state=inactive]:text-slate-600 dark:data-[state=inactive]:text-slate-400 data-[state=inactive]:hover:bg-white/70 dark:data-[state=inactive]:hover:bg-slate-800/70"
+            >
+              <Factory className="h-4 w-4 text-indigo-600 dark:text-indigo-400" />
+              <span>Overview</span>
+            </TabsTrigger>
+
+            {/* TAB 5: RESPONSIBILITIES (5TH) */}
+            <TabsTrigger
+              value="responsibilities"
+              className="flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-semibold transition-all duration-200 border border-transparent data-[state=active]:border-amber-400/80 data-[state=active]:bg-gradient-to-r data-[state=active]:from-amber-500/20 data-[state=active]:via-amber-500/10 data-[state=active]:to-amber-500/5 data-[state=active]:text-amber-950 dark:data-[state=active]:text-amber-200 data-[state=active]:shadow-sm data-[state=active]:ring-1 data-[state=active]:ring-amber-500/30 data-[state=inactive]:text-slate-600 dark:data-[state=inactive]:text-slate-400 data-[state=inactive]:hover:bg-white/70 dark:data-[state=inactive]:hover:bg-slate-800/70"
+            >
+              <Users className="h-4 w-4 text-purple-600 dark:text-purple-400" />
+              <span>Department Roles</span>
+            </TabsTrigger>
+          </TabsList>
+        </div>
 
         {/* =========================================================================
-            TAB 1: OVERVIEW
+            TAB 1: ANALYTICS & PRODUCTION INTELLIGENCE (NOW 1ST)
         ========================================================================= */}
-        <TabsContent value="overview" className="space-y-6">
-          {/* Reporting Locked Warning Banner */}
-          {!isReportingUnlocked && (
-            <div className="rounded-xl border border-amber-500/30 bg-amber-500/10 p-5 text-amber-900 dark:text-amber-200">
-              <div className="flex items-start gap-4">
-                <Lock className="h-6 w-6 text-amber-600 shrink-0 mt-0.5" />
-                <div className="space-y-1.5">
-                  <h3 className="font-bold text-sm">
-                    Periodic Production Reporting is Currently Locked
-                  </h3>
-                  <p className="text-xs leading-relaxed opacity-90">
-                    Under Federal Ministry regulations, a company must first propose its annual production target, distribute it according to the centrally assigned target depth (<strong>{targetDepth}</strong>), and receive official Federal Approval.
-                    {detailBundle?.licenseIneligibilityReason && (
-                      <span className="block mt-1 font-semibold text-destructive">
-                        {detailBundle.licenseIneligibilityReason}
-                      </span>
-                    )}
-                  </p>
-                  <div className="pt-2">
-                    <Button
-                      size="sm"
-                      onClick={() => handleTabChange("target-allocation")}
-                      className="h-8 text-xs gap-1.5 bg-amber-600 hover:bg-amber-700 text-white"
-                    >
-                      Configure Target Proposal
-                      <ArrowLeft className="h-3.5 w-3.5 rotate-180" />
-                    </Button>
-                  </div>
-                </div>
-              </div>
-            </div>
-          )}
-
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            {/* Assignment Specs */}
-            <Card className="border shadow-xs">
-              <CardHeader className="pb-3">
-                <CardTitle className="text-sm font-semibold flex items-center gap-2">
-                  <Factory className="h-4 w-4 text-primary" />
-                  Central Assignment Specifications
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-3 text-xs">
-                <div className="flex justify-between py-1 border-b">
-                  <span className="text-muted-foreground">Production Item:</span>
-                  <span className="font-semibold text-foreground">{assignment.productionItem?.name}</span>
-                </div>
-                <div className="flex justify-between py-1 border-b">
-                  <span className="text-muted-foreground">Category:</span>
-                  <span className="font-medium text-foreground">{assignment.productionItem?.category || "Metals"}</span>
-                </div>
-                <div className="flex justify-between py-1 border-b">
-                  <span className="text-muted-foreground">Centrally Fixed Unit:</span>
-                  <span className="font-mono font-medium text-foreground">{unitName} ({unitSymbol})</span>
-                </div>
-                <div className="flex justify-between py-1 border-b">
-                  <span className="text-muted-foreground">Reporting Frequency:</span>
-                  <span className="font-medium text-foreground capitalize">{assignment.reportingFrequency?.name}</span>
-                </div>
-                <div className="flex justify-between py-1">
-                  <span className="text-muted-foreground">Target Allocation Depth:</span>
-                  <span className="font-mono font-semibold text-primary capitalize">{targetDepth}</span>
-                </div>
-              </CardContent>
-            </Card>
-
-            {/* License Concession Details */}
-            <Card className="border shadow-xs">
-              <CardHeader className="pb-3">
-                <CardTitle className="text-sm font-semibold flex items-center gap-2">
-                  <FileBadge className="h-4 w-4 text-primary" />
-                  Concession License Binding
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-3 text-xs">
-                <div className="flex justify-between py-1 border-b">
-                  <span className="text-muted-foreground">License Number:</span>
-                  <span className="font-mono font-bold text-foreground">
-                    {license?.license_number || "Direct"}
-                  </span>
-                </div>
-                <div className="flex justify-between py-1 border-b">
-                  <span className="text-muted-foreground">License Type:</span>
-                  <span className="font-medium text-foreground">{license?.licenseType?.name || "Mining"}</span>
-                </div>
-                <div className="flex justify-between py-1 border-b">
-                  <span className="text-muted-foreground">Effective Dates:</span>
-                  <span className="font-mono text-foreground">
-                    {license?.effective_start_date || "—"} to {license?.effective_end_date || "—"}
-                  </span>
-                </div>
-                <div className="flex justify-between py-1 border-b">
-                  <span className="text-muted-foreground">Location:</span>
-                  <span className="font-medium text-foreground">
-                    {[license?.region, license?.woreda].filter(Boolean).join(", ") || "N/A"}
-                  </span>
-                </div>
-                <div className="flex justify-between py-1">
-                  <span className="text-muted-foreground">License Status:</span>
-                  <Badge variant="outline" className="text-[10px] uppercase">
-                    {license?.status || "ACTIVE"}
-                  </Badge>
-                </div>
-              </CardContent>
-            </Card>
-
-            {/* Target & Approval Summary */}
-            <Card className="border shadow-xs">
-              <CardHeader className="pb-3">
-                <CardTitle className="text-sm font-semibold flex items-center gap-2">
-                  <ShieldCheck className="h-4 w-4 text-primary" />
-                  Target Proposal & Approval
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-3 text-xs">
-                <div className="flex justify-between py-1 border-b">
-                  <span className="text-muted-foreground">Target Version:</span>
-                  <span className="font-mono font-bold text-foreground">
-                    Version {latestTarget?.version_number || 1}
-                  </span>
-                </div>
-                <div className="flex justify-between py-1 border-b">
-                  <span className="text-muted-foreground">Proposal Status:</span>
-                  <Badge variant="outline" className="capitalize text-xs">
-                    {proposalStatus.replace("_", " ")}
-                  </Badge>
-                </div>
-                <div className="flex justify-between py-1 border-b">
-                  <span className="text-muted-foreground">Proposed Annual:</span>
-                  <span className="font-mono font-bold text-foreground">
-                    {latestTarget ? `${Number(latestTarget.target_quantity).toLocaleString()} ${unitSymbol}` : "None"}
-                  </span>
-                </div>
-                <div className="flex justify-between py-1 border-b">
-                  <span className="text-muted-foreground">Approved Annual:</span>
-                  <span className="font-mono font-bold text-emerald-600">
-                    {approvedTarget ? `${Number(approvedTarget.target_quantity).toLocaleString()} ${unitSymbol}` : "None"}
-                  </span>
-                </div>
-                <div className="flex justify-between py-1">
-                  <span className="text-muted-foreground">Reporting Eligibility:</span>
-                  <span className={isReportingUnlocked ? "text-emerald-600 font-bold" : "text-destructive font-bold"}>
-                    {isReportingUnlocked ? "Unlocked" : "Locked"}
-                  </span>
-                </div>
-              </CardContent>
-            </Card>
-          </div>
-
-          {/* Latest Reports Snippet */}
-          <Card className="border shadow-xs">
-            <CardHeader className="pb-3 border-b">
-              <CardTitle className="text-sm font-semibold flex items-center justify-between">
-                <span>Recent Production Submissions</span>
-                <Button size="sm" variant="ghost" onClick={() => handleTabChange("reporting")} className="h-7 text-xs">
-                  View All &rarr;
-                </Button>
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="p-0">
-              {(detailBundle?.recentReports || []).length === 0 ? (
-                <div className="p-8 text-center text-xs text-muted-foreground italic">
-                  No production reports submitted yet.
-                </div>
-              ) : (
-                <div className="divide-y text-xs">
-                  {(detailBundle?.recentReports || []).slice(0, 5).map((r) => (
-                    <div key={r.report_id} className="p-3 flex items-center justify-between">
-                      <div className="flex items-center gap-3">
-                        <Calendar className="h-4 w-4 text-muted-foreground" />
-                        <div>
-                          <div className="font-semibold text-foreground font-mono">{r.report_date}</div>
-                          <div className="text-[11px] text-muted-foreground">
-                            {r.period_label || r.report_date} &bull; Submitted by {r.submittedByUser?.full_name || "Company"}
-                          </div>
-                        </div>
-                      </div>
-                      <div className="text-right">
-                        <div className="font-mono font-bold text-foreground">
-                          {Number(r.quantity_reported).toLocaleString()} {r.reportedUnit?.symbol || unitSymbol}
-                        </div>
-                        <Badge variant="outline" className="text-[10px] uppercase">
-                          {r.status}
-                        </Badge>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </CardContent>
-          </Card>
+        <TabsContent value="analytics" className="space-y-6">
+          <AnalyticsTabContent
+            companyId={companyId || ""}
+            assignmentId={assignmentId || ""}
+            assignment={assignment}
+            productionItemId={assignment.production_item_id}
+            targetDepth={targetDepth}
+            unitSymbol={unitSymbol}
+            approvedTarget={approvedTarget}
+            targetPeriods={displayedApprovedPeriods}
+            reports={detailBundle?.recentReports || []}
+            structures={structures}
+          />
         </TabsContent>
 
         {/* =========================================================================
@@ -2107,17 +2006,265 @@ export function CompanyProductionDetailView({
         </TabsContent>
 
         {/* =========================================================================
-            TAB 4: ANALYTICS & TARGET COMPARISON
+            TAB 4: OVERVIEW & ADMINISTRATIVE SPECIFICATIONS (NOW 4TH)
         ========================================================================= */}
-        <TabsContent value="analytics" className="space-y-6">
-          <AnalyticsTabContent
-            companyId={companyId || ""}
-            productionItemId={assignment.production_item_id}
-            targetDepth={targetDepth}
-            unitSymbol={unitSymbol}
-            approvedTarget={approvedTarget}
-            reports={detailBundle?.recentReports || []}
-          />
+        <TabsContent value="overview" className="space-y-6">
+          {/* Executive Specification Header Banner */}
+          <div className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-gradient-to-r from-slate-50 via-white to-amber-50/40 dark:from-slate-900 dark:via-slate-900/90 dark:to-amber-950/20 p-6 shadow-xs space-y-4">
+            <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+              <div className="flex items-start gap-4">
+                <div className="w-12 h-12 rounded-2xl bg-amber-500/10 dark:bg-amber-500/20 text-amber-600 dark:text-amber-400 border border-amber-500/30 flex items-center justify-center shrink-0 shadow-inner">
+                  <Factory className="h-6 w-6" />
+                </div>
+                <div>
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="font-mono text-xs font-bold text-amber-600 dark:text-amber-400 uppercase tracking-wider">
+                      Executive Concession Mandate
+                    </span>
+                    <span className="text-slate-300 dark:text-slate-700">•</span>
+                    <Badge variant="outline" className="text-xs font-mono font-semibold border-amber-300 dark:border-amber-800 bg-amber-50 dark:bg-amber-950/60 text-amber-800 dark:text-amber-300">
+                      License #{license?.license_number || "Direct"}
+                    </Badge>
+                    <Badge className={`text-xs capitalize ${
+                      isReportingUnlocked
+                        ? "bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300 border-emerald-300"
+                        : "bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300 border-amber-300"
+                    }`}>
+                      {isReportingUnlocked ? "Reporting Active" : "Compliance Gate Locked"}
+                    </Badge>
+                  </div>
+                  <h2 className="text-xl font-bold tracking-tight text-slate-900 dark:text-slate-100 mt-1">
+                    {assignment.productionItem?.name || "Mineral Production"} Concession Specifications
+                  </h2>
+                  <p className="text-xs text-muted-foreground mt-0.5">
+                    Centrally governed production assignment enforcing statutory targets and reporting integrity.
+                  </p>
+                </div>
+              </div>
+
+              {/* Quick Spec Pills */}
+              <div className="flex flex-wrap items-center gap-2 text-xs">
+                <div className="px-3 py-1.5 rounded-xl border bg-white/80 dark:bg-slate-900/80 shadow-2xs space-y-0.5">
+                  <span className="text-[10px] text-muted-foreground uppercase font-semibold">Standard Unit</span>
+                  <div className="font-mono font-bold text-foreground">{unitName} ({unitSymbol})</div>
+                </div>
+                <div className="px-3 py-1.5 rounded-xl border bg-white/80 dark:bg-slate-900/80 shadow-2xs space-y-0.5">
+                  <span className="text-[10px] text-muted-foreground uppercase font-semibold">Target Depth</span>
+                  <div className="font-mono font-bold text-foreground capitalize">{targetDepth}</div>
+                </div>
+                <div className="px-3 py-1.5 rounded-xl border bg-white/80 dark:bg-slate-900/80 shadow-2xs space-y-0.5">
+                  <span className="text-[10px] text-muted-foreground uppercase font-semibold">Frequency</span>
+                  <div className="font-mono font-bold text-foreground capitalize">{assignment.reportingFrequency?.name}</div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Reporting Locked Warning Banner */}
+          {!isReportingUnlocked && (
+            <div className="rounded-xl border border-amber-500/30 bg-amber-500/10 p-5 text-amber-900 dark:text-amber-200">
+              <div className="flex items-start gap-4">
+                <Lock className="h-6 w-6 text-amber-600 shrink-0 mt-0.5" />
+                <div className="space-y-1.5">
+                  <h3 className="font-bold text-sm">
+                    Periodic Production Reporting is Currently Locked
+                  </h3>
+                  <p className="text-xs leading-relaxed opacity-90">
+                    Under Federal Ministry regulations, a company must first propose its annual production target, distribute it according to the centrally assigned target depth (<strong>{targetDepth}</strong>), and receive official Federal Approval.
+                    {detailBundle?.licenseIneligibilityReason && (
+                      <span className="block mt-1 font-semibold text-destructive">
+                        {detailBundle.licenseIneligibilityReason}
+                      </span>
+                    )}
+                  </p>
+                  <div className="pt-2">
+                    <Button
+                      size="sm"
+                      onClick={() => handleTabChange("target-allocation")}
+                      className="h-8 text-xs gap-1.5 bg-amber-600 hover:bg-amber-700 text-white"
+                    >
+                      Configure Target Proposal
+                      <ArrowLeft className="h-3.5 w-3.5 rotate-180" />
+                    </Button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* 3 Executive Spec Cards */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            {/* Card 1: Central Assignment Specifications */}
+            <Card className="border shadow-xs hover:shadow-md transition-all">
+              <CardHeader className="pb-3 border-b bg-muted/10">
+                <CardTitle className="text-sm font-semibold flex items-center gap-2">
+                  <div className="p-1.5 rounded-lg bg-primary/10 text-primary">
+                    <Factory className="h-4 w-4" />
+                  </div>
+                  <span>Assignment Specifications</span>
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-3 text-xs pt-4">
+                <div className="flex justify-between py-1.5 border-b border-border/50">
+                  <span className="text-muted-foreground">Production Item:</span>
+                  <span className="font-bold text-foreground">{assignment.productionItem?.name}</span>
+                </div>
+                <div className="flex justify-between py-1.5 border-b border-border/50">
+                  <span className="text-muted-foreground">Category:</span>
+                  <span className="font-medium text-foreground">{assignment.productionItem?.category || "Metals"}</span>
+                </div>
+                <div className="flex justify-between py-1.5 border-b border-border/50">
+                  <span className="text-muted-foreground">Centrally Fixed Unit:</span>
+                  <span className="font-mono font-bold text-foreground">{unitName} ({unitSymbol})</span>
+                </div>
+                <div className="flex justify-between py-1.5 border-b border-border/50">
+                  <span className="text-muted-foreground">Reporting Frequency:</span>
+                  <span className="font-medium text-foreground capitalize">{assignment.reportingFrequency?.name}</span>
+                </div>
+                <div className="flex justify-between py-1.5">
+                  <span className="text-muted-foreground">Target Allocation Depth:</span>
+                  <Badge variant="outline" className="font-mono text-[10px] uppercase font-bold text-primary border-primary/30">
+                    {targetDepth}
+                  </Badge>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Card 2: Concession License Details */}
+            <Card className="border shadow-xs hover:shadow-md transition-all">
+              <CardHeader className="pb-3 border-b bg-muted/10">
+                <CardTitle className="text-sm font-semibold flex items-center gap-2">
+                  <div className="p-1.5 rounded-lg bg-emerald-500/10 text-emerald-600">
+                    <FileBadge className="h-4 w-4" />
+                  </div>
+                  <span>Concession License Binding</span>
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-3 text-xs pt-4">
+                <div className="flex justify-between py-1.5 border-b border-border/50">
+                  <span className="text-muted-foreground">License Number:</span>
+                  <span className="font-mono font-bold text-foreground">
+                    {license?.license_number || "Direct"}
+                  </span>
+                </div>
+                <div className="flex justify-between py-1.5 border-b border-border/50">
+                  <span className="text-muted-foreground">License Type:</span>
+                  <span className="font-medium text-foreground">{license?.licenseType?.name || "Mining"}</span>
+                </div>
+                <div className="flex justify-between py-1.5 border-b border-border/50">
+                  <span className="text-muted-foreground">Effective Dates:</span>
+                  <span className="font-mono text-foreground">
+                    {license?.effective_start_date || "—"} to {license?.effective_end_date || "—"}
+                  </span>
+                </div>
+                <div className="flex justify-between py-1.5 border-b border-border/50">
+                  <span className="text-muted-foreground">Location:</span>
+                  <span className="font-medium text-foreground">
+                    {[license?.region, license?.woreda].filter(Boolean).join(", ") || "N/A"}
+                  </span>
+                </div>
+                <div className="flex justify-between py-1.5">
+                  <span className="text-muted-foreground">License Status:</span>
+                  <Badge variant="outline" className="text-[10px] uppercase font-bold text-emerald-700 dark:text-emerald-300 border-emerald-300">
+                    {license?.status || "ACTIVE"}
+                  </Badge>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Card 3: Target Proposal & Approval */}
+            <Card className="border shadow-xs hover:shadow-md transition-all">
+              <CardHeader className="pb-3 border-b bg-muted/10">
+                <CardTitle className="text-sm font-semibold flex items-center gap-2">
+                  <div className="p-1.5 rounded-lg bg-indigo-500/10 text-indigo-600">
+                    <ShieldCheck className="h-4 w-4" />
+                  </div>
+                  <span>Target Proposal & Baseline</span>
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-3 text-xs pt-4">
+                <div className="flex justify-between py-1.5 border-b border-border/50">
+                  <span className="text-muted-foreground">Target Version:</span>
+                  <span className="font-mono font-bold text-foreground">
+                    Version {latestTarget?.version_number || 1}
+                  </span>
+                </div>
+                <div className="flex justify-between py-1.5 border-b border-border/50">
+                  <span className="text-muted-foreground">Proposal Status:</span>
+                  <Badge variant="outline" className="capitalize text-xs font-semibold">
+                    {proposalStatus.replace("_", " ")}
+                  </Badge>
+                </div>
+                <div className="flex justify-between py-1.5 border-b border-border/50">
+                  <span className="text-muted-foreground">Proposed Annual:</span>
+                  <span className="font-mono font-bold text-foreground">
+                    {latestTarget ? `${Number(latestTarget.target_quantity).toLocaleString()} ${unitSymbol}` : "None"}
+                  </span>
+                </div>
+                <div className="flex justify-between py-1.5 border-b border-border/50">
+                  <span className="text-muted-foreground">Approved Annual:</span>
+                  <span className="font-mono font-bold text-emerald-600">
+                    {approvedTarget ? `${Number(approvedTarget.target_quantity).toLocaleString()} ${unitSymbol}` : "None"}
+                  </span>
+                </div>
+                <div className="flex justify-between py-1.5">
+                  <span className="text-muted-foreground">Reporting Eligibility:</span>
+                  <span className={isReportingUnlocked ? "text-emerald-600 font-bold" : "text-destructive font-bold"}>
+                    {isReportingUnlocked ? "Unlocked (Active)" : "Locked (Pending Approval)"}
+                  </span>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* Latest Reports Snippet */}
+          <Card className="border shadow-xs">
+            <CardHeader className="pb-3 border-b bg-muted/10">
+              <CardTitle className="text-sm font-semibold flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <Calendar className="h-4 w-4 text-primary" />
+                  <span>Recent Production Submissions</span>
+                </div>
+                <Button size="sm" variant="ghost" onClick={() => handleTabChange("reporting")} className="h-7 text-xs gap-1 font-semibold text-primary hover:text-primary">
+                  <span>Open Reporting & Matrix</span>
+                  <ArrowRight className="h-3.5 w-3.5" />
+                </Button>
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="p-0">
+              {(detailBundle?.recentReports || []).length === 0 ? (
+                <div className="p-8 text-center text-xs text-muted-foreground italic">
+                  No production reports submitted yet.
+                </div>
+              ) : (
+                <div className="divide-y text-xs">
+                  {(detailBundle?.recentReports || []).slice(0, 5).map((r) => (
+                    <div key={r.report_id} className="p-3.5 flex items-center justify-between hover:bg-slate-50/50 dark:hover:bg-slate-900/50 transition-colors">
+                      <div className="flex items-center gap-3">
+                        <div className="w-8 h-8 rounded-lg bg-emerald-50 dark:bg-emerald-950/60 border border-emerald-200 dark:border-emerald-800 text-emerald-600 dark:text-emerald-400 flex items-center justify-center font-bold">
+                          ✓
+                        </div>
+                        <div>
+                          <div className="font-semibold text-foreground font-mono">{r.report_date}</div>
+                          <div className="text-[11px] text-muted-foreground">
+                            {r.period_label || r.report_date} &bull; Submitted by {r.submittedByUser?.full_name || "Company Staff"}
+                          </div>
+                        </div>
+                      </div>
+                      <div className="text-right">
+                        <div className="font-mono font-bold text-foreground">
+                          {Number(r.quantity_reported).toLocaleString()} {r.reportedUnit?.symbol || unitSymbol}
+                        </div>
+                        <Badge variant="outline" className="text-[10px] uppercase font-mono border-emerald-300 text-emerald-700 dark:text-emerald-300">
+                          {r.status}
+                        </Badge>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </CardContent>
+          </Card>
         </TabsContent>
 
         {/* =========================================================================
@@ -2355,22 +2502,45 @@ export function CompanyProductionDetailView({
 // Subcomponent for Analytics Tab
 function AnalyticsTabContent({
   companyId,
+  assignmentId,
+  assignment,
   productionItemId,
   targetDepth,
   unitSymbol,
   approvedTarget,
-  reports,
+  targetPeriods = [],
+  reports = [],
+  structures = [],
 }: {
   companyId: string;
+  assignmentId: string;
+  assignment?: any;
   productionItemId: string;
   targetDepth: string;
   unitSymbol: string;
   approvedTarget: CompanyProductionTarget | null | undefined;
+  targetPeriods: TargetPeriodNode[];
   reports: any[];
+  structures?: any[];
 }) {
   const [periodType, setPeriodType] = useState<string>("quarter");
+  const currentYear = new Date().getFullYear();
 
-  const { data: performance, isLoading } = useGetProductionPerformanceQuery(
+  // 1. Fetch reporting hierarchy to get exact period targets vs actuals
+  const { data: hierarchyBundle, isLoading: isHierarchyLoading } = useGetReportingHierarchyQuery(
+    { assignmentId, year: currentYear },
+    { skip: !assignmentId }
+  );
+
+  // 2. Fetch all reports to aggregate complete extraction history
+  const { data: allReportsData, isLoading: isReportsLoading } = useGetReportsQuery(
+    { assignment_id: assignmentId, limit: 300 },
+    { skip: !assignmentId }
+  );
+  const allReports = allReportsData?.reports || reports || [];
+
+  // 3. Fetch backend performance aggregation
+  const { data: performance, isLoading: isPerfLoading } = useGetProductionPerformanceQuery(
     {
       company_id: companyId,
       production_item_id: productionItemId,
@@ -2379,32 +2549,147 @@ function AnalyticsTabContent({
     { skip: !companyId || !productionItemId }
   );
 
+  const isLoading = isHierarchyLoading && isReportsLoading;
+
   if (isLoading) {
-    return <Loading01 />;
+    return (
+      <Card className="p-12 flex items-center justify-center">
+        <Loading01 />
+      </Card>
+    );
   }
 
-  const totalActual = performance?.actual_quantity ?? 0;
-  const targetQty = performance?.target_quantity ?? (approvedTarget ? Number(approvedTarget.target_quantity) : 0);
-  const achievementPct = performance?.achievement_percentage ?? (targetQty > 0 ? (totalActual / targetQty) * 100 : 0);
+  // Consolidated Metrics
+  const hierarchyRoot = hierarchyBundle?.hierarchy;
+  const targetQty = Number(
+    hierarchyRoot?.targetQuantity ?? approvedTarget?.target_quantity ?? 0
+  );
+  const totalActual = Number(
+    hierarchyRoot?.actualQuantity ??
+      allReports.reduce((sum: number, r: any) => sum + (Number(r.quantity_reported) || 0), 0)
+  );
+  const achievementPct = targetQty > 0 ? (totalActual / targetQty) * 100 : 0;
+  const netVariance = totalActual - targetQty;
+  const isSurplus = netVariance >= 0;
   const compliance = performance?.reporting_compliance;
+
+  // Process period dataset
+  const periodsData = (() => {
+    if (hierarchyRoot?.children && hierarchyRoot.children.length > 0) {
+      return hierarchyRoot.children.map((child: any) => {
+        const t = Number(child.targetQuantity) || 0;
+        const a = Number(child.actualQuantity) || 0;
+        const diff = a - t;
+        const pct = t > 0 ? (a / t) * 100 : a > 0 ? 100 : 0;
+        return {
+          id: child.id,
+          label: child.label,
+          shortName: child.label.split(" ")[0] || child.id,
+          startDate: child.startDate,
+          endDate: child.endDate,
+          target: t,
+          actual: a,
+          variance: diff,
+          achievementPct: Math.round(pct * 10) / 10,
+          status: child.status || (pct >= 100 ? "completed" : a > 0 ? "partial" : "pending"),
+          isCurrent: Boolean(child.isCurrent),
+          isAccessible: Boolean(child.isAccessible),
+        };
+      });
+    }
+
+    if (targetPeriods && targetPeriods.length > 0) {
+      return targetPeriods.map((p, idx) => {
+        const t = Number(p.target_quantity) || 0;
+        const matchingReports = allReports.filter((r: any) => {
+          if (!r.report_date) return false;
+          return r.report_date >= p.period_start_date && r.report_date <= p.period_end_date;
+        });
+        const a = matchingReports.reduce((sum: number, r: any) => sum + (Number(r.quantity_reported) || 0), 0);
+        const diff = a - t;
+        const pct = t > 0 ? (a / t) * 100 : a > 0 ? 100 : 0;
+        return {
+          id: p.period_label || `P${idx + 1}`,
+          label: p.period_label || `Period ${idx + 1}`,
+          shortName: p.period_label ? p.period_label.split(" ")[0] : `P${idx + 1}`,
+          startDate: p.period_start_date,
+          endDate: p.period_end_date,
+          target: t,
+          actual: a,
+          variance: diff,
+          achievementPct: Math.round(pct * 10) / 10,
+          status: pct >= 100 ? "completed" : a > 0 ? "partial" : "pending",
+          isCurrent: idx === 0,
+          isAccessible: true,
+        };
+      });
+    }
+
+    return [];
+  })();
+
+  // Cumulative series for Trajectory Area Chart
+  let runTarget = 0;
+  let runActual = 0;
+  const cumulativeData = periodsData.map((p) => {
+    runTarget += p.target;
+    runActual += p.actual;
+    return {
+      name: p.shortName,
+      fullLabel: p.label,
+      plannedTrajectory: Math.round(runTarget * 10) / 10,
+      actualTrajectory: Math.round(runActual * 10) / 10,
+      unit: unitSymbol,
+    };
+  });
+
+  // Yield breakdown data for Donut Chart
+  const DONUT_COLORS = ["#10b981", "#3b82f6", "#f59e0b", "#8b5cf6", "#ec4899", "#14b8a6", "#6366f1", "#f97316"];
+  const yieldDistribution = (() => {
+    const activeYields = periodsData.filter((p) => p.actual > 0);
+    if (activeYields.length === 0) {
+      return [{ name: "Target Baseline", value: Math.max(1, targetQty), color: "#6366f1" }];
+    }
+    return activeYields.map((p, idx) => ({
+      name: p.shortName,
+      value: p.actual,
+      color: DONUT_COLORS[idx % DONUT_COLORS.length],
+    }));
+  })();
+
+  // Velocity and insights
+  const periodsWithProduction = periodsData.filter((p) => p.actual > 0).length || 1;
+  const avgYieldPerPeriod = Math.round((totalActual / periodsWithProduction) * 10) / 10;
+  const remainingDeficit = Math.max(0, targetQty - totalActual);
+  const uncompletedPeriods = periodsData.filter((p) => p.actual < p.target);
+  const remainingCount = Math.max(1, uncompletedPeriods.length);
+  const requiredRunRatePerRemaining = Math.round((remainingDeficit / remainingCount) * 10) / 10;
 
   return (
     <div className="space-y-6">
-      {/* Interval Selector */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-4 rounded-xl border bg-card">
-        <div>
-          <h3 className="text-sm font-bold text-foreground">
-            Production Performance & Achievement Analytics
-          </h3>
+      {/* Top Header & Interval Controls */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-5 rounded-2xl border border-slate-200 dark:border-slate-800 bg-gradient-to-r from-white via-slate-50/50 to-amber-50/20 dark:from-slate-900 dark:via-slate-900/90 dark:to-amber-950/10 shadow-xs">
+        <div className="space-y-1">
+          <div className="flex items-center gap-2">
+            <div className="p-1.5 rounded-lg bg-amber-500/10 text-amber-600 dark:text-amber-400">
+              <BarChart3 className="h-5 w-5" />
+            </div>
+            <h3 className="text-base font-bold text-foreground tracking-tight">
+              Production Intelligence & Performance Analytics
+            </h3>
+            <Badge variant="outline" className="text-[10px] font-mono border-amber-300 dark:border-amber-700 bg-amber-50 dark:bg-amber-950/50 text-amber-800 dark:text-amber-300">
+              Version v{approvedTarget?.version_number || 1} Baseline
+            </Badge>
+          </div>
           <p className="text-xs text-muted-foreground">
-            Analysis is computed directly against the approved target version using the centrally configured allocation depth.
+            Multi-dimensional evaluation comparing actual field extractions against approved target allocations across scheduled production periods.
           </p>
         </div>
 
-        <div className="flex items-center gap-2">
-          <span className="text-xs text-muted-foreground">Aggregation Period:</span>
+        <div className="flex items-center gap-2 shrink-0">
+          <span className="text-xs text-muted-foreground font-medium">Aggregation Interval:</span>
           <Select value={periodType} onValueChange={setPeriodType}>
-            <SelectTrigger className="h-8 text-xs w-36">
+            <SelectTrigger className="h-8 text-xs w-40 bg-white dark:bg-slate-950 border-slate-300 dark:border-slate-700">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
@@ -2417,83 +2702,511 @@ function AnalyticsTabContent({
         </div>
       </div>
 
-      {/* KPI Cards */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-        <Card className="border shadow-xs">
-          <CardHeader className="pb-1 pt-4 px-4">
-            <CardTitle className="text-xs font-medium text-muted-foreground uppercase">
+      {/* 6 Executive KPI Metric Cards */}
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3.5">
+        {/* KPI 1: Approved Baseline Target */}
+        <Card className="border border-slate-200 dark:border-slate-800 shadow-2xs hover:shadow-xs transition-shadow">
+          <CardHeader className="pb-1 pt-3.5 px-3.5">
+            <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">
               Approved Target
-            </CardTitle>
+            </span>
           </CardHeader>
-          <CardContent className="px-4 pb-4">
-            <div className="text-2xl font-bold font-mono">
-              {targetQty.toLocaleString()} <span className="text-xs font-normal text-muted-foreground">{unitSymbol}</span>
+          <CardContent className="px-3.5 pb-3.5">
+            <div className="text-xl font-bold font-mono text-slate-900 dark:text-slate-100">
+              {targetQty.toLocaleString()} <span className="text-[11px] font-normal text-slate-400">{unitSymbol}</span>
             </div>
-            <p className="text-[11px] text-muted-foreground mt-0.5">Approved baseline</p>
+            <span className="text-[10px] text-muted-foreground mt-0.5 block">Approved baseline</span>
           </CardContent>
         </Card>
 
-        <Card className="border shadow-xs">
-          <CardHeader className="pb-1 pt-4 px-4">
-            <CardTitle className="text-xs font-medium text-emerald-600 uppercase">
-              Actual Extracted
-            </CardTitle>
+        {/* KPI 2: Total Extracted Actuals */}
+        <Card className="border border-emerald-200 dark:border-emerald-800/60 shadow-2xs bg-emerald-50/20 dark:bg-emerald-950/10">
+          <CardHeader className="pb-1 pt-3.5 px-3.5">
+            <span className="text-[10px] font-bold text-emerald-600 dark:text-emerald-400 uppercase tracking-wider">
+              Total Extracted
+            </span>
           </CardHeader>
-          <CardContent className="px-4 pb-4">
-            <div className="text-2xl font-bold text-emerald-600 font-mono">
-              {totalActual.toLocaleString()} <span className="text-xs font-normal text-muted-foreground">{unitSymbol}</span>
+          <CardContent className="px-3.5 pb-3.5">
+            <div className="text-xl font-bold font-mono text-emerald-600 dark:text-emerald-400">
+              {totalActual.toLocaleString()} <span className="text-[11px] font-normal text-emerald-500/70">{unitSymbol}</span>
             </div>
-            <p className="text-[11px] text-muted-foreground mt-0.5">Cumulative reports</p>
+            <span className="text-[10px] text-muted-foreground mt-0.5 block">Cumulative actuals</span>
           </CardContent>
         </Card>
 
-        <Card className="border shadow-xs">
-          <CardHeader className="pb-1 pt-4 px-4">
-            <CardTitle className="text-xs font-medium text-indigo-600 uppercase">
-              Target Achievement
-            </CardTitle>
+        {/* KPI 3: Net Production Variance */}
+        <Card className={`border shadow-2xs ${
+          isSurplus
+            ? "border-emerald-200 dark:border-emerald-800/60 bg-emerald-50/20 dark:bg-emerald-950/10"
+            : "border-amber-200 dark:border-amber-800/60 bg-amber-50/20 dark:bg-amber-950/10"
+        }`}>
+          <CardHeader className="pb-1 pt-3.5 px-3.5">
+            <span className={`text-[10px] font-bold uppercase tracking-wider ${isSurplus ? "text-emerald-600" : "text-amber-600"}`}>
+              Net Variance
+            </span>
           </CardHeader>
-          <CardContent className="px-4 pb-4">
-            <div className="text-2xl font-bold text-indigo-600 font-mono">
+          <CardContent className="px-3.5 pb-3.5">
+            <div className={`text-xl font-bold font-mono flex items-center gap-1 ${isSurplus ? "text-emerald-600" : "text-amber-600"}`}>
+              <span>{isSurplus ? `+${netVariance.toLocaleString()}` : netVariance.toLocaleString()}</span>
+              <span className="text-[10px] font-normal">{unitSymbol}</span>
+            </div>
+            <span className="text-[10px] text-muted-foreground mt-0.5 block">
+              {isSurplus ? "Surplus over target" : "Extraction deficit"}
+            </span>
+          </CardContent>
+        </Card>
+
+        {/* KPI 4: Target Achievement % */}
+        <Card className="border border-indigo-200 dark:border-indigo-800/60 shadow-2xs bg-indigo-50/20 dark:bg-indigo-950/10">
+          <CardHeader className="pb-1 pt-3.5 px-3.5">
+            <span className="text-[10px] font-bold text-indigo-600 dark:text-indigo-400 uppercase tracking-wider">
+              Achievement Rate
+            </span>
+          </CardHeader>
+          <CardContent className="px-3.5 pb-3.5">
+            <div className="text-xl font-bold font-mono text-indigo-600 dark:text-indigo-400">
               {achievementPct.toFixed(1)}%
             </div>
-            <p className="text-[11px] text-muted-foreground mt-0.5">
-              {achievementPct >= 100 ? "Goal Fulfilled" : `${(100 - achievementPct).toFixed(1)}% remaining`}
-            </p>
+            <span className="text-[10px] text-muted-foreground mt-0.5 block">
+              {achievementPct >= 100 ? "Goal fulfilled" : `${(100 - achievementPct).toFixed(1)}% remaining`}
+            </span>
           </CardContent>
         </Card>
 
-        <Card className="border shadow-xs">
-          <CardHeader className="pb-1 pt-4 px-4">
-            <CardTitle className="text-xs font-medium text-blue-600 uppercase">
-              Reporting Compliance
-            </CardTitle>
+        {/* KPI 5: Average Extraction Velocity */}
+        <Card className="border border-slate-200 dark:border-slate-800 shadow-2xs">
+          <CardHeader className="pb-1 pt-3.5 px-3.5">
+            <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">
+              Avg Cycle Yield
+            </span>
           </CardHeader>
-          <CardContent className="px-4 pb-4">
-            <div className="text-2xl font-bold text-blue-600 font-mono">
+          <CardContent className="px-3.5 pb-3.5">
+            <div className="text-xl font-bold font-mono text-slate-900 dark:text-slate-100">
+              {avgYieldPerPeriod.toLocaleString()} <span className="text-[11px] font-normal text-slate-400">{unitSymbol}</span>
+            </div>
+            <span className="text-[10px] text-muted-foreground mt-0.5 block">Extraction velocity</span>
+          </CardContent>
+        </Card>
+
+        {/* KPI 6: Reporting Compliance */}
+        <Card className="border border-blue-200 dark:border-blue-800/60 shadow-2xs bg-blue-50/20 dark:bg-blue-950/10">
+          <CardHeader className="pb-1 pt-3.5 px-3.5">
+            <span className="text-[10px] font-bold text-blue-600 dark:text-blue-400 uppercase tracking-wider">
+              Compliance Rate
+            </span>
+          </CardHeader>
+          <CardContent className="px-3.5 pb-3.5">
+            <div className="text-xl font-bold font-mono text-blue-600 dark:text-blue-400">
               {compliance ? `${compliance.compliance_rate}%` : "100%"}
             </div>
-            <p className="text-[11px] text-muted-foreground mt-0.5">
-              {compliance ? `${compliance.submitted_reports} / ${compliance.expected_reports} expected` : "On schedule"}
-            </p>
+            <span className="text-[10px] text-muted-foreground mt-0.5 block">
+              {compliance ? `${compliance.submitted_reports}/${compliance.expected_reports} reports` : "On schedule"}
+            </span>
           </CardContent>
         </Card>
       </div>
 
-      {/* Visual Progress Bar */}
-      <Card className="border shadow-xs p-6 space-y-3">
-        <div className="flex items-center justify-between text-xs font-semibold">
-          <span>Target Completion Progress</span>
-          <span className="font-mono">{achievementPct.toFixed(2)}%</span>
+      {/* Target Completion Progress Bar */}
+      <Card className="border border-slate-200 dark:border-slate-800 p-5 shadow-xs space-y-2.5">
+        <div className="flex items-center justify-between text-xs">
+          <div className="flex items-center gap-2">
+            <span className="font-bold text-slate-800 dark:text-slate-200">Overall Concession Target Completion</span>
+            <span className="text-slate-400">•</span>
+            <span className="text-muted-foreground font-mono">
+              {totalActual.toLocaleString()} of {targetQty.toLocaleString()} {unitSymbol} Extracted
+            </span>
+          </div>
+          <Badge className={`font-mono text-[10px] font-semibold ${
+            achievementPct >= 100
+              ? "bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300 border-emerald-300"
+              : achievementPct >= 50
+              ? "bg-indigo-100 text-indigo-800 dark:bg-indigo-950 dark:text-indigo-300 border-indigo-300"
+              : "bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300 border-amber-300"
+          }`}>
+            {achievementPct.toFixed(2)}% Fulfilled
+          </Badge>
         </div>
-        <div className="w-full h-3 bg-muted rounded-full overflow-hidden">
+        <div className="w-full h-3 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden shadow-inner">
           <div
-            className={`h-full transition-all duration-500 rounded-full ${
-              achievementPct >= 100 ? "bg-emerald-500" : "bg-primary"
+            className={`h-full transition-all duration-700 rounded-full ${
+              achievementPct >= 100
+                ? "bg-gradient-to-r from-emerald-500 to-teal-400"
+                : "bg-gradient-to-r from-indigo-500 via-amber-500 to-emerald-500"
             }`}
             style={{ width: `${Math.min(100, Math.max(0, achievementPct))}%` }}
           />
         </div>
+      </Card>
+
+      {/* Executive Analytical Narrative & Intelligence Insights */}
+      <Card className="border border-amber-200/70 dark:border-amber-900/50 bg-gradient-to-br from-amber-500/5 via-card to-card p-5 shadow-xs space-y-3">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2 text-xs font-bold text-amber-800 dark:text-amber-300 uppercase tracking-wider">
+            <Sparkles className="h-4 w-4 text-amber-600" />
+            <span>Executive Production Intelligence Assessment</span>
+          </div>
+          <Badge variant="outline" className="text-[10px] font-mono border-amber-300 text-amber-800 dark:text-amber-300 bg-amber-50 dark:bg-amber-950/50">
+            Automated Audit Synthesis
+          </Badge>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-xs pt-1">
+          <div className="p-3.5 rounded-xl border border-border/60 bg-card shadow-2xs space-y-1.5">
+            <div className="flex items-center gap-2 font-semibold text-slate-800 dark:text-slate-200">
+              <TrendingUp className="h-4 w-4 text-emerald-600" />
+              <span>Extraction Velocity</span>
+            </div>
+            <p className="text-muted-foreground leading-relaxed">
+              Company is yielding an average of <strong>{avgYieldPerPeriod.toLocaleString()} {unitSymbol}</strong> per active reporting cycle. Current cumulative extraction represents <strong>{achievementPct.toFixed(1)}%</strong> of the statutory annual target.
+            </p>
+          </div>
+
+          <div className="p-3.5 rounded-xl border border-border/60 bg-card shadow-2xs space-y-1.5">
+            <div className="flex items-center gap-2 font-semibold text-slate-800 dark:text-slate-200">
+              <Compass className="h-4 w-4 text-blue-600" />
+              <span>Remaining Run-Rate</span>
+            </div>
+            <p className="text-muted-foreground leading-relaxed">
+              {remainingDeficit > 0 ? (
+                <>
+                  To satisfy the approved baseline of <strong>{targetQty.toLocaleString()} {unitSymbol}</strong>, a minimum run rate of <strong>{requiredRunRatePerRemaining.toLocaleString()} {unitSymbol}</strong> is required across each of the remaining unfulfilled periods.
+                </>
+              ) : (
+                <>
+                  The concession has achieved and exceeded the approved annual target benchmark by <strong>{Math.abs(netVariance).toLocaleString()} {unitSymbol}</strong> (+{((totalActual / Math.max(1, targetQty) - 1) * 100).toFixed(1)}% surplus).
+                </>
+              )}
+            </p>
+          </div>
+
+          <div className="p-3.5 rounded-xl border border-border/60 bg-card shadow-2xs space-y-1.5">
+            <div className="flex items-center gap-2 font-semibold text-slate-800 dark:text-slate-200">
+              <ShieldCheck className="h-4 w-4 text-indigo-600" />
+              <span>Regulatory Standing</span>
+            </div>
+            <p className="text-muted-foreground leading-relaxed">
+              Statutory reporting compliance stands at <strong>{compliance ? `${compliance.compliance_rate}%` : "100%"}</strong>. Periodic report submissions are locked and audited under active target version <strong>v{approvedTarget?.version_number || 1}</strong>.
+            </p>
+          </div>
+        </div>
+      </Card>
+
+      {/* Row 1 Charts: Target vs Actual Comparison & Cumulative Trajectory */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* Chart 1: Periodic Target vs Actual Extracted Comparison */}
+        <Card className="border border-slate-200 dark:border-slate-800 shadow-xs">
+          <CardHeader className="p-5 pb-2">
+            <CardTitle className="text-sm font-bold text-slate-900 dark:text-slate-100 flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <BarChart3 className="h-4 w-4 text-emerald-600" />
+                <span>Planned Target vs Actual Extracted by Period</span>
+              </div>
+              <Badge variant="outline" className="text-[10px] font-mono font-normal">
+                {unitSymbol}
+              </Badge>
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="p-5 pt-3">
+            {periodsData.length === 0 ? (
+              <div className="h-72 flex items-center justify-center text-xs text-muted-foreground italic">
+                No periodic target allocations found for comparison.
+              </div>
+            ) : (
+              <div className="h-72">
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart data={periodsData} margin={{ top: 10, right: 20, left: -10, bottom: 20 }}>
+                    <CartesianGrid strokeDasharray="3 3" opacity={0.15} />
+                    <XAxis dataKey="shortName" tick={{ fontSize: 11 }} />
+                    <YAxis tick={{ fontSize: 11 }} />
+                    <RechartsTooltip
+                      formatter={(val: any, name: any) => [
+                        `${Number(val).toLocaleString()} ${unitSymbol}`,
+                        name === "target" ? "Planned Target" : "Actual Extracted",
+                      ]}
+                      labelFormatter={(label: any) => `Period: ${label}`}
+                      contentStyle={{
+                        backgroundColor: "#1e293b",
+                        borderColor: "#334155",
+                        color: "#fff",
+                        borderRadius: "8px",
+                        fontSize: "12px",
+                      }}
+                    />
+                    <Legend
+                      verticalAlign="top"
+                      height={36}
+                      formatter={(value: string) => (value === "target" ? "Planned Target" : "Actual Extracted")}
+                    />
+                    <Bar dataKey="target" fill="#6366f1" radius={[4, 4, 0, 0]} maxBarSize={36} />
+                    <Bar dataKey="actual" fill="#10b981" radius={[4, 4, 0, 0]} maxBarSize={36} />
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
+        {/* Chart 2: Cumulative Extraction Trajectory vs Target Plan */}
+        <Card className="border border-slate-200 dark:border-slate-800 shadow-xs">
+          <CardHeader className="p-5 pb-2">
+            <CardTitle className="text-sm font-bold text-slate-900 dark:text-slate-100 flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <TrendingUp className="h-4 w-4 text-indigo-600" />
+                <span>Cumulative Production Trajectory Curve</span>
+              </div>
+              <Badge variant="outline" className="text-[10px] font-mono font-normal">
+                Cumulative {unitSymbol}
+              </Badge>
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="p-5 pt-3">
+            {cumulativeData.length === 0 ? (
+              <div className="h-72 flex items-center justify-center text-xs text-muted-foreground italic">
+                Cumulative trajectory calculation awaiting period targets.
+              </div>
+            ) : (
+              <div className="h-72">
+                <ResponsiveContainer width="100%" height="100%">
+                  <AreaChart data={cumulativeData} margin={{ top: 10, right: 20, left: -10, bottom: 20 }}>
+                    <defs>
+                      <linearGradient id="actualGradient" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="5%" stopColor="#10b981" stopOpacity={0.4} />
+                        <stop offset="95%" stopColor="#10b981" stopOpacity={0.0} />
+                      </linearGradient>
+                    </defs>
+                    <CartesianGrid strokeDasharray="3 3" opacity={0.15} />
+                    <XAxis dataKey="name" tick={{ fontSize: 11 }} />
+                    <YAxis tick={{ fontSize: 11 }} />
+                    <RechartsTooltip
+                      formatter={(val: any, name: any) => [
+                        `${Number(val).toLocaleString()} ${unitSymbol}`,
+                        name === "actualTrajectory" ? "Cumulative Extracted" : "Planned Baseline Target",
+                      ]}
+                      contentStyle={{
+                        backgroundColor: "#1e293b",
+                        borderColor: "#334155",
+                        color: "#fff",
+                        borderRadius: "8px",
+                        fontSize: "12px",
+                      }}
+                    />
+                    <Legend
+                      verticalAlign="top"
+                      height={36}
+                      formatter={(value: string) => (value === "actualTrajectory" ? "Cumulative Extracted" : "Planned Target Trajectory")}
+                    />
+                    <Area
+                      type="monotone"
+                      dataKey="actualTrajectory"
+                      stroke="#10b981"
+                      strokeWidth={3}
+                      fillOpacity={1}
+                      fill="url(#actualGradient)"
+                    />
+                    <Line
+                      type="monotone"
+                      dataKey="plannedTrajectory"
+                      stroke="#6366f1"
+                      strokeWidth={2}
+                      strokeDasharray="5 5"
+                      dot={{ r: 4 }}
+                    />
+                  </AreaChart>
+                </ResponsiveContainer>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Row 2 Charts: Period Achievement Rate Benchmark & Yield Distribution */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        {/* Chart 3: Period Achievement Rate Benchmark (% vs 100% Target) */}
+        <Card className="lg:col-span-2 border border-slate-200 dark:border-slate-800 shadow-xs">
+          <CardHeader className="p-5 pb-2">
+            <CardTitle className="text-sm font-bold text-slate-900 dark:text-slate-100 flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Target className="h-4 w-4 text-emerald-600" />
+                <span>Period-by-Period Target Achievement Rate (%)</span>
+              </div>
+              <Badge variant="outline" className="text-[10px] font-mono">
+                100% Benchmark
+              </Badge>
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="p-5 pt-3">
+            {periodsData.length === 0 ? (
+              <div className="h-64 flex items-center justify-center text-xs text-muted-foreground italic">
+                No achievement rates available yet.
+              </div>
+            ) : (
+              <div className="h-64">
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart data={periodsData} margin={{ top: 10, right: 20, left: -10, bottom: 20 }}>
+                    <CartesianGrid strokeDasharray="3 3" opacity={0.15} />
+                    <XAxis dataKey="shortName" tick={{ fontSize: 11 }} />
+                    <YAxis tick={{ fontSize: 11 }} unit="%" />
+                    <RechartsTooltip
+                      formatter={(val: any) => [`${val}%`, "Achievement Rate"]}
+                      contentStyle={{
+                        backgroundColor: "#1e293b",
+                        borderColor: "#334155",
+                        color: "#fff",
+                        borderRadius: "8px",
+                        fontSize: "12px",
+                      }}
+                    />
+                    <ReferenceLine y={100} stroke="#f59e0b" strokeDasharray="4 4" label={{ value: "Target 100%", fill: "#f59e0b", fontSize: 10 }} />
+                    <Bar dataKey="achievementPct" radius={[4, 4, 0, 0]} maxBarSize={40}>
+                      {periodsData.map((entry, index) => (
+                        <Cell
+                          key={`cell-${index}`}
+                          fill={
+                            entry.achievementPct >= 100
+                              ? "#10b981"
+                              : entry.achievementPct >= 70
+                              ? "#3b82f6"
+                              : entry.achievementPct > 0
+                              ? "#f59e0b"
+                              : "#cbd5e1"
+                          }
+                        />
+                      ))}
+                    </Bar>
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
+        {/* Chart 4: Yield Share Donut Chart */}
+        <Card className="border border-slate-200 dark:border-slate-800 shadow-xs">
+          <CardHeader className="p-5 pb-2">
+            <CardTitle className="text-sm font-bold text-slate-900 dark:text-slate-100 flex items-center gap-2">
+              <PieChartIcon className="h-4 w-4 text-amber-600" />
+              <span>Production Yield Share</span>
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="p-5 pt-3">
+            <div className="h-64">
+              <ResponsiveContainer width="100%" height="100%">
+                <PieChart>
+                  <Pie
+                    data={yieldDistribution}
+                    cx="50%"
+                    cy="50%"
+                    innerRadius={50}
+                    outerRadius={80}
+                    paddingAngle={3}
+                    dataKey="value"
+                  >
+                    {yieldDistribution.map((entry, index) => (
+                      <Cell key={`donut-${index}`} fill={entry.color} />
+                    ))}
+                  </Pie>
+                  <RechartsTooltip
+                    formatter={(val: any) => [`${Number(val).toLocaleString()} ${unitSymbol}`, "Extracted"]}
+                    contentStyle={{
+                      backgroundColor: "#1e293b",
+                      borderColor: "#334155",
+                      color: "#fff",
+                      borderRadius: "8px",
+                      fontSize: "12px",
+                    }}
+                  />
+                  <Legend verticalAlign="bottom" height={36} />
+                </PieChart>
+              </ResponsiveContainer>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Period-by-Period Detailed Performance Audit Table */}
+      <Card className="border border-slate-200 dark:border-slate-800 shadow-xs overflow-hidden">
+        <CardHeader className="pb-3 border-b bg-muted/10">
+          <CardTitle className="text-sm font-bold text-slate-900 dark:text-slate-100 flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <Layers className="h-4 w-4 text-primary" />
+              <span>Period-by-Period Extraction & Target Fulfillment Audit Matrix</span>
+            </div>
+            <Badge variant="outline" className="text-[10px] font-mono">
+              {periodsData.length} Scheduled Periods
+            </Badge>
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="p-0">
+          {periodsData.length === 0 ? (
+            <div className="p-8 text-center text-xs text-muted-foreground italic">
+              No period matrix data generated yet.
+            </div>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full text-left text-xs">
+                <thead className="bg-muted/30 text-muted-foreground font-semibold uppercase tracking-wider text-[11px] border-b">
+                  <tr>
+                    <th className="py-3 px-4">Period</th>
+                    <th className="py-3 px-4">Date Range</th>
+                    <th className="py-3 px-4 text-right">Target ({unitSymbol})</th>
+                    <th className="py-3 px-4 text-right">Actual ({unitSymbol})</th>
+                    <th className="py-3 px-4 text-right">Variance</th>
+                    <th className="py-3 px-4 text-right">Achievement</th>
+                    <th className="py-3 px-4 text-center">Status</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-border/60">
+                  {periodsData.map((row) => (
+                    <tr key={row.id} className="hover:bg-muted/15 transition-colors">
+                      <td className="py-3 px-4 font-semibold text-foreground flex items-center gap-2">
+                        {row.isCurrent && (
+                          <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" title="Active current cycle" />
+                        )}
+                        <span>{row.label}</span>
+                      </td>
+                      <td className="py-3 px-4 font-mono text-muted-foreground text-[11px]">
+                        {row.startDate} to {row.endDate}
+                      </td>
+                      <td className="py-3 px-4 text-right font-mono font-semibold">
+                        {row.target.toLocaleString()}
+                      </td>
+                      <td className="py-3 px-4 text-right font-mono font-bold text-emerald-600 dark:text-emerald-400">
+                        {row.actual.toLocaleString()}
+                      </td>
+                      <td className={`py-3 px-4 text-right font-mono font-semibold ${
+                        row.variance >= 0 ? "text-emerald-600" : "text-amber-600"
+                      }`}>
+                        {row.variance >= 0 ? `+${row.variance.toLocaleString()}` : row.variance.toLocaleString()}
+                      </td>
+                      <td className="py-3 px-4 text-right font-mono font-bold">
+                        <span className={`px-2 py-0.5 rounded text-[11px] ${
+                          row.achievementPct >= 100
+                            ? "bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300"
+                            : row.achievementPct >= 50
+                            ? "bg-blue-100 text-blue-800 dark:bg-blue-950 dark:text-blue-300"
+                            : "bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300"
+                        }`}>
+                          {row.achievementPct}%
+                        </span>
+                      </td>
+                      <td className="py-3 px-4 text-center">
+                        <Badge variant="outline" className={`text-[10px] uppercase font-mono font-bold ${
+                          row.status === "completed"
+                            ? "border-emerald-300 text-emerald-700 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-950/50"
+                            : row.isCurrent
+                            ? "border-amber-400 text-amber-800 dark:text-amber-300 bg-amber-50 dark:bg-amber-950/60"
+                            : "text-muted-foreground"
+                        }`}>
+                          {row.isCurrent ? "Active Cycle" : row.status}
+                        </Badge>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </CardContent>
       </Card>
     </div>
   );

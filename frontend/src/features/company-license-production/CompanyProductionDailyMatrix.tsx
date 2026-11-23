@@ -79,21 +79,28 @@ export function CompanyProductionDailyMatrix({
   }
 
   const { monthName, unitSymbol, monthReportedTotal, weeks, allowanceWindow } = matrixData;
+  const totalDaysInMonth = weeks.reduce((sum, w) => sum + w.days.filter((d) => !d.isPadding).length, 0);
+  const totalReportedDays = weeks.reduce((sum, w) => sum + w.reportedCount, 0);
 
   return (
     <TooltipProvider delayDuration={200}>
-      <Card className="border shadow-sm overflow-hidden space-y-4">
+      <Card className="border border-slate-200 dark:border-slate-800 shadow-sm overflow-hidden space-y-4">
         {/* Matrix Header */}
-        <CardHeader className="bg-muted/15 border-b p-4 sm:p-6 pb-4">
+        <CardHeader className="bg-gradient-to-r from-slate-50 via-white to-amber-50/20 dark:from-slate-900 dark:via-slate-900/90 dark:to-amber-950/10 border-b p-4 sm:p-6 pb-4">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-            <div className="space-y-1">
-              <div className="flex items-center gap-2">
-                <Calendar className="h-5 w-5 text-primary shrink-0" />
-                <CardTitle className="text-base font-bold text-foreground">
+            <div className="space-y-1.5">
+              <div className="flex items-center gap-2 flex-wrap">
+                <div className="p-1.5 rounded-lg bg-primary/10 text-primary">
+                  <Calendar className="h-5 w-5 shrink-0" />
+                </div>
+                <CardTitle className="text-base font-bold text-foreground tracking-tight">
                   Daily Production Calendar Matrix
                 </CardTitle>
-                <Badge variant="outline" className="font-mono text-xs">
+                <Badge variant="outline" className="font-mono text-xs font-semibold border-amber-300 dark:border-amber-700 bg-amber-50 dark:bg-amber-950/50 text-amber-800 dark:text-amber-300">
                   {monthName}
+                </Badge>
+                <Badge className="bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300 border-emerald-300 text-xs font-mono">
+                  {totalReportedDays} / {totalDaysInMonth} Days Active
                 </Badge>
               </div>
               <p className="text-xs text-muted-foreground">
@@ -102,32 +109,32 @@ export function CompanyProductionDailyMatrix({
             </div>
 
             {/* Navigation & Metrics */}
-            <div className="flex items-center gap-3">
-              <div className="text-right hidden sm:block">
-                <div className="text-[11px] text-muted-foreground">Total Month Actual</div>
-                <div className="text-sm font-mono font-bold text-foreground">
+            <div className="flex items-center gap-4">
+              <div className="text-right hidden sm:block px-3 py-1.5 rounded-xl border bg-white/80 dark:bg-slate-950 shadow-2xs">
+                <div className="text-[10px] text-muted-foreground uppercase font-semibold">Total Month Actual</div>
+                <div className="text-sm font-mono font-bold text-emerald-600 dark:text-emerald-400">
                   {monthReportedTotal.toLocaleString()} {unitSymbol}
                 </div>
               </div>
 
-              <div className="flex items-center gap-1 border rounded-lg bg-card p-1 shadow-xs">
+              <div className="flex items-center gap-1 border border-slate-300 dark:border-slate-700 rounded-xl bg-white dark:bg-slate-950 p-1 shadow-xs">
                 <Button
                   size="sm"
                   variant="ghost"
                   onClick={handlePrevMonth}
-                  className="h-7 w-7 p-0"
+                  className="h-7 w-7 p-0 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800"
                   title="Previous Month"
                 >
                   <ChevronLeft className="h-4 w-4" />
                 </Button>
-                <span className="font-mono text-xs font-semibold px-2 min-w-[70px] text-center">
+                <span className="font-mono text-xs font-bold px-2.5 min-w-[75px] text-center text-foreground">
                   {currentMonth}
                 </span>
                 <Button
                   size="sm"
                   variant="ghost"
                   onClick={handleNextMonth}
-                  className="h-7 w-7 p-0"
+                  className="h-7 w-7 p-0 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800"
                   title="Next Month"
                 >
                   <ChevronRight className="h-4 w-4" />
@@ -195,14 +202,16 @@ export function CompanyProductionDailyMatrix({
                                 onViewReportDetail(day.report);
                               }
                             }}
-                            className={`h-22 rounded-xl p-2.5 flex flex-col justify-between transition-all duration-200 border text-left select-none relative ${
-                              isToday ? "ring-2 ring-primary ring-offset-1" : ""
+                            className={`h-24 rounded-xl p-2.5 flex flex-col justify-between transition-all duration-200 border text-left select-none relative group ${
+                              isToday
+                                ? "ring-2 ring-amber-500 ring-offset-2 border-amber-400 dark:border-amber-500 shadow-md"
+                                : ""
                             } ${
                               isReported
-                                ? "bg-emerald-500/10 border-emerald-500/30 hover:bg-emerald-500/20 cursor-pointer"
+                                ? "bg-gradient-to-br from-emerald-500/15 via-emerald-500/10 to-teal-500/5 border-emerald-500/30 hover:border-emerald-500/60 hover:shadow-md cursor-pointer"
                                 : isAccessible
-                                ? "bg-card border-primary/40 hover:border-primary hover:shadow-md cursor-pointer hover:bg-primary/5"
-                                : "bg-muted/30 border-border/60 opacity-60 cursor-not-allowed"
+                                ? "bg-card border-dashed border-amber-500/50 hover:border-amber-500 hover:shadow-md cursor-pointer hover:bg-amber-500/5"
+                                : "bg-muted/30 border-border/40 opacity-55 cursor-not-allowed"
                             }`}
                           >
                             {/* Day Number and Badges */}
@@ -210,19 +219,21 @@ export function CompanyProductionDailyMatrix({
                               <span
                                 className={`text-xs font-bold font-mono ${
                                   isToday
-                                    ? "h-5 w-5 rounded-full bg-primary text-white flex items-center justify-center text-[10px]"
-                                    : "text-foreground"
+                                    ? "h-5 w-5 rounded-full bg-amber-500 text-white flex items-center justify-center text-[10px] shadow-xs"
+                                    : "text-foreground group-hover:text-amber-600 transition-colors"
                                 }`}
                               >
                                 {day.dayNumber}
                               </span>
 
                               {isReported ? (
-                                <CheckCircle2 className="h-3.5 w-3.5 text-emerald-600 shrink-0" />
+                                <span className="h-5 w-5 rounded-full bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 flex items-center justify-center shrink-0">
+                                  <CheckCircle2 className="h-3.5 w-3.5" />
+                                </span>
                               ) : isAccessible ? (
-                                <span className="h-2 w-2 rounded-full bg-blue-500 animate-pulse shrink-0" />
+                                <span className="h-2 w-2 rounded-full bg-amber-500 animate-pulse shrink-0 ring-4 ring-amber-500/20" />
                               ) : (
-                                <Lock className="h-3 w-3 text-muted-foreground shrink-0" />
+                                <Lock className="h-3 w-3 text-muted-foreground/60 shrink-0" />
                               )}
                             </div>
 
@@ -230,28 +241,31 @@ export function CompanyProductionDailyMatrix({
                             <div className="my-auto">
                               {isReported && day.report ? (
                                 <div className="space-y-0.5">
-                                  <div className="text-[11px] font-mono font-bold text-emerald-700 dark:text-emerald-300 truncate">
-                                    {day.report.quantity_reported.toLocaleString()} {unitSymbol}
+                                  <div className="text-[12px] font-mono font-bold text-emerald-700 dark:text-emerald-300 truncate">
+                                    {day.report.quantity_reported.toLocaleString()} <span className="text-[10px] font-normal">{unitSymbol}</span>
                                   </div>
-                                  <div className="text-[9px] text-muted-foreground truncate capitalize">
+                                  <div className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[8.5px] font-semibold uppercase tracking-wider bg-emerald-500/10 text-emerald-700 dark:text-emerald-300">
                                     {day.report.status}
                                   </div>
                                 </div>
                               ) : isAccessible ? (
-                                <div className="text-[10px] text-primary font-semibold flex items-center gap-1">
+                                <div className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-semibold text-amber-700 dark:text-amber-300 bg-amber-500/15 group-hover:bg-amber-500 group-hover:text-white transition-all shadow-2xs">
                                   <Plus className="h-3 w-3" />
                                   <span>Report</span>
                                 </div>
                               ) : (
-                                <div className="text-[9px] text-muted-foreground italic truncate">
-                                  {day.classification === "LOCKED_FUTURE" ? "Future" : "Closed"}
+                                <div className="text-[9.5px] text-muted-foreground/80 italic font-mono truncate">
+                                  {day.classification === "LOCKED_FUTURE" ? "Future" : "Locked"}
                                 </div>
                               )}
                             </div>
 
                             {/* Bottom Subtext */}
-                            <div className="text-[9px] text-muted-foreground font-mono truncate">
-                              {isToday ? "Today" : day.date?.slice(5)}
+                            <div className="flex items-center justify-between text-[9px] text-muted-foreground font-mono truncate pt-1 border-t border-border/20">
+                              <span>{isToday ? "Today" : day.date?.slice(5)}</span>
+                              {isReported && (
+                                <span className="text-emerald-600 dark:text-emerald-400 font-sans font-medium">Logged</span>
+                              )}
                             </div>
                           </div>
                         </TooltipTrigger>
