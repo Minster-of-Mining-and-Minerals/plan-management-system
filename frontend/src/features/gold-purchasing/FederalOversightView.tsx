@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { Link } from "@/i18n/navigation";
 import {
   Coins,
@@ -16,7 +16,25 @@ import {
   Store,
   ChevronRight,
   TrendingUp,
+  BarChart3,
+  PieChart as PieChartIcon,
+  Sliders,
+  Sparkles,
+  Percent,
 } from "lucide-react";
+import {
+  ResponsiveContainer,
+  BarChart,
+  Bar,
+  PieChart,
+  Pie,
+  Cell,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip as RechartsTooltip,
+  Legend,
+} from "recharts";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
@@ -84,6 +102,71 @@ export function FederalOversightView() {
     setDateFrom(from);
     setDateTo(to);
   };
+
+  // Recharts Center Comparison Data
+  const centerChartData = useMemo(() => {
+    return centers.map((c) => ({
+      name: c.name,
+      code: c.code,
+      volume: parseFloat(parseFloat(String(c.today_quantity_canonical || 0)).toFixed(2)),
+      amount: parseFloat(parseFloat(String(c.today_amount || 0)).toFixed(2)),
+      totalVolume: parseFloat(parseFloat(String(c.total_quantity_canonical || 0)).toFixed(2)),
+      purchases: c.today_purchases || 0,
+    }));
+  }, [centers]);
+
+  // Sourcing Distribution Donut Data
+  const sourcingChartData = useMemo(() => {
+    const companyVol = parseFloat(String(sellerDistribution?.company?.canonical_quantity || 0));
+    const asmVol = parseFloat(String(sellerDistribution?.asm?.canonical_quantity || 0));
+
+    return [
+      {
+        name: "Registered Companies",
+        value: companyVol,
+        purchases: sellerDistribution?.company?.count || 0,
+        amount: sellerDistribution?.company?.amount || 0,
+        color: "#0284c7",
+      },
+      {
+        name: "Artisanal Miners (ASM)",
+        value: asmVol,
+        purchases: sellerDistribution?.asm?.count || 0,
+        amount: sellerDistribution?.asm?.amount || 0,
+        color: "#f59e0b",
+      },
+    ];
+  }, [sellerDistribution]);
+
+  // Statistical calculations
+  const statisticalMetrics = useMemo(() => {
+    const totalGrams = parseFloat(String(today?.canonical_quantity || 0));
+    const totalAmount = parseFloat(String(today?.amount || 0));
+    const totalPurchases = today?.purchases_count || 0;
+
+    const avgTransactionWeight = totalPurchases > 0 ? (totalGrams / totalPurchases) : 0;
+    const avgTransactionValue = totalPurchases > 0 ? (totalAmount / totalPurchases) : 0;
+    const effectivePricePerGram = totalGrams > 0 ? (totalAmount / totalGrams) : 0;
+
+    // Top Center by Volume
+    const sortedCenters = [...centers].sort((a, b) => (b.today_quantity_canonical || 0) - (a.today_quantity_canonical || 0));
+    const topCenter = sortedCenters[0] || null;
+
+    // ASM Share
+    const companyGrams = parseFloat(String(sellerDistribution?.company?.canonical_quantity || 0));
+    const asmGrams = parseFloat(String(sellerDistribution?.asm?.canonical_quantity || 0));
+    const allGrams = companyGrams + asmGrams || 1;
+    const asmSharePct = ((asmGrams / allGrams) * 100).toFixed(1);
+
+    return {
+      avgTransactionWeight: avgTransactionWeight.toFixed(2),
+      avgTransactionValue: avgTransactionValue.toLocaleString(undefined, { maximumFractionDigits: 0 }),
+      effectivePricePerGram: effectivePricePerGram.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }),
+      topCenterName: topCenter ? topCenter.name : "N/A",
+      topCenterVolume: topCenter ? parseFloat(String(topCenter.today_quantity_canonical || 0)).toLocaleString() : "0",
+      asmSharePct,
+    };
+  }, [today, centers, sellerDistribution]);
 
   const centerColumns: ColumnDef<any>[] = [
     {
@@ -263,13 +346,13 @@ export function FederalOversightView() {
             size="sm"
             onClick={() => refetch()}
             disabled={isFetching}
-            className="gap-1.5 h-10"
+            className="gap-1.5 h-10 rounded-xl"
           >
             <RefreshCw className={`h-3.5 w-3.5 ${isFetching ? "animate-spin" : ""}`} />
             Refresh
           </Button>
 
-          <Button asChild size="sm" className="gap-1.5 h-10">
+          <Button asChild size="sm" className="gap-1.5 h-10 rounded-xl">
             <Link href="/admin/gold-operations/reports">
               <FileCheck2 className="h-4 w-4" /> Daily Report Monitoring
             </Link>
@@ -320,6 +403,202 @@ export function FederalOversightView() {
         </div>
       </div>
 
+      {/* ----------------- STATISTICAL ANALYSIS & GRAPHS SECTION ----------------- */}
+      <div className="space-y-4">
+        <h3 className="text-base font-bold text-foreground flex items-center gap-2">
+          <BarChart3 className="h-5 w-5 text-amber-500" />
+          Cross-Center Statistical Analysis & Volume Visualizations
+        </h3>
+
+        {/* STATISTICAL SUMMARY TILES */}
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+          <div className="p-4 rounded-2xl bg-card border border-border space-y-1">
+            <span className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">
+              Avg Transaction Size
+            </span>
+            <p className="text-xl font-bold font-mono text-amber-600 dark:text-amber-400">
+              {statisticalMetrics.avgTransactionWeight} g
+            </p>
+            <p className="text-[10px] text-muted-foreground">Per individual purchase</p>
+          </div>
+
+          <div className="p-4 rounded-2xl bg-card border border-border space-y-1">
+            <span className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">
+              Avg Transaction Payout
+            </span>
+            <p className="text-xl font-bold font-mono text-emerald-600 dark:text-emerald-400">
+              {statisticalMetrics.avgTransactionValue} ETB
+            </p>
+            <p className="text-[10px] text-muted-foreground">Mean ticket disbursement</p>
+          </div>
+
+          <div className="p-4 rounded-2xl bg-card border border-border space-y-1">
+            <span className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">
+              Effective Price / Gram
+            </span>
+            <p className="text-xl font-bold font-mono text-foreground">
+              {statisticalMetrics.effectivePricePerGram} ETB
+            </p>
+            <p className="text-[10px] text-muted-foreground">Weighted average rate</p>
+          </div>
+
+          <div className="p-4 rounded-2xl bg-card border border-border space-y-1">
+            <span className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">
+              Artisanal (ASM) Share
+            </span>
+            <p className="text-xl font-bold font-mono text-sky-600 dark:text-sky-400">
+              {statisticalMetrics.asmSharePct}%
+            </p>
+            <p className="text-[10px] text-muted-foreground">Of nationwide volume</p>
+          </div>
+        </div>
+
+        {/* COMPARATIVE GRAPHS GRID */}
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+          {/* Center-by-Center Volume Bar Chart (8 Cols) */}
+          <div className="lg:col-span-8 p-6 rounded-3xl bg-card border border-border shadow-xs space-y-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <h4 className="font-bold text-foreground text-sm flex items-center gap-2">
+                  <Store className="h-4 w-4 text-amber-500" />
+                  Purchasing Center Volume Comparison ({periodLabel})
+                </h4>
+                <p className="text-xs text-muted-foreground">
+                  Gold weight canonical volume (g) collected per regional center
+                </p>
+              </div>
+              <Badge variant="outline" className="text-xs font-mono">
+                {centerChartData.length} Centers
+              </Badge>
+            </div>
+
+            <div className="h-64 w-full pt-2">
+              {centerChartData.length > 0 ? (
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart data={centerChartData} margin={{ top: 10, right: 10, left: -10, bottom: 20 }}>
+                    <CartesianGrid strokeDasharray="3 3" opacity={0.15} />
+                    <XAxis
+                      dataKey="name"
+                      tick={{ fontSize: 10 }}
+                      stroke="#888888"
+                      tickLine={false}
+                      interval={0}
+                      angle={-20}
+                      textAnchor="end"
+                    />
+                    <YAxis
+                      tick={{ fontSize: 11 }}
+                      stroke="#888888"
+                      tickLine={false}
+                      tickFormatter={(val) => `${val}g`}
+                    />
+                    <RechartsTooltip
+                      content={({ active, payload, label }) => {
+                        if (active && payload && payload.length) {
+                          const item = payload[0].payload;
+                          return (
+                            <div className="p-3 bg-popover/95 border border-border shadow-lg rounded-2xl text-xs space-y-1">
+                              <p className="font-bold text-foreground">{label} ({item.code})</p>
+                              <p className="text-amber-600 dark:text-amber-400 font-mono">
+                                Period Volume: {item.volume.toLocaleString()} grams
+                              </p>
+                              <p className="text-emerald-600 dark:text-emerald-400 font-mono">
+                                Period Payout: {item.amount.toLocaleString()} ETB
+                              </p>
+                              <p className="text-muted-foreground font-mono">
+                                Transactions: {item.purchases}
+                              </p>
+                            </div>
+                          );
+                        }
+                        return null;
+                      }}
+                    />
+                    <Bar dataKey="volume" name="Canonical Gold (g)" fill="#f59e0b" radius={[6, 6, 0, 0]} />
+                  </BarChart>
+                </ResponsiveContainer>
+              ) : (
+                <div className="h-full flex items-center justify-center text-xs text-muted-foreground">
+                  No center volume data recorded.
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Sourcing Channel Donut (4 Cols) */}
+          <div className="lg:col-span-4 p-6 rounded-3xl bg-card border border-border shadow-xs space-y-4">
+            <div>
+              <h4 className="font-bold text-foreground text-sm flex items-center gap-2">
+                <PieChartIcon className="h-4 w-4 text-sky-500" />
+                National Sourcing Parity
+              </h4>
+              <p className="text-xs text-muted-foreground">
+                All-time volume share: Corporate vs Artisanal
+              </p>
+            </div>
+
+            <div className="h-52 w-full flex items-center justify-center">
+              {sourcingChartData.some((d) => d.value > 0) ? (
+                <ResponsiveContainer width="100%" height="100%">
+                  <PieChart>
+                    <Pie
+                      data={sourcingChartData}
+                      cx="50%"
+                      cy="50%"
+                      innerRadius={48}
+                      outerRadius={72}
+                      paddingAngle={4}
+                      dataKey="value"
+                    >
+                      {sourcingChartData.map((entry, index) => (
+                        <Cell key={`cell-${index}`} fill={entry.color} />
+                      ))}
+                    </Pie>
+                    <RechartsTooltip
+                      content={({ active, payload }) => {
+                        if (active && payload && payload.length) {
+                          const d = payload[0].payload;
+                          const total = sourcingChartData.reduce((a, b) => a + b.value, 0) || 1;
+                          const pct = ((d.value / total) * 100).toFixed(1);
+                          return (
+                            <div className="p-2.5 bg-popover/95 border border-border shadow-md rounded-xl text-xs space-y-0.5">
+                              <p className="font-bold text-foreground">{d.name}</p>
+                              <p className="font-mono text-muted-foreground">
+                                {d.value.toLocaleString()} g ({pct}%)
+                              </p>
+                              <p className="text-[10px] text-muted-foreground">
+                                {d.purchases} purchases • {d.amount.toLocaleString()} ETB
+                              </p>
+                            </div>
+                          );
+                        }
+                        return null;
+                      }}
+                    />
+                  </PieChart>
+                </ResponsiveContainer>
+              ) : (
+                <p className="text-xs text-muted-foreground">No sourcing data</p>
+              )}
+            </div>
+
+            <div className="space-y-2 pt-2 border-t border-border">
+              {sourcingChartData.map((item) => (
+                <div key={item.name} className="flex items-center justify-between text-xs">
+                  <div className="flex items-center gap-2">
+                    <div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: item.color }} />
+                    <span className="font-medium text-foreground">{item.name}</span>
+                  </div>
+                  <span className="font-mono font-bold text-muted-foreground">
+                    {item.value.toLocaleString()} g
+                  </span>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      </div>
+
       {/* ----------------- CUMULATIVE NATIONWIDE OVERVIEW ----------------- */}
       <div className="space-y-4">
         <h3 className="text-base font-bold text-foreground">
@@ -358,86 +637,58 @@ export function FederalOversightView() {
         </div>
       </div>
 
-      {/* ----------------- SOURCING BREAKDOWN ----------------- */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <AnalyticsPanel
-          title="National Sourcing Attribution"
-          description="All-time gold volume acquired from corporate mining companies vs ASM miners"
-        >
-          <div className="grid grid-cols-2 gap-4">
-            <div className="p-4 rounded-2xl bg-card border border-border space-y-2">
-              <div className="flex items-center gap-2">
-                <Building2 className="w-4 h-4 text-sky-500" />
-                <span className="text-xs font-bold text-foreground">Registered Companies</span>
-              </div>
-              <p className="text-xl font-bold font-mono text-foreground">
-                {(sellerDistribution?.company?.canonical_quantity || 0).toLocaleString()} g
-              </p>
-              <p className="text-xs text-muted-foreground">
-                {sellerDistribution?.company?.count || 0} purchases •{" "}
-                {(sellerDistribution?.company?.amount || 0).toLocaleString()} ETB
-              </p>
-            </div>
+      {/* ----------------- QUICK NAVIGATION & OVERSIGHT REGISTERS ----------------- */}
+      <AnalyticsPanel
+        title="Quick Navigation & Gold Operations Management"
+        description="Direct links to specialized oversight registers, registries, and standard configuration engines"
+      >
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
+          <Button asChild variant="outline" className="h-16 flex flex-col items-start justify-center p-3 rounded-2xl">
+            <Link href="/admin/gold-operations/purchases">
+              <span className="text-xs font-semibold text-foreground flex items-center gap-1.5">
+                <Coins className="h-4 w-4 text-amber-500" /> Purchases Register
+              </span>
+              <span className="text-[10px] text-muted-foreground">Transactions</span>
+            </Link>
+          </Button>
 
-            <div className="p-4 rounded-2xl bg-card border border-border space-y-2">
-              <div className="flex items-center gap-2">
-                <HardHat className="w-4 h-4 text-amber-500" />
-                <span className="text-xs font-bold text-foreground">Artisanal Miners (ASM)</span>
-              </div>
-              <p className="text-xl font-bold font-mono text-foreground">
-                {(sellerDistribution?.asm?.canonical_quantity || 0).toLocaleString()} g
-              </p>
-              <p className="text-xs text-muted-foreground">
-                {sellerDistribution?.asm?.count || 0} purchases •{" "}
-                {(sellerDistribution?.asm?.amount || 0).toLocaleString()} ETB
-              </p>
-            </div>
-          </div>
-        </AnalyticsPanel>
+          <Button asChild variant="outline" className="h-16 flex flex-col items-start justify-center p-3 rounded-2xl">
+            <Link href="/admin/gold-operations/reports">
+              <span className="text-xs font-semibold text-foreground flex items-center gap-1.5">
+                <FileCheck2 className="h-4 w-4 text-emerald-500" /> Daily Reports
+              </span>
+              <span className="text-[10px] text-muted-foreground">Report matrix</span>
+            </Link>
+          </Button>
 
-        <AnalyticsPanel
-          title="Quick Navigation & Oversight Registers"
-          description="Direct links to specialized oversight registers and registries"
-        >
-          <div className="grid grid-cols-2 gap-3">
-            <Button asChild variant="outline" className="h-16 flex flex-col items-start justify-center p-3">
-              <Link href="/admin/gold-operations/purchases">
-                <span className="text-xs font-semibold text-foreground flex items-center gap-1.5">
-                  <Coins className="h-4 w-4 text-amber-500" /> Purchases Register
-                </span>
-                <span className="text-[11px] text-muted-foreground">Cross-center transactions</span>
-              </Link>
-            </Button>
+          <Button asChild variant="outline" className="h-16 flex flex-col items-start justify-center p-3 rounded-2xl">
+            <Link href="/admin/gold-operations/asm">
+              <span className="text-xs font-semibold text-foreground flex items-center gap-1.5">
+                <HardHat className="h-4 w-4 text-sky-500" /> ASM Registry
+              </span>
+              <span className="text-[10px] text-muted-foreground">Miners directory</span>
+            </Link>
+          </Button>
 
-            <Button asChild variant="outline" className="h-16 flex flex-col items-start justify-center p-3">
-              <Link href="/admin/gold-operations/reports">
-                <span className="text-xs font-semibold text-foreground flex items-center gap-1.5">
-                  <FileCheck2 className="h-4 w-4 text-emerald-500" /> Daily Reports
-                </span>
-                <span className="text-[11px] text-muted-foreground">Report monitoring matrix</span>
-              </Link>
-            </Button>
+          <Button asChild variant="outline" className="h-16 flex flex-col items-start justify-center p-3 rounded-2xl">
+            <Link href="/admin/gold-operations/units">
+              <span className="text-xs font-semibold text-foreground flex items-center gap-1.5">
+                <Scale className="h-4 w-4 text-purple-500" /> Measurement Units
+              </span>
+              <span className="text-[10px] text-muted-foreground">Dynamic units & factors</span>
+            </Link>
+          </Button>
 
-            <Button asChild variant="outline" className="h-16 flex flex-col items-start justify-center p-3">
-              <Link href="/admin/gold-operations/asm">
-                <span className="text-xs font-semibold text-foreground flex items-center gap-1.5">
-                  <HardHat className="h-4 w-4 text-sky-500" /> ASM Registry
-                </span>
-                <span className="text-[11px] text-muted-foreground">National miners directory</span>
-              </Link>
-            </Button>
-
-            <Button asChild variant="outline" className="h-16 flex flex-col items-start justify-center p-3">
-              <Link href="/admin/gold-operations/units">
-                <span className="text-xs font-semibold text-foreground flex items-center gap-1.5">
-                  <Scale className="h-4 w-4 text-purple-500" /> Measurement Units
-                </span>
-                <span className="text-[11px] text-muted-foreground">Configure units & factors</span>
-              </Link>
-            </Button>
-          </div>
-        </AnalyticsPanel>
-      </div>
+          <Button asChild variant="outline" className="h-16 flex flex-col items-start justify-center p-3 rounded-2xl border-amber-500/30 bg-amber-500/5 hover:bg-amber-500/10">
+            <Link href="/admin/gold-operations/parameters">
+              <span className="text-xs font-semibold text-foreground flex items-center gap-1.5">
+                <Sliders className="h-4 w-4 text-amber-500" /> Parameters & Standards
+              </span>
+              <span className="text-[10px] text-amber-700 dark:text-amber-400">Configure types & karat</span>
+            </Link>
+          </Button>
+        </div>
+      </AnalyticsPanel>
 
       {/* ----------------- PURCHASING CENTERS COMPARISON TABLE ----------------- */}
       <AnalyticsPanel

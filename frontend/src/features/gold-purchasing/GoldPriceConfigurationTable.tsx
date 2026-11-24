@@ -46,6 +46,9 @@ import {
 import { DataTable } from "@/features/template/component/tableList/DataTable";
 import { TableLayout } from "@/features/template/component/tableList/TableLayout";
 import { GoldOperationsTabsHeader } from "./GoldOperationsTabsHeader";
+import { useGoldParameters } from "./goldParametersConfig";
+import { Sliders } from "lucide-react";
+import { Link, useRouter } from "@/i18n/navigation";
 import type { GoldPriceConfiguration, CreateGoldPricePayload } from "@/redux/types/gold";
 
 const GOLD_TYPES = [
@@ -74,7 +77,9 @@ const QUALITY_GRADES = [
 ];
 
 export function GoldPriceConfigurationTable() {
+  const router = useRouter();
   const { can, canAny } = usePermissions();
+  const { availableGoldTypes, availableKaratGrades, availableQualityGrades } = useGoldParameters();
 
   const { data: priceConfigs = [], isLoading, isError, refetch } = useGetGoldPricesQuery();
   const { data: units = [] } = useGetGoldUnitsQuery();
@@ -83,12 +88,17 @@ export function GoldPriceConfigurationTable() {
   const [updatePrice, { isLoading: isUpdating }] = useUpdateGoldPriceMutation();
   const [deletePrice, { isLoading: isDeleting }] = useDeleteGoldPriceMutation();
 
+  const defaultGoldType = availableGoldTypes[0]?.name || "Raw/Placer Gold";
+  const defaultKarat = availableKaratGrades[0]?.karat || "24K";
+  const defaultPurity = String(availableKaratGrades[0]?.default_purity_percentage || 99.9);
+  const defaultQuality = availableQualityGrades[0]?.grade || "Grade A";
+
   // Create Modal State
   const [isCreateOpen, setIsCreateOpen] = useState(false);
-  const [createGoldType, setCreateGoldType] = useState(GOLD_TYPES[0]);
-  const [createKarat, setCreateKarat] = useState("24K");
-  const [createPurity, setCreatePurity] = useState("99.9");
-  const [createQuality, setCreateQuality] = useState(QUALITY_GRADES[0].value);
+  const [createGoldType, setCreateGoldType] = useState(defaultGoldType);
+  const [createKarat, setCreateKarat] = useState(defaultKarat);
+  const [createPurity, setCreatePurity] = useState(defaultPurity);
+  const [createQuality, setCreateQuality] = useState(defaultQuality);
   const [createUnitId, setCreateUnitId] = useState("");
   const [createPricePerUnit, setCreatePricePerUnit] = useState("");
   const [createMinPrice, setCreateMinPrice] = useState("");
@@ -423,6 +433,12 @@ export function GoldPriceConfigurationTable() {
           canManage
             ? [
                 {
+                  label: "Parameters & Standards",
+                  icon: <Sliders className="h-4 w-4" />,
+                  variant: "outline" as const,
+                  onClick: () => router.push("/admin/gold-operations/parameters"),
+                },
+                {
                   label: "New Price Configuration",
                   icon: <PlusCircle className="h-4 w-4" />,
                   onClick: () => setIsCreateOpen(true),
@@ -448,9 +464,9 @@ export function GoldPriceConfigurationTable() {
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="all">All Karats</SelectItem>
-              {KARAT_OPTIONS.map((k) => (
-                <SelectItem key={k.value} value={k.value}>
-                  {k.value}
+              {availableKaratGrades.map((k) => (
+                <SelectItem key={k.id} value={k.karat}>
+                  {k.karat}
                 </SelectItem>
               ))}
             </SelectContent>
@@ -462,9 +478,9 @@ export function GoldPriceConfigurationTable() {
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="all">All Gold Types</SelectItem>
-              {GOLD_TYPES.map((t) => (
-                <SelectItem key={t} value={t}>
-                  {t}
+              {availableGoldTypes.map((t) => (
+                <SelectItem key={t.id} value={t.name}>
+                  {t.name}
                 </SelectItem>
               ))}
             </SelectContent>
@@ -476,9 +492,9 @@ export function GoldPriceConfigurationTable() {
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="all">All Qualities</SelectItem>
-              {QUALITY_GRADES.map((q) => (
-                <SelectItem key={q.value} value={q.value}>
-                  {q.label.split(" - ")[0]}
+              {availableQualityGrades.map((q) => (
+                <SelectItem key={q.id} value={q.grade}>
+                  {q.grade}
                 </SelectItem>
               ))}
             </SelectContent>
@@ -532,9 +548,9 @@ export function GoldPriceConfigurationTable() {
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    {GOLD_TYPES.map((t) => (
-                      <SelectItem key={t} value={t}>
-                        {t}
+                    {availableGoldTypes.map((t) => (
+                      <SelectItem key={t.id} value={t.name}>
+                        {t.name}
                       </SelectItem>
                     ))}
                   </SelectContent>
@@ -547,16 +563,16 @@ export function GoldPriceConfigurationTable() {
                   value={createKarat}
                   onValueChange={(val) => {
                     setCreateKarat(val);
-                    const matched = KARAT_OPTIONS.find((k) => k.value === val);
-                    if (matched) setCreatePurity(String(matched.purity));
+                    const matched = availableKaratGrades.find((k) => k.karat === val);
+                    if (matched) setCreatePurity(String(matched.default_purity_percentage));
                   }}
                 >
                   <SelectTrigger className="h-9 text-xs">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    {KARAT_OPTIONS.map((k) => (
-                      <SelectItem key={k.value} value={k.value}>
+                    {availableKaratGrades.map((k) => (
+                      <SelectItem key={k.id} value={k.karat}>
                         {k.label}
                       </SelectItem>
                     ))}
@@ -585,8 +601,8 @@ export function GoldPriceConfigurationTable() {
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    {QUALITY_GRADES.map((q) => (
-                      <SelectItem key={q.value} value={q.value}>
+                    {availableQualityGrades.map((q) => (
+                      <SelectItem key={q.id} value={q.grade}>
                         {q.label}
                       </SelectItem>
                     ))}
@@ -723,9 +739,9 @@ export function GoldPriceConfigurationTable() {
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      {GOLD_TYPES.map((t) => (
-                        <SelectItem key={t} value={t}>
-                          {t}
+                      {availableGoldTypes.map((t) => (
+                        <SelectItem key={t.id} value={t.name}>
+                          {t.name}
                         </SelectItem>
                       ))}
                     </SelectContent>
@@ -742,8 +758,8 @@ export function GoldPriceConfigurationTable() {
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      {KARAT_OPTIONS.map((k) => (
-                        <SelectItem key={k.value} value={k.value}>
+                      {availableKaratGrades.map((k) => (
+                        <SelectItem key={k.id} value={k.karat}>
                           {k.label}
                         </SelectItem>
                       ))}
@@ -761,8 +777,8 @@ export function GoldPriceConfigurationTable() {
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      {QUALITY_GRADES.map((q) => (
-                        <SelectItem key={q.value} value={q.value}>
+                      {availableQualityGrades.map((q) => (
+                        <SelectItem key={q.id} value={q.grade}>
                           {q.label}
                         </SelectItem>
                       ))}

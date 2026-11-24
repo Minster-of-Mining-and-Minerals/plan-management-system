@@ -9,6 +9,7 @@ import {
   ClipboardCheck,
   HardHat,
   Scale,
+  Sliders,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { usePermissions } from "@/hooks/usePermissions";
@@ -52,6 +53,12 @@ const TABS: TabItem[] = [
     href: "/admin/gold-operations/asm",
     icon: HardHat,
     anyPermissions: ["ASM:READ", "ASM:MANAGE", "GOLD_OVERSIGHT:READ", "GOLD_OVERSIGHT:MANAGE"],
+  },
+  {
+    name: "Parameters & Standards",
+    href: "/admin/gold-operations/parameters",
+    icon: Sliders,
+    anyPermissions: ["GOLD_PRICES:READ", "GOLD_PRICES:MANAGE", "GOLD_OVERSIGHT:MANAGE"],
   },
   {
     name: "Measurement Units",

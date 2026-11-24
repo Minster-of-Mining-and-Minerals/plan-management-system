@@ -25,11 +25,27 @@ import {
   ShieldCheck,
   ChevronRight,
   DollarSign,
-  PieChart,
+  PieChart as PieChartIcon,
   BarChart3,
   Layers,
   Filter,
+  Sparkles,
 } from "lucide-react";
+import {
+  ResponsiveContainer,
+  AreaChart,
+  Area,
+  BarChart,
+  Bar,
+  PieChart,
+  Pie,
+  Cell,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip as RechartsTooltip,
+  Legend,
+} from "recharts";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { ActiveStatusBadge } from "@/components/ui/active-status-badge";
@@ -46,13 +62,14 @@ import {
   DashboardSectionHeader,
 } from "@/features/plan-management/dashboard/components/AnalyticsPanel";
 import { useDashboardAppearance } from "@/features/plan-management/dashboard/hooks/useDashboardAppearance";
-import { SimpleBarChart } from "@/features/plan-management/dashboard/components/SimpleBarChart";
-import { DonutStatCard } from "@/features/plan-management/dashboard/components/DonutStatCard";
 
 export interface PurchasingCenterDashboardViewProps {
   overrideCenterId?: string;
   hideHeaderNavigation?: boolean;
 }
+
+const KARAT_PALETTE = ["#f59e0b", "#eab308", "#f97316", "#3b82f6", "#8b5cf6", "#10b981", "#64748b"];
+const QUALITY_PALETTE = ["#10b981", "#3b82f6", "#f59e0b", "#8b5cf6", "#64748b"];
 
 export function PurchasingCenterDashboardView({
   overrideCenterId,
@@ -104,7 +121,6 @@ export function PurchasingCenterDashboardView({
       : { time_range: timeRange }
   );
 
-
   const centerInfo = baseData?.purchasing_center || goldData?.purchasing_center;
   const userCounts = baseData?.counts?.users;
   const today = goldData?.today;
@@ -112,29 +128,52 @@ export function PurchasingCenterDashboardView({
   const recentPurchases = goldData?.recent_purchases || [];
   const dailyTrends = goldData?.daily_trends || [];
 
-  // Chart Items for Daily Volume Trends
-  const volumeTrendItems = (dailyTrends || []).map((t) => ({
-    label: t.date,
-    value: parseFloat(parseFloat(String(t.canonical_quantity || 0)).toFixed(2)),
-    subtitle: `${parseFloat(String(t.amount || 0)).toLocaleString()} ETB`,
-    color: "#f59e0b",
-  }));
+  // Formatted chart data for Recharts daily trajectory
+  const dailyChartData = useMemo(() => {
+    return (dailyTrends || []).map((t) => ({
+      date: t.date,
+      volume: parseFloat(parseFloat(String(t.canonical_quantity || 0)).toFixed(2)),
+      payout: parseFloat(parseFloat(String(t.amount || 0)).toFixed(2)),
+      purchases: t.count || 0,
+    }));
+  }, [dailyTrends]);
 
-  // Karat breakdown segments for Donut chart
-  const karatPalette = ["#f59e0b", "#eab308", "#f97316", "#3b82f6", "#8b5cf6", "#10b981", "#64748b"];
-  const karatSegments = (period?.karat_breakdown || []).map((k, idx) => ({
-    label: k.karat,
-    value: parseFloat(parseFloat(String(k.canonical_quantity)).toFixed(2)),
-    color: karatPalette[idx % karatPalette.length],
-  }));
+  // Karat breakdown for Recharts Donut
+  const karatChartData = useMemo(() => {
+    return (period?.karat_breakdown || []).map((k, idx) => ({
+      name: k.karat,
+      value: parseFloat(parseFloat(String(k.canonical_quantity || 0)).toFixed(2)),
+      count: k.count || 0,
+      color: KARAT_PALETTE[idx % KARAT_PALETTE.length],
+    }));
+  }, [period]);
 
-  // Quality grade segments for Donut chart
-  const qualityPalette = ["#10b981", "#3b82f6", "#f59e0b", "#64748b", "#8b5cf6"];
-  const qualitySegments = (period?.quality_breakdown || []).map((q, idx) => ({
-    label: q.quality_grade,
-    value: parseFloat(parseFloat(String(q.canonical_quantity)).toFixed(2)),
-    color: qualityPalette[idx % qualityPalette.length],
-  }));
+  // Quality grade breakdown for Recharts Bar Chart
+  const qualityChartData = useMemo(() => {
+    return (period?.quality_breakdown || []).map((q, idx) => ({
+      name: q.quality_grade,
+      value: parseFloat(parseFloat(String(q.canonical_quantity || 0)).toFixed(2)),
+      count: q.count || 0,
+      color: QUALITY_PALETTE[idx % QUALITY_PALETTE.length],
+    }));
+  }, [period]);
+
+  // Sourcing Split: Company vs ASM
+  const sourcingSplitData = useMemo(() => {
+    const companyVol = (period?.company_breakdown || []).reduce(
+      (acc, c) => acc + (parseFloat(String(c.canonical_quantity)) || 0),
+      0
+    );
+    const asmVol = (period?.asm_breakdown || []).reduce(
+      (acc, a) => acc + (parseFloat(String(a.canonical_quantity)) || 0),
+      0
+    );
+
+    return [
+      { name: "Companies", value: parseFloat(companyVol.toFixed(2)), color: "#0284c7" },
+      { name: "ASM Miners", value: parseFloat(asmVol.toFixed(2)), color: "#f59e0b" },
+    ];
+  }, [period]);
 
   const companyBreakdownColumns = useMemo<ColumnDef<any>[]>(
     () => [
@@ -293,7 +332,7 @@ export function PurchasingCenterDashboardView({
               >
                 {isCompany ? "Company" : "ASM"}
               </Badge>
-              <span className="font-medium text-foreground text-xs">
+              <span className="font-medium text-foreground text-xs truncate max-w-[140px]">
                 {row.original.seller_name_snapshot}
               </span>
             </div>
@@ -314,7 +353,7 @@ export function PurchasingCenterDashboardView({
         id: "canonical_g",
         header: "Base (g)",
         cell: ({ row }) => (
-          <span className="font-mono text-muted-foreground text-xs">
+          <span className="font-mono text-amber-600 dark:text-amber-400 font-bold text-xs">
             {parseFloat(String(row.original.quantity_in_canonical_unit || 0)).toLocaleString()} g
           </span>
         ),
@@ -370,7 +409,7 @@ export function PurchasingCenterDashboardView({
 
   if ((baseError && goldError) || (!baseData && !goldData && (baseError || goldError))) {
     return (
-      <div className="p-8 text-center border rounded-2xl bg-destructive/5 text-destructive space-y-4 max-w-xl mx-auto my-12">
+      <div className="p-8 text-center border rounded-3xl bg-destructive/5 text-destructive space-y-4 max-w-xl mx-auto my-12">
         <div className="mx-auto w-12 h-12 rounded-full bg-destructive/15 flex items-center justify-center">
           <AlertCircle className="h-6 w-6 text-destructive" />
         </div>
@@ -441,7 +480,7 @@ export function PurchasingCenterDashboardView({
 
           <div className="flex items-center gap-2.5 flex-wrap shrink-0">
             {can("GOLD_PURCHASES:CREATE") && (
-              <Button asChild size="default" className="gap-2 shadow-sm font-semibold">
+              <Button asChild size="default" className="gap-2 shadow-sm font-semibold rounded-xl bg-amber-500 hover:bg-amber-600 text-slate-950">
                 <Link href={`${basePath}/purchases/new`}>
                   <PlusCircle className="h-4 w-4" />
                   Record Purchase
@@ -450,7 +489,7 @@ export function PurchasingCenterDashboardView({
             )}
 
             {can("GOLD_REPORTS:READ") && (
-              <Button asChild variant="outline" size="default" className="gap-2 bg-background/80 backdrop-blur-sm">
+              <Button asChild variant="outline" size="default" className="gap-2 bg-background/80 backdrop-blur-sm rounded-xl">
                 <Link href={`${basePath}/reports/daily`}>
                   <Calendar className="h-4 w-4 text-emerald-600" />
                   Today's Report
@@ -610,88 +649,323 @@ export function PurchasingCenterDashboardView({
         </div>
       </div>
 
-      {/* ----------------- DIAGRAMS, CHARTS & VISUAL ANALYTICS ----------------- */}
+      {/* ----------------- INTERACTIVE RECHARTS VISUAL ANALYTICS ----------------- */}
       <div className="space-y-4">
         <DashboardSectionHeader
           title="Intake Visualizations & Diagrams"
-          description="Visual intake trajectory, karat purity composition, and certified quality distributions"
+          description="Visual intake trajectory, karat purity composition, certified quality grading, and supplier split"
         />
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          {/* Trend Bar Chart */}
-          <div className="lg:col-span-2">
-            <SimpleBarChart
-              title="Daily Gold Volume Intake Trends"
-              description={`Canonical gold weight (grams) recorded per business day (${timeRange === "all" ? "all records" : timeRange})`}
-              items={volumeTrendItems}
-              valueSuffix=" g"
-              height={240}
-              color="#f59e0b"
-            />
+        {/* ROW 1: DUAL-AXIS AREA / BAR CHART */}
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+          {/* Main Trajectory Area Chart (8 cols) */}
+          <div className="lg:col-span-8 p-6 rounded-3xl bg-card border border-border shadow-xs space-y-4">
+            <div className="flex items-center justify-between flex-wrap gap-2">
+              <div>
+                <h3 className="font-bold text-foreground text-sm flex items-center gap-2">
+                  <Activity className="h-4 w-4 text-amber-500" />
+                  Gold Intake Trajectory & Payout Curve
+                </h3>
+                <p className="text-xs text-muted-foreground">
+                  Daily canonical intake (grams) and capital disbursement (ETB) over time
+                </p>
+              </div>
+              <Badge variant="outline" className="text-xs font-mono">
+                {dailyChartData.length} active business days
+              </Badge>
+            </div>
+
+            <div className="h-72 w-full pt-2">
+              {dailyChartData.length > 0 ? (
+                <ResponsiveContainer width="100%" height="100%">
+                  <AreaChart data={dailyChartData} margin={{ top: 10, right: 10, left: -10, bottom: 0 }}>
+                    <defs>
+                      <linearGradient id="volumeGradient" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="5%" stopColor="#f59e0b" stopOpacity={0.4} />
+                        <stop offset="95%" stopColor="#f59e0b" stopOpacity={0.0} />
+                      </linearGradient>
+                      <linearGradient id="payoutGradient" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="5%" stopColor="#10b981" stopOpacity={0.3} />
+                        <stop offset="95%" stopColor="#10b981" stopOpacity={0.0} />
+                      </linearGradient>
+                    </defs>
+                    <CartesianGrid strokeDasharray="3 3" opacity={0.15} />
+                    <XAxis
+                      dataKey="date"
+                      tick={{ fontSize: 11 }}
+                      stroke="#888888"
+                      tickLine={false}
+                    />
+                    <YAxis
+                      yAxisId="left"
+                      tick={{ fontSize: 11 }}
+                      stroke="#f59e0b"
+                      tickLine={false}
+                      tickFormatter={(val) => `${val}g`}
+                    />
+                    <YAxis
+                      yAxisId="right"
+                      orientation="right"
+                      tick={{ fontSize: 11 }}
+                      stroke="#10b981"
+                      tickLine={false}
+                      tickFormatter={(val) => `${(val / 1000).toFixed(0)}k`}
+                    />
+                    <RechartsTooltip
+                      content={({ active, payload, label }) => {
+                        if (active && payload && payload.length) {
+                          return (
+                            <div className="p-3 bg-popover/95 backdrop-blur-sm border border-border shadow-lg rounded-2xl text-xs space-y-1">
+                              <p className="font-bold text-foreground">{label}</p>
+                              <p className="text-amber-600 dark:text-amber-400 font-mono">
+                                Volume: {Number(payload[0]?.value).toLocaleString()} grams
+                              </p>
+                              {payload[1] && (
+                                <p className="text-emerald-600 dark:text-emerald-400 font-mono">
+                                  Payout: {Number(payload[1]?.value).toLocaleString()} ETB
+                                </p>
+                              )}
+                            </div>
+                          );
+                        }
+                        return null;
+                      }}
+                    />
+                    <Legend wrapperStyle={{ fontSize: "11px", paddingTop: "8px" }} />
+                    <Area
+                      yAxisId="left"
+                      type="monotone"
+                      dataKey="volume"
+                      name="Intake (grams)"
+                      stroke="#f59e0b"
+                      strokeWidth={2.5}
+                      fillOpacity={1}
+                      fill="url(#volumeGradient)"
+                    />
+                    <Area
+                      yAxisId="right"
+                      type="monotone"
+                      dataKey="payout"
+                      name="Payout (ETB)"
+                      stroke="#10b981"
+                      strokeWidth={2}
+                      fillOpacity={1}
+                      fill="url(#payoutGradient)"
+                    />
+                  </AreaChart>
+                </ResponsiveContainer>
+              ) : (
+                <div className="h-full flex items-center justify-center text-xs text-muted-foreground">
+                  No daily trend data available for this range.
+                </div>
+              )}
+            </div>
           </div>
 
-          {/* Karat Donut */}
-          <div>
-            <DonutStatCard
-              title="Karat Purity Sourcing"
-              description="Gold weight canonical volume split by karat grade"
-              segments={karatSegments}
-              centerLabel="Canonical Gold"
-              centerValue={`${(period?.total_canonical_quantity || 0).toFixed(1)}g`}
-            />
+          {/* Sourcing Channel Split Donut (4 cols) */}
+          <div className="lg:col-span-4 p-6 rounded-3xl bg-card border border-border shadow-xs space-y-4">
+            <div>
+              <h3 className="font-bold text-foreground text-sm flex items-center gap-2">
+                <PieChartIcon className="h-4 w-4 text-sky-500" />
+                Sourcing Channel Split
+              </h3>
+              <p className="text-xs text-muted-foreground">
+                Corporate Mining Companies vs ASM Artisanal Miners
+              </p>
+            </div>
+
+            <div className="h-56 w-full flex items-center justify-center">
+              {sourcingSplitData.some((d) => d.value > 0) ? (
+                <ResponsiveContainer width="100%" height="100%">
+                  <PieChart>
+                    <Pie
+                      data={sourcingSplitData}
+                      cx="50%"
+                      cy="50%"
+                      innerRadius={55}
+                      outerRadius={80}
+                      paddingAngle={4}
+                      dataKey="value"
+                    >
+                      {sourcingSplitData.map((entry, index) => (
+                        <Cell key={`cell-${index}`} fill={entry.color} />
+                      ))}
+                    </Pie>
+                    <RechartsTooltip
+                      content={({ active, payload }) => {
+                        if (active && payload && payload.length) {
+                          const data = payload[0].payload;
+                          const total = sourcingSplitData.reduce((a, b) => a + b.value, 0) || 1;
+                          const pct = ((data.value / total) * 100).toFixed(1);
+                          return (
+                            <div className="p-2.5 bg-popover/95 border border-border shadow-md rounded-xl text-xs">
+                              <p className="font-bold text-foreground">{data.name}</p>
+                              <p className="font-mono text-muted-foreground">
+                                {data.value.toLocaleString()} g ({pct}%)
+                              </p>
+                            </div>
+                          );
+                        }
+                        return null;
+                      }}
+                    />
+                  </PieChart>
+                </ResponsiveContainer>
+              ) : (
+                <p className="text-xs text-muted-foreground">No sourcing data recorded</p>
+              )}
+            </div>
+
+            <div className="grid grid-cols-2 gap-2 pt-2 border-t border-border">
+              {sourcingSplitData.map((item) => (
+                <div key={item.name} className="flex items-center gap-2">
+                  <div className="w-3 h-3 rounded-full" style={{ backgroundColor: item.color }} />
+                  <div>
+                    <p className="text-[11px] font-medium text-foreground">{item.name}</p>
+                    <p className="text-[11px] font-mono text-muted-foreground">{item.value.toLocaleString()} g</p>
+                  </div>
+                </div>
+              ))}
+            </div>
           </div>
         </div>
 
+        {/* ROW 2: KARAT PURITY & QUALITY GRADE BREAKDOWN */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          {/* Quality Grading Donut */}
-          <DonutStatCard
-            title="Certified Quality Grade Breakdown"
-            description="Volume distribution by export, commercial, and artisanal quality grades"
-            segments={qualitySegments}
-            centerLabel="Total Weight"
-            centerValue={`${(period?.total_canonical_quantity || 0).toFixed(1)}g`}
-          />
-
-          {/* Unit Breakdown */}
-          <AnalyticsPanel
-            title="Recorded Quantity by Measurement Unit"
-            description="Non-lossy totals displayed per configurable unit"
-            headerAction={
-              <Badge variant="outline" className="text-xs">
-                {period?.unit_breakdown?.length || 0} Unit{period?.unit_breakdown?.length === 1 ? "" : "s"} Used
+          {/* Karat Donut */}
+          <div className="p-6 rounded-3xl bg-card border border-border shadow-xs space-y-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <h3 className="font-bold text-foreground text-sm flex items-center gap-2">
+                  <Coins className="h-4 w-4 text-amber-500" />
+                  Karat Purity Composition
+                </h3>
+                <p className="text-xs text-muted-foreground">
+                  Gold weight canonical volume split by karat standard
+                </p>
+              </div>
+              <Badge variant="outline" className="text-xs font-mono">
+                {karatChartData.length} Karat types
               </Badge>
-            }
-          >
-            {period?.unit_breakdown && period.unit_breakdown.length > 0 ? (
-              <div className="divide-y divide-border">
-                {period.unit_breakdown.map((u) => (
-                  <div key={u.code} className="py-3 flex items-center justify-between first:pt-0 last:pb-0">
-                    <div className="flex items-center gap-3">
-                      <div className="w-9 h-9 rounded-xl bg-amber-500/10 text-amber-600 dark:text-amber-400 flex items-center justify-center font-bold text-xs uppercase">
-                        {u.symbol}
-                      </div>
-                      <div>
-                        <p className="text-sm font-semibold text-foreground">{u.name}</p>
-                        <p className="text-xs text-muted-foreground">
-                          {u.purchase_count} transaction{u.purchase_count === 1 ? "" : "s"}
-                        </p>
-                      </div>
-                    </div>
-                    <div className="text-right">
-                      <p className="text-sm font-bold font-mono text-foreground">
-                        {u.total_quantity.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 4 })}{" "}
-                        <span className="text-xs font-normal text-muted-foreground">{u.symbol}</span>
-                      </p>
-                    </div>
-                  </div>
-                ))}
+            </div>
+
+            <div className="h-56 w-full flex items-center justify-center">
+              {karatChartData.length > 0 ? (
+                <ResponsiveContainer width="100%" height="100%">
+                  <PieChart>
+                    <Pie
+                      data={karatChartData}
+                      cx="50%"
+                      cy="50%"
+                      innerRadius={50}
+                      outerRadius={78}
+                      paddingAngle={3}
+                      dataKey="value"
+                    >
+                      {karatChartData.map((entry, index) => (
+                        <Cell key={`karat-${index}`} fill={entry.color} />
+                      ))}
+                    </Pie>
+                    <RechartsTooltip
+                      content={({ active, payload }) => {
+                        if (active && payload && payload.length) {
+                          const data = payload[0].payload;
+                          const total = karatChartData.reduce((a, b) => a + b.value, 0) || 1;
+                          const pct = ((data.value / total) * 100).toFixed(1);
+                          return (
+                            <div className="p-2.5 bg-popover/95 border border-border shadow-md rounded-xl text-xs space-y-0.5">
+                              <p className="font-bold text-foreground">{data.name}</p>
+                              <p className="font-mono text-amber-600 dark:text-amber-400">
+                                {data.value.toLocaleString()} grams ({pct}%)
+                              </p>
+                              <p className="text-[10px] text-muted-foreground">{data.count} purchases</p>
+                            </div>
+                          );
+                        }
+                        return null;
+                      }}
+                    />
+                  </PieChart>
+                </ResponsiveContainer>
+              ) : (
+                <p className="text-xs text-muted-foreground">No karat breakdown data</p>
+              )}
+            </div>
+
+            <div className="flex flex-wrap gap-2 pt-2 border-t border-border">
+              {karatChartData.map((k) => (
+                <Badge key={k.name} variant="outline" className="text-xs gap-1.5 py-1 px-2.5">
+                  <div className="w-2 h-2 rounded-full" style={{ backgroundColor: k.color }} />
+                  <span>{k.name}: <strong>{k.value.toLocaleString()}g</strong></span>
+                </Badge>
+              ))}
+            </div>
+          </div>
+
+          {/* Certified Quality Grade Horizontal / Vertical Bar Chart */}
+          <div className="p-6 rounded-3xl bg-card border border-border shadow-xs space-y-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <h3 className="font-bold text-foreground text-sm flex items-center gap-2">
+                  <BarChart3 className="h-4 w-4 text-emerald-500" />
+                  Quality Grade Certified Volume
+                </h3>
+                <p className="text-xs text-muted-foreground">
+                  Intake volume (grams) categorized by export, commercial, and artisanal grade
+                </p>
               </div>
-            ) : (
-              <div className="py-8 text-center text-muted-foreground text-sm">
-                No purchase records found for the selected period.
-              </div>
-            )}
-          </AnalyticsPanel>
+              <Badge variant="outline" className="text-xs font-mono">
+                {qualityChartData.length} Grades
+              </Badge>
+            </div>
+
+            <div className="h-56 w-full pt-2">
+              {qualityChartData.length > 0 ? (
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart data={qualityChartData} margin={{ top: 10, right: 10, left: -10, bottom: 0 }}>
+                    <CartesianGrid strokeDasharray="3 3" opacity={0.15} />
+                    <XAxis dataKey="name" tick={{ fontSize: 11 }} stroke="#888888" tickLine={false} />
+                    <YAxis tick={{ fontSize: 11 }} stroke="#888888" tickLine={false} tickFormatter={(val) => `${val}g`} />
+                    <RechartsTooltip
+                      content={({ active, payload, label }) => {
+                        if (active && payload && payload.length) {
+                          const data = payload[0].payload;
+                          return (
+                            <div className="p-2.5 bg-popover/95 border border-border shadow-md rounded-xl text-xs space-y-0.5">
+                              <p className="font-bold text-foreground">{label}</p>
+                              <p className="font-mono text-emerald-600 dark:text-emerald-400">
+                                {Number(data.value).toLocaleString()} grams
+                              </p>
+                              <p className="text-[10px] text-muted-foreground">{data.count} purchases</p>
+                            </div>
+                          );
+                        }
+                        return null;
+                      }}
+                    />
+                    <Bar dataKey="value" name="Volume (g)" radius={[6, 6, 0, 0]}>
+                      {qualityChartData.map((entry, index) => (
+                        <Cell key={`bar-${index}`} fill={entry.color} />
+                      ))}
+                    </Bar>
+                  </BarChart>
+                </ResponsiveContainer>
+              ) : (
+                <div className="h-full flex items-center justify-center text-xs text-muted-foreground">
+                  No quality grade data recorded.
+                </div>
+              )}
+            </div>
+
+            <div className="flex flex-wrap gap-2 pt-2 border-t border-border">
+              {qualityChartData.map((q) => (
+                <Badge key={q.name} variant="outline" className="text-xs gap-1.5 py-1 px-2.5">
+                  <div className="w-2 h-2 rounded-full" style={{ backgroundColor: q.color }} />
+                  <span>{q.name}: <strong>{q.value.toLocaleString()}g</strong></span>
+                </Badge>
+              ))}
+            </div>
+          </div>
         </div>
       </div>
 

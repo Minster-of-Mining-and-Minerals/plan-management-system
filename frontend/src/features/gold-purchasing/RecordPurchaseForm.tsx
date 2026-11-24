@@ -18,6 +18,10 @@ import {
   Sparkles,
   CheckCircle2,
   Sliders,
+  Calendar,
+  Layers,
+  FileText,
+  BadgeCheck,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -50,31 +54,7 @@ import {
   useGetActiveGoldPriceQuery,
 } from "@/redux/api/goldApi";
 import { useGetCompaniesQuery } from "@/redux/api/companyApi";
-
-const GOLD_TYPES = [
-  "Raw/Placer Gold",
-  "Smelted Bar",
-  "Refined Bullion",
-  "Gold Dust",
-  "Gold Nugget",
-  "Dore Bar",
-];
-
-const KARAT_OPTIONS = [
-  { label: "24K (99.9% Pure)", value: "24K", purity: 99.9 },
-  { label: "22K (91.6% Pure)", value: "22K", purity: 91.6 },
-  { label: "21K (87.5% Pure)", value: "21K", purity: 87.5 },
-  { label: "18K (75.0% Pure)", value: "18K", purity: 75.0 },
-  { label: "14K (58.5% Pure)", value: "14K", purity: 58.5 },
-  { label: "Raw / Unrefined", value: "Raw", purity: 80.0 },
-];
-
-const QUALITY_GRADES = [
-  { label: "Grade A - High Purity Export Grade", value: "Grade A" },
-  { label: "Grade B - Standard Commercial Grade", value: "Grade B" },
-  { label: "Grade C - Artisanal / Small-Scale Grade", value: "Grade C" },
-  { label: "Grade D - Low Purity / Alluvial Aggregate", value: "Grade D" },
-];
+import { useGoldParameters } from "./goldParametersConfig";
 
 export function RecordPurchaseForm() {
   const router = useRouter();
@@ -83,6 +63,7 @@ export function RecordPurchaseForm() {
   const basePath = centerId ? `/purchasing-centers/${centerId}` : "/purchasing-center";
 
   const { can } = usePermissions();
+  const { availableGoldTypes, availableKaratGrades, availableQualityGrades } = useGoldParameters();
 
   // Form State
   const [sellerType, setSellerType] = useState<"company" | "asm">("company");
@@ -91,10 +72,37 @@ export function RecordPurchaseForm() {
   const [measurementUnitId, setMeasurementUnitId] = useState("");
   const [quantity, setQuantity] = useState("");
   const [unitPrice, setUnitPrice] = useState("");
-  const [goldType, setGoldType] = useState<string>("Raw/Placer Gold");
-  const [karat, setKarat] = useState<string>("24K");
-  const [qualityGrade, setQualityGrade] = useState<string>("Grade A");
-  const [purityPercentage, setPurityPercentage] = useState<string>("99.9");
+
+  const defaultGoldType = availableGoldTypes[0]?.name || "Raw/Placer Gold";
+  const defaultKarat = availableKaratGrades[0]?.karat || "24K";
+  const defaultPurity = String(availableKaratGrades[0]?.default_purity_percentage || 99.9);
+  const defaultQuality = availableQualityGrades[0]?.grade || "Grade A";
+
+  const [goldType, setGoldType] = useState<string>(defaultGoldType);
+  const [karat, setKarat] = useState<string>(defaultKarat);
+  const [qualityGrade, setQualityGrade] = useState<string>(defaultQuality);
+  const [purityPercentage, setPurityPercentage] = useState<string>(defaultPurity);
+
+  // Sync if available lists change or defaults are empty
+  useEffect(() => {
+    if (availableGoldTypes.length > 0 && !availableGoldTypes.some((t) => t.name === goldType)) {
+      setGoldType(availableGoldTypes[0].name);
+    }
+  }, [availableGoldTypes, goldType]);
+
+  useEffect(() => {
+    if (availableKaratGrades.length > 0 && !availableKaratGrades.some((k) => k.karat === karat)) {
+      setKarat(availableKaratGrades[0].karat);
+      setPurityPercentage(String(availableKaratGrades[0].default_purity_percentage));
+    }
+  }, [availableKaratGrades, karat]);
+
+  useEffect(() => {
+    if (availableQualityGrades.length > 0 && !availableQualityGrades.some((q) => q.grade === qualityGrade)) {
+      setQualityGrade(availableQualityGrades[0].grade);
+    }
+  }, [availableQualityGrades, qualityGrade]);
+
   const [priceMode, setPriceMode] = useState<"configured" | "custom">("configured");
   const [businessDate, setBusinessDate] = useState(() => {
     return new Intl.DateTimeFormat("en-CA", {
@@ -187,7 +195,7 @@ export function RecordPurchaseForm() {
     );
   }, [companies, companySearch]);
 
-  // Handle switching seller type (resets conflicting selection)
+  // Handle switching seller type
   const handleSellerTypeChange = (type: "company" | "asm") => {
     setSellerType(type);
     if (type === "company") {
@@ -301,9 +309,9 @@ export function RecordPurchaseForm() {
   return (
     <div className="w-full mx-auto space-y-6">
       {/* ----------------- TOP HEADER ----------------- */}
-      <div className="flex items-center justify-between gap-4">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <Button asChild variant="ghost" size="sm" className="gap-1 mb-1 text-muted-foreground">
+          <Button asChild variant="ghost" size="sm" className="gap-1 mb-1 text-muted-foreground hover:text-foreground">
             <Link href={`${basePath}/purchases`}>
               <ArrowLeft className="h-4 w-4" /> Back to Purchase Register
             </Link>
@@ -313,319 +321,413 @@ export function RecordPurchaseForm() {
             Record Gold Purchase
           </h1>
           <p className="text-sm text-muted-foreground mt-1">
-            Register individual gold acquisition with seller attribution, configurable measurement units, and auditable receipt generation.
+            Register gold acquisition with seller attribution, purity calibration, benchmark pricing, and verifiable receipt generation.
           </p>
+        </div>
+
+        <div className="flex items-center gap-2 self-start sm:self-auto">
+          <Badge variant="outline" className="gap-1.5 py-1 px-3 text-xs bg-card border-border">
+            <Calendar className="h-3.5 w-3.5 text-amber-500" />
+            <span>Business Date: <strong>{businessDate}</strong></span>
+          </Badge>
         </div>
       </div>
 
-      {/* ----------------- MAIN FORM CARD ----------------- */}
-      <div className="p-6 sm:p-8 rounded-3xl bg-card border border-border shadow-xs space-y-8">
-        {/* SECTION 1: SELLER ATTRIBUTION */}
-        <div className="space-y-4">
-          <div className="flex items-center justify-between">
-            <div>
-              <h3 className="text-base font-bold text-foreground flex items-center gap-2">
-                <span className="w-6 h-6 rounded-full bg-primary/10 text-primary text-xs flex items-center justify-center font-bold">
-                  1
-                </span>
-                Seller Identification
-              </h3>
-              <p className="text-xs text-muted-foreground">
-                Select whether the gold is purchased from an established corporate entity or an ASM miner.
-              </p>
-            </div>
-            {sellerType === "asm" && can("ASM:CREATE") && (
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                onClick={() => setIsRegisterAsmOpen(true)}
-                className="gap-1.5 text-xs text-primary border-primary/30 hover:bg-primary/5"
-              >
-                <PlusCircle className="h-3.5 w-3.5" /> Register New ASM
-              </Button>
-            )}
-          </div>
+      {/* ----------------- 2-COLUMN COCKPIT LAYOUT ----------------- */}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
+        {/* LEFT COLUMN: FORM CARDS (8 Cols) */}
+        <div className="lg:col-span-8 space-y-6">
 
-          {/* Seller Type Toggle */}
-          <div className="grid grid-cols-2 gap-3 p-1.5 rounded-2xl bg-muted/50 border border-border">
-            <button
-              type="button"
-              onClick={() => handleSellerTypeChange("company")}
-              className={`py-3 px-4 rounded-xl text-sm font-semibold flex items-center justify-center gap-2.5 transition-all ${sellerType === "company"
-                ? "bg-background text-foreground shadow-xs border border-border"
-                : "text-muted-foreground hover:text-foreground"
-                }`}
-            >
-              <Building2 className="h-4 w-4 text-sky-500" />
-              Registered Company
-            </button>
-            <button
-              type="button"
-              onClick={() => handleSellerTypeChange("asm")}
-              className={`py-3 px-4 rounded-xl text-sm font-semibold flex items-center justify-center gap-2.5 transition-all ${sellerType === "asm"
-                ? "bg-background text-foreground shadow-xs border border-border"
-                : "text-muted-foreground hover:text-foreground"
-                }`}
-            >
-              <HardHat className="h-4 w-4 text-amber-500" />
-              ASM Miner
-            </button>
-          </div>
-
-          {/* COMPANY SELECTOR */}
-          {sellerType === "company" && (
-            <div className="space-y-3 pt-2">
-              <Label className="text-xs font-semibold">Select Company from Registry</Label>
-              <div className="space-y-2">
-                <div className="relative">
-                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                  <Input
-                    placeholder="Search company name or code..."
-                    value={companySearch}
-                    onChange={(e) => setCompanySearch(e.target.value)}
-                    className="pl-9 h-9 text-sm"
-                  />
-                </div>
-
-                <div className="max-h-48 overflow-y-auto divide-y divide-border rounded-xl border border-border bg-background">
-                  {filteredCompanies.map((c) => (
-                    <div
-                      key={c.company_id}
-                      onClick={() => setSelectedCompanyId(c.company_id)}
-                      className={`p-3 flex items-center justify-between cursor-pointer transition-colors ${selectedCompanyId === c.company_id
-                        ? "bg-primary/10 border-l-4 border-l-primary"
-                        : "hover:bg-muted/40"
-                        }`}
-                    >
-                      <div className="space-y-0.5">
-                        <p className="text-sm font-semibold text-foreground">{c.name}</p>
-                        <p className="text-xs font-mono text-muted-foreground">{c.code}</p>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <Badge variant="outline" className="text-[10px]">
-                          {c.is_active ? "Active" : "Inactive"}
-                        </Badge>
-                        {selectedCompanyId === c.company_id && (
-                          <Check className="h-4 w-4 text-primary" />
-                        )}
-                      </div>
-                    </div>
-                  ))}
-                  {filteredCompanies.length === 0 && (
-                    <div className="p-4 text-center text-xs text-muted-foreground">
-                      No companies match your search.
-                    </div>
-                  )}
-                </div>
+          {/* CARD 1: SELLER IDENTIFICATION */}
+          <div className="p-6 rounded-3xl bg-card border border-border shadow-xs space-y-5">
+            <div className="flex items-center justify-between">
+              <div>
+                <h3 className="text-base font-bold text-foreground flex items-center gap-2.5">
+                  <span className="w-7 h-7 rounded-xl bg-primary/10 text-primary text-xs flex items-center justify-center font-bold">
+                    1
+                  </span>
+                  Seller Identification & Sourcing
+                </h3>
+                <p className="text-xs text-muted-foreground mt-0.5">
+                  Distinguish between corporate licensed producers and artisanal small-scale miners.
+                </p>
               </div>
-
-              {selectedCompany && (
-                <div className="p-3.5 rounded-xl bg-sky-500/10 border border-sky-400/20 flex items-center justify-between">
-                  <div className="flex items-center gap-2.5">
-                    <Building2 className="h-4 w-4 text-sky-600 dark:text-sky-400" />
-                    <div>
-                      <p className="text-xs font-semibold text-sky-950 dark:text-sky-100">
-                        Selected: {selectedCompany.name}
-                      </p>
-                      <p className="text-[11px] font-mono text-sky-700 dark:text-sky-300">
-                        Code: {selectedCompany.code}
-                      </p>
-                    </div>
-                  </div>
-                  <Badge className="bg-sky-600 text-white text-[10px]">Company Seller</Badge>
-                </div>
+              {sellerType === "asm" && can("ASM:CREATE") && (
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setIsRegisterAsmOpen(true)}
+                  className="gap-1.5 text-xs text-primary border-primary/30 hover:bg-primary/5"
+                >
+                  <PlusCircle className="h-3.5 w-3.5" /> Register New ASM
+                </Button>
               )}
             </div>
-          )}
 
-          {/* ASM MINER SELECTOR */}
-          {sellerType === "asm" && (
-            <div className="space-y-3 pt-2">
-              <Label className="text-xs font-semibold">Select Artisanal & Small-Scale Miner (ASM)</Label>
-              <div className="space-y-2">
-                <div className="relative">
-                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                  <Input
-                    placeholder="Search miner by name, national ID, or phone..."
-                    value={asmSearch}
-                    onChange={(e) => setAsmSearch(e.target.value)}
-                    className="pl-9 h-9 text-sm"
-                  />
-                </div>
+            {/* Seller Type Toggle */}
+            <div className="grid grid-cols-2 gap-3 p-1.5 rounded-2xl bg-muted/40 border border-border">
+              <button
+                type="button"
+                onClick={() => handleSellerTypeChange("company")}
+                className={`py-3 px-4 rounded-xl text-sm font-semibold flex items-center justify-center gap-2.5 transition-all ${
+                  sellerType === "company"
+                    ? "bg-background text-foreground shadow-xs border border-border"
+                    : "text-muted-foreground hover:text-foreground"
+                }`}
+              >
+                <Building2 className="h-4 w-4 text-sky-500" />
+                Registered Company
+              </button>
+              <button
+                type="button"
+                onClick={() => handleSellerTypeChange("asm")}
+                className={`py-3 px-4 rounded-xl text-sm font-semibold flex items-center justify-center gap-2.5 transition-all ${
+                  sellerType === "asm"
+                    ? "bg-background text-foreground shadow-xs border border-border"
+                    : "text-muted-foreground hover:text-foreground"
+                }`}
+              >
+                <HardHat className="h-4 w-4 text-amber-500" />
+                ASM Miner
+              </button>
+            </div>
 
-                <div className="max-h-48 overflow-y-auto divide-y divide-border rounded-xl border border-border bg-background">
-                  {asmData?.items && asmData.items.length > 0 ? (
-                    asmData.items.map((m) => (
+            {/* COMPANY SELECTOR */}
+            {sellerType === "company" && (
+              <div className="space-y-3 pt-1">
+                <Label className="text-xs font-semibold text-foreground">Select Sourcing Mining Company</Label>
+                <div className="space-y-2">
+                  <div className="relative">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                    <Input
+                      placeholder="Search company by name or identification code..."
+                      value={companySearch}
+                      onChange={(e) => setCompanySearch(e.target.value)}
+                      className="pl-9 h-10 text-sm rounded-xl"
+                    />
+                  </div>
+
+                  <div className="max-h-48 overflow-y-auto divide-y divide-border rounded-2xl border border-border bg-background">
+                    {filteredCompanies.map((c) => (
                       <div
-                        key={m.asm_id}
-                        onClick={() => setSelectedAsmId(m.asm_id)}
-                        className={`p-3 flex items-center justify-between cursor-pointer transition-colors ${selectedAsmId === m.asm_id
-                          ? "bg-amber-500/10 border-l-4 border-l-amber-500"
-                          : "hover:bg-muted/40"
-                          }`}
+                        key={c.company_id}
+                        onClick={() => setSelectedCompanyId(c.company_id)}
+                        className={`p-3 flex items-center justify-between cursor-pointer transition-colors ${
+                          selectedCompanyId === c.company_id
+                            ? "bg-sky-500/10 border-l-4 border-l-sky-500"
+                            : "hover:bg-muted/40"
+                        }`}
                       >
                         <div className="space-y-0.5">
-                          <p className="text-sm font-semibold text-foreground">{m.full_name}</p>
-                          <p className="text-xs text-muted-foreground flex items-center gap-2 font-mono">
-                            {m.national_id_number && <span>ID: {m.national_id_number}</span>}
-                            {m.phone_number && <span>Phone: {m.phone_number}</span>}
-                          </p>
+                          <p className="text-sm font-semibold text-foreground">{c.name}</p>
+                          <p className="text-xs font-mono text-muted-foreground">code: {c.code}</p>
                         </div>
                         <div className="flex items-center gap-2">
                           <Badge variant="outline" className="text-[10px]">
-                            {m.region || "ASM"}
+                            {c.is_active ? "Active" : "Inactive"}
                           </Badge>
-                          {selectedAsmId === m.asm_id && (
-                            <Check className="h-4 w-4 text-amber-600" />
+                          {selectedCompanyId === c.company_id && (
+                            <Check className="h-4 w-4 text-sky-600 dark:text-sky-400" />
                           )}
                         </div>
                       </div>
-                    ))
-                  ) : (
-                    <div className="p-4 text-center text-xs text-muted-foreground space-y-2">
-                      <p>No matching ASM miner found in the shared registry.</p>
-                      {can("ASM:CREATE") && (
-                        <Button
-                          type="button"
-                          variant="outline"
-                          size="sm"
-                          onClick={() => setIsRegisterAsmOpen(true)}
-                          className="h-7 text-xs"
-                        >
-                          <PlusCircle className="h-3.5 w-3.5 mr-1" /> Register New Miner
-                        </Button>
-                      )}
-                    </div>
-                  )}
+                    ))}
+                    {filteredCompanies.length === 0 && (
+                      <div className="p-4 text-center text-xs text-muted-foreground">
+                        No companies match your search.
+                      </div>
+                    )}
+                  </div>
                 </div>
+
+                {selectedCompany && (
+                  <div className="p-3.5 rounded-2xl bg-sky-500/10 border border-sky-400/20 flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <div className="w-8 h-8 rounded-xl bg-sky-500/20 text-sky-600 flex items-center justify-center">
+                        <Building2 className="h-4 w-4" />
+                      </div>
+                      <div>
+                        <p className="text-xs font-semibold text-sky-950 dark:text-sky-100">
+                          {selectedCompany.name}
+                        </p>
+                        <p className="text-[11px] font-mono text-sky-700 dark:text-sky-300">
+                          Code: {selectedCompany.code}
+                        </p>
+                      </div>
+                    </div>
+                    <Badge className="bg-sky-600 text-white text-[10px]">Verified Company</Badge>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* ASM MINER SELECTOR */}
+            {sellerType === "asm" && (
+              <div className="space-y-3 pt-1">
+                <Label className="text-xs font-semibold text-foreground">Select Registered ASM Miner</Label>
+                <div className="space-y-2">
+                  <div className="relative">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                    <Input
+                      placeholder="Search miner by name, national ID, phone, or license..."
+                      value={asmSearch}
+                      onChange={(e) => setAsmSearch(e.target.value)}
+                      className="pl-9 h-10 text-sm rounded-xl"
+                    />
+                  </div>
+
+                  <div className="max-h-48 overflow-y-auto divide-y divide-border rounded-2xl border border-border bg-background">
+                    {asmData?.items && asmData.items.length > 0 ? (
+                      asmData.items.map((m) => (
+                        <div
+                          key={m.asm_id}
+                          onClick={() => setSelectedAsmId(m.asm_id)}
+                          className={`p-3 flex items-center justify-between cursor-pointer transition-colors ${
+                            selectedAsmId === m.asm_id
+                              ? "bg-amber-500/10 border-l-4 border-l-amber-500"
+                              : "hover:bg-muted/40"
+                          }`}
+                        >
+                          <div className="space-y-0.5">
+                            <p className="text-sm font-semibold text-foreground">{m.full_name}</p>
+                            <p className="text-xs text-muted-foreground flex items-center gap-2 font-mono">
+                              {m.national_id_number && <span>ID: {m.national_id_number}</span>}
+                              {m.phone_number && <span>Tel: {m.phone_number}</span>}
+                            </p>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <Badge variant="outline" className="text-[10px]">
+                              {m.region || "ASM"}
+                            </Badge>
+                            {selectedAsmId === m.asm_id && (
+                              <Check className="h-4 w-4 text-amber-600" />
+                            )}
+                          </div>
+                        </div>
+                      ))
+                    ) : (
+                      <div className="p-4 text-center text-xs text-muted-foreground space-y-2">
+                        <p>No matching ASM miner found in the registry.</p>
+                        {can("ASM:CREATE") && (
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            onClick={() => setIsRegisterAsmOpen(true)}
+                            className="h-8 text-xs rounded-xl"
+                          >
+                            <PlusCircle className="h-3.5 w-3.5 mr-1" /> Register New Miner
+                          </Button>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {selectedAsm && (
+                  <div className="p-3.5 rounded-2xl bg-amber-500/10 border border-amber-400/20 flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <div className="w-8 h-8 rounded-xl bg-amber-500/20 text-amber-600 flex items-center justify-center">
+                        <HardHat className="h-4 w-4" />
+                      </div>
+                      <div>
+                        <p className="text-xs font-semibold text-amber-950 dark:text-amber-100">
+                          {selectedAsm.full_name}
+                        </p>
+                        <p className="text-[11px] font-mono text-amber-700 dark:text-amber-300">
+                          {selectedAsm.national_id_number ? `ID: ${selectedAsm.national_id_number}` : ""}
+                          {selectedAsm.phone_number ? ` • Tel: ${selectedAsm.phone_number}` : ""}
+                        </p>
+                      </div>
+                    </div>
+                    <Badge className="bg-amber-600 text-white text-[10px]">Verified ASM Miner</Badge>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+
+          {/* CARD 2: GOLD SPECIFICATION & QUALITY STANDARDS */}
+          <div className="p-6 rounded-3xl bg-card border border-border shadow-xs space-y-5">
+            <div className="flex items-center justify-between">
+              <div>
+                <h3 className="text-base font-bold text-foreground flex items-center gap-2.5">
+                  <span className="w-7 h-7 rounded-xl bg-amber-500/10 text-amber-600 dark:text-amber-400 text-xs flex items-center justify-center font-bold">
+                    2
+                  </span>
+                  Gold Quality & Karat Specifications
+                </h3>
+                <p className="text-xs text-muted-foreground mt-0.5">
+                  Select configured physical gold type, karat purity rating, and certification quality grade.
+                </p>
+              </div>
+              <Badge variant="outline" className="text-[10px] text-muted-foreground">
+                Configured Standards
+              </Badge>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 p-4 rounded-2xl bg-muted/20 border border-border">
+              {/* Gold Type */}
+              <div className="space-y-1.5">
+                <Label className="text-xs font-semibold">Gold Type *</Label>
+                <Select value={goldType} onValueChange={setGoldType}>
+                  <SelectTrigger className="h-9 text-xs rounded-xl">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {availableGoldTypes.map((t) => (
+                      <SelectItem key={t.id} value={t.name}>
+                        {t.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
 
-              {selectedAsm && (
-                <div className="p-3.5 rounded-xl bg-amber-500/10 border border-amber-400/20 flex items-center justify-between">
-                  <div className="flex items-center gap-2.5">
-                    <HardHat className="h-4 w-4 text-amber-600 dark:text-amber-400" />
-                    <div>
-                      <p className="text-xs font-semibold text-amber-950 dark:text-amber-100">
-                        Selected: {selectedAsm.full_name}
-                      </p>
-                      <p className="text-[11px] font-mono text-amber-700 dark:text-amber-300">
-                        {selectedAsm.national_id_number ? `ID: ${selectedAsm.national_id_number}` : ""}
-                        {selectedAsm.phone_number ? ` • Tel: ${selectedAsm.phone_number}` : ""}
-                      </p>
-                    </div>
+              {/* Karat Grade */}
+              <div className="space-y-1.5">
+                <Label className="text-xs font-semibold">Karat Grade *</Label>
+                <Select
+                  value={karat}
+                  onValueChange={(val) => {
+                    setKarat(val);
+                    const matched = availableKaratGrades.find((k) => k.karat === val);
+                    if (matched) setPurityPercentage(String(matched.default_purity_percentage));
+                  }}
+                >
+                  <SelectTrigger className="h-9 text-xs rounded-xl">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {availableKaratGrades.map((k) => (
+                      <SelectItem key={k.id} value={k.karat}>
+                        {k.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {/* Purity % */}
+              <div className="space-y-1.5">
+                <Label className="text-xs font-semibold">Purity Percentage (%)</Label>
+                <Input
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  max="100"
+                  value={purityPercentage}
+                  onChange={(e) => setPurityPercentage(e.target.value)}
+                  placeholder="e.g. 99.9"
+                  className="h-9 text-xs font-mono rounded-xl"
+                />
+              </div>
+
+              {/* Quality Grade */}
+              <div className="space-y-1.5">
+                <Label className="text-xs font-semibold">Quality Grading *</Label>
+                <Select value={qualityGrade} onValueChange={setQualityGrade}>
+                  <SelectTrigger className="h-9 text-xs rounded-xl">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {availableQualityGrades.map((q) => (
+                      <SelectItem key={q.id} value={q.grade}>
+                        {q.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+          </div>
+
+          {/* CARD 3: MEASUREMENT INTAKE & UNIT CONVERSION */}
+          <div className="p-6 rounded-3xl bg-card border border-border shadow-xs space-y-5">
+            <div>
+              <h3 className="text-base font-bold text-foreground flex items-center gap-2.5">
+                <span className="w-7 h-7 rounded-xl bg-purple-500/10 text-purple-600 dark:text-purple-400 text-xs flex items-center justify-center font-bold">
+                  3
+                </span>
+                Measurement Intake & Unit Conversion
+              </h3>
+              <p className="text-xs text-muted-foreground mt-0.5">
+                Input measured weight using any active center unit. The platform automatically harmonizes to standardized metric grams.
+              </p>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              {/* Measurement Unit */}
+              <div className="space-y-1.5">
+                <Label className="text-xs font-semibold">Configurable Unit *</Label>
+                <Select value={measurementUnitId} onValueChange={setMeasurementUnitId}>
+                  <SelectTrigger className="h-10 text-sm rounded-xl">
+                    <SelectValue placeholder="Select Measurement Unit" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {units.map((u) => (
+                      <SelectItem key={u.unit_id} value={u.unit_id}>
+                        {u.name} ({u.symbol}) {u.is_canonical_base ? "— Base Unit" : `(${u.conversion_factor}g)`}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {/* Quantity */}
+              <div className="space-y-1.5">
+                <Label className="text-xs font-semibold">Quantity ({selectedUnit?.symbol || "unit"}) *</Label>
+                <Input
+                  type="number"
+                  step="0.0001"
+                  min="0.0001"
+                  placeholder="0.0000"
+                  value={quantity}
+                  onChange={(e) => setQuantity(e.target.value)}
+                  className="h-10 text-sm font-mono rounded-xl"
+                />
+              </div>
+            </div>
+
+            {/* LIVE CONVERSION CALLOUT */}
+            {parsedQuantity > 0 && (
+              <div className="p-4 rounded-2xl bg-amber-500/5 border border-amber-500/20 flex items-center justify-between flex-wrap gap-3">
+                <div className="flex items-center gap-3">
+                  <div className="w-9 h-9 rounded-xl bg-amber-500/15 text-amber-600 dark:text-amber-400 flex items-center justify-center shrink-0">
+                    <Scale className="h-4 w-4" />
                   </div>
-                  <Badge className="bg-amber-600 text-white text-[10px]">ASM Miner</Badge>
+                  <div>
+                    <p className="text-xs text-muted-foreground">Standardized Canonical Weight</p>
+                    <p className="text-base font-bold font-mono text-foreground">
+                      {canonicalGrams.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 4 })} grams
+                    </p>
+                  </div>
                 </div>
-              )}
-            </div>
-          )}
-        </div>
-
-        {/* SECTION 2: GOLD SPECIFICATION, MEASUREMENT & VALUATION */}
-        <div className="space-y-6 pt-4 border-t border-border">
-          <div>
-            <h3 className="text-base font-bold text-foreground flex items-center gap-2">
-              <span className="w-6 h-6 rounded-full bg-primary/10 text-primary text-xs flex items-center justify-center font-bold">
-                2
-              </span>
-              Gold Quality, Unit & Price Configuration
-            </h3>
-            <p className="text-xs text-muted-foreground">
-              Specify gold type, karat purity, and quality grading. Use the official configured price benchmark or supply a custom expert valuation.
-            </p>
+                <Badge variant="outline" className="text-xs font-mono text-amber-700 dark:text-amber-300 border-amber-500/30">
+                  1 {selectedUnit?.symbol} = {conversionFactor}g canonical base
+                </Badge>
+              </div>
+            )}
           </div>
 
-          {/* Sub-grid: Gold Quality Specifications */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 p-4 rounded-2xl bg-muted/30 border border-border">
-            {/* Gold Type */}
-            <div className="space-y-1.5">
-              <Label className="text-xs font-semibold">Gold Type *</Label>
-              <Select value={goldType} onValueChange={setGoldType}>
-                <SelectTrigger className="h-9 text-xs">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {GOLD_TYPES.map((t) => (
-                    <SelectItem key={t} value={t}>
-                      {t}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            {/* Karat */}
-            <div className="space-y-1.5">
-              <Label className="text-xs font-semibold">Karat Grade *</Label>
-              <Select
-                value={karat}
-                onValueChange={(val) => {
-                  setKarat(val);
-                  const matched = KARAT_OPTIONS.find((k) => k.value === val);
-                  if (matched) setPurityPercentage(String(matched.purity));
-                }}
-              >
-                <SelectTrigger className="h-9 text-xs">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {KARAT_OPTIONS.map((k) => (
-                    <SelectItem key={k.value} value={k.value}>
-                      {k.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            {/* Purity % */}
-            <div className="space-y-1.5">
-              <Label className="text-xs font-semibold">Purity Percentage (%)</Label>
-              <Input
-                type="number"
-                step="0.01"
-                min="0"
-                max="100"
-                value={purityPercentage}
-                onChange={(e) => setPurityPercentage(e.target.value)}
-                placeholder="e.g. 99.9"
-                className="h-9 text-xs font-mono"
-              />
-            </div>
-
-            {/* Quality Grade */}
-            <div className="space-y-1.5">
-              <Label className="text-xs font-semibold">Quality Grading *</Label>
-              <Select value={qualityGrade} onValueChange={setQualityGrade}>
-                <SelectTrigger className="h-9 text-xs">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {QUALITY_GRADES.map((q) => (
-                    <SelectItem key={q.value} value={q.value}>
-                      {q.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
-
-          {/* Pricing Mode Toggle: Configured Benchmark vs Custom Expert */}
-          <div className="p-4 rounded-2xl border border-amber-500/20 bg-amber-500/5 space-y-3">
+          {/* CARD 4: PRICING BENCHMARK & FINANCIAL VALUATION */}
+          <div className="p-6 rounded-3xl bg-card border border-border shadow-xs space-y-5">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
               <div>
-                <Label className="text-xs font-bold text-foreground flex items-center gap-1.5">
-                  <Coins className="h-4 w-4 text-amber-500" />
-                  Valuation Rate Mode
-                </Label>
-                <p className="text-[11px] text-muted-foreground">
-                  The registrar can use the official benchmark price configured for {karat} {goldType} or fill a custom valuation for the assayer/expert.
+                <h3 className="text-base font-bold text-foreground flex items-center gap-2.5">
+                  <span className="w-7 h-7 rounded-xl bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 text-xs flex items-center justify-center font-bold">
+                    4
+                  </span>
+                  Valuation Rate & Pricing Benchmark
+                </h3>
+                <p className="text-xs text-muted-foreground mt-0.5">
+                  Apply official price schedule or provide assayer expert valuation.
                 </p>
               </div>
 
-              <div className="flex items-center gap-1.5 bg-card p-1 rounded-xl border border-border shadow-2xs shrink-0">
+              {/* Mode Toggle */}
+              <div className="flex items-center gap-1.5 bg-muted/50 p-1 rounded-xl border border-border shrink-0">
                 <button
                   type="button"
                   onClick={() => {
@@ -634,9 +736,9 @@ export function RecordPurchaseForm() {
                       setUnitPrice(String(activePriceConfig.price_per_unit));
                     }
                   }}
-                  className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
+                  className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
                     priceMode === "configured"
-                      ? "bg-amber-500 text-slate-950 font-bold shadow-xs"
+                      ? "bg-background text-foreground shadow-xs border border-border"
                       : "text-muted-foreground hover:text-foreground"
                   }`}
                 >
@@ -645,23 +747,23 @@ export function RecordPurchaseForm() {
                 <button
                   type="button"
                   onClick={() => setPriceMode("custom")}
-                  className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
+                  className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
                     priceMode === "custom"
-                      ? "bg-primary text-primary-foreground font-bold shadow-xs"
+                      ? "bg-background text-foreground shadow-xs border border-border"
                       : "text-muted-foreground hover:text-foreground"
                   }`}
                 >
-                  Custom Expert Override
+                  Custom Override
                 </button>
               </div>
             </div>
 
-            {/* Active Config Callout */}
+            {/* Active Benchmark Info */}
             {priceMode === "configured" ? (
-              <div className="flex items-center justify-between flex-wrap gap-2 text-xs pt-2 border-t border-amber-500/15">
+              <div className="p-3.5 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-between flex-wrap gap-2 text-xs">
                 <div className="flex items-center gap-2">
-                  <Badge className="bg-amber-500/20 text-amber-800 dark:text-amber-300 border-amber-500/30 font-semibold text-[11px]">
-                    Official Rate: {activePriceConfig ? `${parseFloat(String(activePriceConfig.price_per_unit)).toLocaleString()} ETB / ${selectedUnit?.symbol || "g"}` : "Loading benchmark..."}
+                  <Badge className="bg-emerald-600 text-white font-semibold text-[11px]">
+                    Official Benchmark: {activePriceConfig ? `${parseFloat(String(activePriceConfig.price_per_unit)).toLocaleString()} ETB / ${selectedUnit?.symbol || "g"}` : "Loading..."}
                   </Badge>
                   {activePriceConfig?.min_price_per_unit && activePriceConfig?.max_price_per_unit && (
                     <span className="text-muted-foreground font-mono text-[11px]">
@@ -670,67 +772,27 @@ export function RecordPurchaseForm() {
                   )}
                 </div>
                 <span className="text-[11px] text-muted-foreground">
-                  Auto-populated from Price Configuration
+                  Synchronized with Federal Price Configuration
                 </span>
               </div>
             ) : (
-              <div className="flex items-center gap-2 text-xs text-primary font-medium pt-2 border-t border-amber-500/15">
-                <Sparkles className="h-3.5 w-3.5" />
+              <div className="p-3.5 rounded-2xl bg-amber-500/10 border border-amber-500/20 flex items-center gap-2 text-xs text-amber-800 dark:text-amber-300">
+                <Sparkles className="h-4 w-4 shrink-0 text-amber-500" />
                 <span>
-                  Custom Rate Mode: Registrar manually specifies the negotiated or assayed price for expert evaluation.
+                  Custom Rate Mode: Registrar manually specifies the negotiated or assayed price for this specific transaction batch.
                 </span>
               </div>
             )}
-          </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-            {/* Measurement Unit */}
-            <div className="space-y-1.5">
-              <Label className="text-xs font-semibold">Configurable Unit *</Label>
-              <Select value={measurementUnitId} onValueChange={setMeasurementUnitId}>
-                <SelectTrigger className="h-10 text-sm">
-                  <SelectValue placeholder="Select Measurement Unit" />
-                </SelectTrigger>
-                <SelectContent>
-                  {units.map((u) => (
-                    <SelectItem key={u.unit_id} value={u.unit_id}>
-                      {u.name} ({u.symbol}) {u.is_canonical_base ? "— Base Unit" : `(${u.conversion_factor}g)`}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            {/* Quantity */}
-            <div className="space-y-1.5">
-              <Label className="text-xs font-semibold">Quantity ({selectedUnit?.symbol || "unit"}) *</Label>
-              <Input
-                type="number"
-                step="0.0001"
-                min="0.0001"
-                placeholder="0.0000"
-                value={quantity}
-                onChange={(e) => setQuantity(e.target.value)}
-                className="h-10 text-sm font-mono"
-              />
-            </div>
-
-            {/* Unit Price */}
+            {/* Unit Price Input */}
             <div className="space-y-1.5">
               <div className="flex items-center justify-between">
                 <Label className="text-xs font-semibold">
                   Unit Price (ETB / {selectedUnit?.symbol || "unit"}) *
                 </Label>
-                {priceMode === "configured" && (
-                  <Badge variant="outline" className="text-[10px] font-mono text-amber-600 dark:text-amber-400">
-                    Configured Rate
-                  </Badge>
-                )}
-                {priceMode === "custom" && (
-                  <Badge variant="outline" className="text-[10px] font-mono text-primary">
-                    Custom Override
-                  </Badge>
-                )}
+                <span className="text-[11px] text-muted-foreground font-mono">
+                  {priceMode === "configured" ? "Automated Rate" : "Manual Rate"}
+                </span>
               </div>
               <Input
                 type="number"
@@ -739,120 +801,177 @@ export function RecordPurchaseForm() {
                 placeholder="0.00"
                 value={unitPrice}
                 onChange={(e) => setUnitPrice(e.target.value)}
-                className={`h-10 text-sm font-mono font-bold ${
+                className={`h-11 text-base font-mono font-bold rounded-xl ${
                   priceMode === "configured"
-                    ? "bg-amber-500/5 border-amber-500/30 text-amber-700 dark:text-amber-300"
-                    : "border-primary/50"
+                    ? "bg-muted/40 border-border text-foreground"
+                    : "border-primary/50 text-foreground"
                 }`}
               />
             </div>
           </div>
 
-          {/* LIVE CONVERSION & TOTAL PAYOUT CALLOUT */}
-          {parsedQuantity > 0 && (
-            <div className="p-4 rounded-2xl bg-muted/60 border border-border grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-xl bg-amber-500/10 text-amber-600 dark:text-amber-400 flex items-center justify-center shrink-0">
-                  <Scale className="h-5 w-5" />
-                </div>
-                <div>
-                  <p className="text-xs text-muted-foreground">Standardized Base Weight</p>
-                  <p className="text-lg font-bold font-mono text-foreground">
-                    {canonicalGrams.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 4 })} grams
-                  </p>
-                  <p className="text-[11px] text-muted-foreground">
-                    1 {selectedUnit?.symbol} = {conversionFactor}g canonical base
-                  </p>
-                </div>
-              </div>
-
-              <div className="flex items-center gap-3 sm:border-l sm:border-border sm:pl-4">
-                <div className="w-10 h-10 rounded-xl bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 flex items-center justify-center shrink-0">
-                  <DollarSign className="h-5 w-5" />
-                </div>
-                <div>
-                  <p className="text-xs text-muted-foreground">Authoritative Purchase Total</p>
-                  <p className="text-lg font-bold font-mono text-emerald-600 dark:text-emerald-400">
-                    {totalAmount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ETB
-                  </p>
-                  <p className="text-[11px] text-muted-foreground">
-                    Computed server-side ({parsedQuantity} × {parsedPrice} ETB)
-                  </p>
-                </div>
-              </div>
-            </div>
-          )}
-        </div>
-
-        {/* SECTION 3: BUSINESS DATE & REFERENCE NOTES */}
-        <div className="space-y-4 pt-4 border-t border-border">
-          <div>
-            <h3 className="text-base font-bold text-foreground flex items-center gap-2">
-              <span className="w-6 h-6 rounded-full bg-primary/10 text-primary text-xs flex items-center justify-center font-bold">
-                3
-              </span>
-              Operational Metadata
-            </h3>
-            <p className="text-xs text-muted-foreground">
-              Define the accounting business date and optional batch notes.
-            </p>
-          </div>
-
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div className="space-y-1.5">
-              <Label className="text-xs font-semibold">Business Date (Application Timezone)</Label>
-              <Input
-                type="date"
-                value={businessDate}
-                onChange={(e) => setBusinessDate(e.target.value)}
-                className="h-10 text-sm"
-              />
+          {/* CARD 5: OPERATIONAL METADATA */}
+          <div className="p-6 rounded-3xl bg-card border border-border shadow-xs space-y-5">
+            <div>
+              <h3 className="text-base font-bold text-foreground flex items-center gap-2.5">
+                <span className="w-7 h-7 rounded-xl bg-sky-500/10 text-sky-600 dark:text-sky-400 text-xs flex items-center justify-center font-bold">
+                  5
+                </span>
+                Operational Metadata & Audit Notes
+              </h3>
+              <p className="text-xs text-muted-foreground mt-0.5">
+                Specify transaction accounting date and physical scale/lot reference.
+              </p>
             </div>
 
-            <div className="space-y-1.5">
-              <Label className="text-xs font-semibold">Notes & Reference (Optional)</Label>
-              <Textarea
-                placeholder="Weighing scale serial, batch purity test, assay remarks..."
-                value={notes}
-                onChange={(e) => setNotes(e.target.value)}
-                rows={2}
-                className="text-sm resize-none"
-              />
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="space-y-1.5">
+                <Label className="text-xs font-semibold">Business Accounting Date</Label>
+                <Input
+                  type="date"
+                  value={businessDate}
+                  onChange={(e) => setBusinessDate(e.target.value)}
+                  className="h-10 text-sm rounded-xl"
+                />
+              </div>
+
+              <div className="space-y-1.5">
+                <Label className="text-xs font-semibold">Assay & Scale Notes (Optional)</Label>
+                <Textarea
+                  placeholder="Scale serial no, batch density, assay notes..."
+                  value={notes}
+                  onChange={(e) => setNotes(e.target.value)}
+                  rows={2}
+                  className="text-xs resize-none rounded-xl"
+                />
+              </div>
             </div>
           </div>
         </div>
 
-        {/* SUBMIT BUTTON */}
-        <div className="pt-4 flex items-center justify-end gap-3 border-t border-border">
-          <Button asChild variant="outline">
-            <Link href={`${basePath}/purchases`}>Cancel</Link>
-          </Button>
-          <Button
-            type="button"
-            onClick={() => setIsConfirmOpen(true)}
-            disabled={
-              (sellerType === "company" && !selectedCompanyId) ||
-              (sellerType === "asm" && !selectedAsmId) ||
-              parsedQuantity <= 0
-            }
-            className="gap-2 font-semibold shadow-sm"
-          >
-            <ShieldCheck className="h-4 w-4" />
-            Review & Confirm Purchase
-          </Button>
+        {/* RIGHT COLUMN: STICKY TRANSACTION SUMMARY COCKPIT (4 Cols) */}
+        <div className="lg:col-span-4 sticky top-6 space-y-4">
+          <div className="p-6 rounded-3xl bg-card border border-border shadow-md space-y-6">
+            <div className="flex items-center justify-between border-b border-border pb-4">
+              <div className="flex items-center gap-2">
+                <ShieldCheck className="h-5 w-5 text-amber-500" />
+                <h3 className="font-bold text-foreground text-sm">Purchase Receipt Audit</h3>
+              </div>
+              <Badge variant="outline" className="text-[10px] uppercase font-mono">
+                {priceMode === "configured" ? "Benchmark" : "Override"}
+              </Badge>
+            </div>
+
+            {/* BIG TOTAL PAYOUT HERO */}
+            <div className="p-4 rounded-2xl bg-gradient-to-br from-amber-500/10 via-emerald-500/5 to-transparent border border-amber-500/20 space-y-1">
+              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                Total Transaction Payout
+              </p>
+              <p className="text-3xl font-extrabold font-mono text-emerald-600 dark:text-emerald-400">
+                {totalAmount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                <span className="text-sm font-semibold text-muted-foreground ml-1.5">ETB</span>
+              </p>
+              <p className="text-[11px] text-muted-foreground font-mono">
+                {parsedQuantity > 0 && parsedPrice > 0
+                  ? `${parsedQuantity.toLocaleString()} ${selectedUnit?.symbol || "unit"} × ${parsedPrice.toLocaleString()} ETB`
+                  : "Awaiting valid quantity & unit price"}
+              </p>
+            </div>
+
+            {/* TRANSACTION SPECIFICATION SUMMARY */}
+            <div className="space-y-3 text-xs divide-y divide-border">
+              {/* Gold Quality */}
+              <div className="pt-2 flex justify-between items-center">
+                <span className="text-muted-foreground">Gold Specification:</span>
+                <span className="font-semibold text-foreground">
+                  {karat} • {goldType}
+                </span>
+              </div>
+
+              {/* Quality & Purity */}
+              <div className="pt-2 flex justify-between items-center">
+                <span className="text-muted-foreground">Quality & Purity:</span>
+                <span className="font-semibold text-foreground">
+                  {qualityGrade} ({purityPercentage}% pure)
+                </span>
+              </div>
+
+              {/* Standardized Canonical Weight */}
+              <div className="pt-2 flex justify-between items-center">
+                <span className="text-muted-foreground">Standardized Weight:</span>
+                <span className="font-mono font-bold text-amber-600 dark:text-amber-400">
+                  {canonicalGrams.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 4 })} g
+                </span>
+              </div>
+
+              {/* Seller attribution */}
+              <div className="pt-2 flex justify-between items-start">
+                <span className="text-muted-foreground">Seller:</span>
+                <div className="text-right max-w-[160px]">
+                  {sellerType === "company" ? (
+                    selectedCompany ? (
+                      <div>
+                        <p className="font-semibold text-foreground truncate">{selectedCompany.name}</p>
+                        <p className="text-[10px] text-sky-600 font-mono">Company ({selectedCompany.code})</p>
+                      </div>
+                    ) : (
+                      <span className="text-amber-600 font-medium">None Selected</span>
+                    )
+                  ) : selectedAsm ? (
+                    <div>
+                      <p className="font-semibold text-foreground truncate">{selectedAsm.full_name}</p>
+                      <p className="text-[10px] text-amber-600 font-mono">ASM Miner</p>
+                    </div>
+                  ) : (
+                    <span className="text-amber-600 font-medium">None Selected</span>
+                  )}
+                </div>
+              </div>
+
+              {/* Unit Rate */}
+              <div className="pt-2 flex justify-between items-center">
+                <span className="text-muted-foreground">Unit Rate:</span>
+                <span className="font-mono text-foreground font-semibold">
+                  {parsedPrice > 0 ? `${parsedPrice.toLocaleString()} ETB / ${selectedUnit?.symbol || "g"}` : "—"}
+                </span>
+              </div>
+            </div>
+
+            {/* ACTION BUTTONS */}
+            <div className="space-y-2 pt-2 border-t border-border">
+              <Button
+                type="button"
+                onClick={() => setIsConfirmOpen(true)}
+                disabled={
+                  (sellerType === "company" && !selectedCompanyId) ||
+                  (sellerType === "asm" && !selectedAsmId) ||
+                  parsedQuantity <= 0 ||
+                  parsedPrice <= 0
+                }
+                className="w-full gap-2 font-bold h-11 rounded-xl shadow-md bg-amber-500 hover:bg-amber-600 text-slate-950 dark:text-slate-950"
+              >
+                <ShieldCheck className="h-4 w-4" />
+                Review & Commit Purchase
+              </Button>
+
+              <Button asChild variant="ghost" className="w-full text-xs text-muted-foreground rounded-xl">
+                <Link href={`${basePath}/purchases`}>Cancel and Discard</Link>
+              </Button>
+            </div>
+          </div>
         </div>
       </div>
 
       {/* ----------------- CONFIRMATION MODAL ----------------- */}
       <Dialog open={isConfirmOpen} onOpenChange={setIsConfirmOpen}>
-        <DialogContent className="max-w-md">
+        <DialogContent className="max-w-md rounded-3xl">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
-              <ShieldCheck className="h-5 w-5 text-primary" />
+              <ShieldCheck className="h-5 w-5 text-amber-500" />
               Confirm Gold Purchase Recording
             </DialogTitle>
             <DialogDescription>
-              Please review transaction details before committing to the official purchasing register.
+              Please verify all transaction metrics before signing and committing into the immutable purchase register.
             </DialogDescription>
           </DialogHeader>
 
@@ -900,7 +1019,7 @@ export function RecordPurchaseForm() {
             </div>
             <div className="flex justify-between py-1.5">
               <span className="text-muted-foreground">Canonical Weight:</span>
-              <span className="font-mono font-bold text-amber-600">
+              <span className="font-mono font-bold text-amber-600 dark:text-amber-400">
                 {canonicalGrams.toLocaleString()} grams
               </span>
             </div>
@@ -910,17 +1029,17 @@ export function RecordPurchaseForm() {
             </div>
             <div className="flex justify-between py-2 text-base font-bold">
               <span>Total Payout:</span>
-              <span className="font-mono text-emerald-600">
+              <span className="font-mono text-emerald-600 dark:text-emerald-400">
                 {totalAmount.toLocaleString()} ETB
               </span>
             </div>
           </div>
 
           <DialogFooter className="gap-2">
-            <Button variant="outline" onClick={() => setIsConfirmOpen(false)}>
+            <Button variant="outline" onClick={() => setIsConfirmOpen(false)} className="rounded-xl">
               Back to Edit
             </Button>
-            <Button onClick={handleSubmitPurchase} disabled={isSubmittingPurchase} className="gap-2">
+            <Button onClick={handleSubmitPurchase} disabled={isSubmittingPurchase} className="gap-2 rounded-xl bg-amber-500 hover:bg-amber-600 text-slate-950 font-bold">
               {isSubmittingPurchase ? "Saving..." : "Commit Transaction"}
             </Button>
           </DialogFooter>
@@ -929,7 +1048,7 @@ export function RecordPurchaseForm() {
 
       {/* ----------------- REGISTER NEW ASM MODAL ----------------- */}
       <Dialog open={isRegisterAsmOpen} onOpenChange={setIsRegisterAsmOpen}>
-        <DialogContent className="max-w-lg">
+        <DialogContent className="max-w-lg rounded-3xl">
           <form onSubmit={handleRegisterNewAsm}>
             <DialogHeader>
               <DialogTitle className="flex items-center gap-2">
@@ -944,7 +1063,7 @@ export function RecordPurchaseForm() {
             <div className="space-y-4 py-4">
               {/* Duplicate Detection Alert if candidates found */}
               {candidateMatches && candidateMatches.exact_matches.length > 0 && (
-                <div className="p-3 rounded-xl bg-destructive/10 border border-destructive/20 text-destructive text-xs space-y-1">
+                <div className="p-3 rounded-2xl bg-destructive/10 border border-destructive/20 text-destructive text-xs space-y-1">
                   <p className="font-bold flex items-center gap-1.5">
                     <AlertCircle className="h-4 w-4" /> Potential Duplicate Detected!
                   </p>
@@ -963,7 +1082,7 @@ export function RecordPurchaseForm() {
                   value={newAsmFullName}
                   onChange={(e) => setNewAsmFullName(e.target.value)}
                   onBlur={handleAsmFieldBlur}
-                  className="h-9 text-sm"
+                  className="h-10 text-sm rounded-xl"
                 />
               </div>
 
@@ -975,7 +1094,7 @@ export function RecordPurchaseForm() {
                     value={newAsmNationalId}
                     onChange={(e) => setNewAsmNationalId(e.target.value)}
                     onBlur={handleAsmFieldBlur}
-                    className="h-9 text-sm font-mono"
+                    className="h-10 text-sm font-mono rounded-xl"
                   />
                 </div>
                 <div className="space-y-1.5">
@@ -984,7 +1103,7 @@ export function RecordPurchaseForm() {
                     placeholder="e.g. ML-7890"
                     value={newAsmLicense}
                     onChange={(e) => setNewAsmLicense(e.target.value)}
-                    className="h-9 text-sm font-mono"
+                    className="h-10 text-sm font-mono rounded-xl"
                   />
                 </div>
               </div>
@@ -997,7 +1116,7 @@ export function RecordPurchaseForm() {
                     value={newAsmPhone}
                     onChange={(e) => setNewAsmPhone(e.target.value)}
                     onBlur={handleAsmFieldBlur}
-                    className="h-9 text-sm font-mono"
+                    className="h-10 text-sm font-mono rounded-xl"
                   />
                 </div>
                 <div className="space-y-1.5">
@@ -1006,7 +1125,7 @@ export function RecordPurchaseForm() {
                     placeholder="e.g. Oromia, Benishangul"
                     value={newAsmRegion}
                     onChange={(e) => setNewAsmRegion(e.target.value)}
-                    className="h-9 text-sm"
+                    className="h-10 text-sm rounded-xl"
                   />
                 </div>
               </div>
@@ -1018,7 +1137,7 @@ export function RecordPurchaseForm() {
                     placeholder="e.g. Guji / Shakiso"
                     value={newAsmZone}
                     onChange={(e) => setNewAsmZone(e.target.value)}
-                    className="h-9 text-sm"
+                    className="h-10 text-sm rounded-xl"
                   />
                 </div>
                 <div className="space-y-1.5">
@@ -1027,7 +1146,7 @@ export function RecordPurchaseForm() {
                     placeholder="e.g. Reji"
                     value={newAsmKebele}
                     onChange={(e) => setNewAsmKebele(e.target.value)}
-                    className="h-9 text-sm"
+                    className="h-10 text-sm rounded-xl"
                   />
                 </div>
               </div>
@@ -1038,16 +1157,16 @@ export function RecordPurchaseForm() {
                   placeholder="Optional miner background info..."
                   value={newAsmNotes}
                   onChange={(e) => setNewAsmNotes(e.target.value)}
-                  className="h-9 text-sm"
+                  className="h-10 text-sm rounded-xl"
                 />
               </div>
             </div>
 
             <DialogFooter className="gap-2">
-              <Button type="button" variant="outline" onClick={() => setIsRegisterAsmOpen(false)}>
+              <Button type="button" variant="outline" onClick={() => setIsRegisterAsmOpen(false)} className="rounded-xl">
                 Cancel
               </Button>
-              <Button type="submit" disabled={isRegisteringAsm}>
+              <Button type="submit" disabled={isRegisteringAsm} className="rounded-xl bg-amber-500 hover:bg-amber-600 text-slate-950 font-bold">
                 {isRegisteringAsm ? "Registering..." : "Save & Select Miner"}
               </Button>
             </DialogFooter>
