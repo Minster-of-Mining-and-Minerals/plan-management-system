@@ -52,7 +52,24 @@ async function getFederalOversightDashboard(req, res) {
   }
 }
 
+async function getGoldMarketBenchmarks(req, res) {
+  try {
+    const data = await goldDashboardService.getGoldMarketBenchmarks(req.query);
+    return res.status(200).json({
+      success: true,
+      data,
+    });
+  } catch (error) {
+    console.error("Error loading gold market benchmarks:", error);
+    return res.status(error.status || 500).json({
+      success: false,
+      message: error.message || "Failed to load gold market benchmarks.",
+    });
+  }
+}
+
 module.exports = {
   getPurchasingCenterDashboard,
   getFederalOversightDashboard,
+  getGoldMarketBenchmarks,
 };

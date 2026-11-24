@@ -32,4 +32,17 @@ router.get(
   oversightController.getFederalOversightDashboard
 );
 
+// Live International Gold Market Benchmarks & Central Bank Premiums
+router.get(
+  "/market-benchmarks",
+  checkAnyPermission([
+    { resource: "gold_purchases", action: "read" },
+    { resource: "gold_prices", action: "read" },
+    { resource: "gold_oversight", action: "read" },
+    { resource: "purchasing_centers", action: "read" },
+    { resource: "purchasing_center_dashboard", action: "view" },
+  ]),
+  oversightController.getGoldMarketBenchmarks
+);
+
 module.exports = router;

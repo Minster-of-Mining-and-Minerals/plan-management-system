@@ -420,3 +420,30 @@ export interface CreateMeasurementUnitPayload {
   conversion_factor: number | string;
   is_canonical_base?: boolean;
 }
+
+export interface GoldMarketBenchmarksData {
+  is_live: boolean;
+  feed_status: string;
+  last_synced_at: string;
+  currency_pair: string;
+  usd_etb_rate: number;
+  spot_benchmark: {
+    current_usd_per_oz: number;
+    spot_etb_per_gram: number;
+    source: string;
+    change_24h_usd: string;
+    change_24h_pct: string;
+    history: Array<{ label: string; date_offset?: number; value: number; change?: string }>;
+  };
+  nbe_incentive_policy: {
+    directive_code: string;
+    title: string;
+    active_baseline_rate_etb: number;
+    tiers: Array<{ label: string; value: number; description: string; tier_code: string }>;
+  };
+  meta: {
+    grams_per_troy_oz: number;
+    regulatory_authority: string;
+    mode: string;
+  };
+}

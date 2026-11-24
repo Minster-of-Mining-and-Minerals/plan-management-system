@@ -214,6 +214,7 @@ app.use("/api/gold/purchases", goldPurchaseRoutes);
 app.use("/api/gold/reports", goldDailyReportRoutes);
 app.use("/api/gold/prices", goldPriceConfigurationRoutes);
 app.use("/api/gold", goldOversightRoutes);
+app.use("/api/v1/gold", goldOversightRoutes);
 
 // Plan Management Routes
 app.use("/api/plan", planRoutes);
