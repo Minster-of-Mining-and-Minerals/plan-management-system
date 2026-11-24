@@ -375,6 +375,10 @@ export interface FederalOversightDashboardData {
     company: { count: number; canonical_quantity: number; amount: number };
     asm: { count: number; canonical_quantity: number; amount: number };
   };
+  period_seller_distribution?: {
+    company: { count: number; canonical_quantity: number; amount: number };
+    asm: { count: number; canonical_quantity: number; amount: number };
+  };
   centers: CenterOversightSummary[];
   recent_purchases: GoldPurchase[];
 }

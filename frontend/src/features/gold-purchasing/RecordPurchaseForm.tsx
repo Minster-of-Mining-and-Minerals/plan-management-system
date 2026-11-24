@@ -63,7 +63,7 @@ export function RecordPurchaseForm() {
   const basePath = centerId ? `/purchasing-centers/${centerId}` : "/purchasing-center";
 
   const { can } = usePermissions();
-  const { availableGoldTypes, availableKaratGrades, availableQualityGrades } = useGoldParameters();
+  const { isSpecsModuleEnabled, availableGoldTypes, availableKaratGrades, availableQualityGrades } = useGoldParameters();
 
   // Form State
   const [sellerType, setSellerType] = useState<"company" | "asm">("company");
@@ -287,10 +287,10 @@ export function RecordPurchaseForm() {
         quantity: parsedQuantity,
         measurement_unit_id: measurementUnitId,
         unit_price: parsedPrice,
-        gold_type: goldType,
-        karat: karat,
-        quality_grade: qualityGrade,
-        purity_percentage: purityPercentage ? parseFloat(purityPercentage) : undefined,
+        gold_type: isSpecsModuleEnabled ? goldType : undefined,
+        karat: isSpecsModuleEnabled ? karat : undefined,
+        quality_grade: isSpecsModuleEnabled ? qualityGrade : undefined,
+        purity_percentage: isSpecsModuleEnabled && purityPercentage ? parseFloat(purityPercentage) : undefined,
         is_custom_price: priceMode === "custom",
         price_configuration_id: priceMode === "configured" ? activePriceConfig?.price_config_id : undefined,
         business_date: businessDate,
@@ -548,107 +548,109 @@ export function RecordPurchaseForm() {
             )}
           </div>
 
-          {/* CARD 2: GOLD SPECIFICATION & QUALITY STANDARDS */}
-          <div className="p-6 rounded-3xl bg-card border border-border shadow-xs space-y-5">
-            <div className="flex items-center justify-between">
-              <div>
-                <h3 className="text-base font-bold text-foreground flex items-center gap-2.5">
-                  <span className="w-7 h-7 rounded-xl bg-amber-500/10 text-amber-600 dark:text-amber-400 text-xs flex items-center justify-center font-bold">
-                    2
-                  </span>
-                  Gold Quality & Karat Specifications
-                </h3>
-                <p className="text-xs text-muted-foreground mt-0.5">
-                  Select configured physical gold type, karat purity rating, and certification quality grade.
-                </p>
+          {/* CARD 2: GOLD SPECIFICATION & QUALITY STANDARDS (CONDITIONALLY RENDERED WHEN MODULE IS ACTIVE) */}
+          {isSpecsModuleEnabled && (
+            <div className="p-6 rounded-3xl bg-card border border-border shadow-xs space-y-5">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h3 className="text-base font-bold text-foreground flex items-center gap-2.5">
+                    <span className="w-7 h-7 rounded-xl bg-amber-500/10 text-amber-600 dark:text-amber-400 text-xs flex items-center justify-center font-bold">
+                      2
+                    </span>
+                    Gold Quality & Karat Specifications
+                  </h3>
+                  <p className="text-xs text-muted-foreground mt-0.5">
+                    Select configured physical gold type, karat purity rating, and certification quality grade.
+                  </p>
+                </div>
+                <Badge variant="outline" className="text-[10px] text-muted-foreground">
+                  Configured Standards
+                </Badge>
               </div>
-              <Badge variant="outline" className="text-[10px] text-muted-foreground">
-                Configured Standards
-              </Badge>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 p-4 rounded-2xl bg-muted/20 border border-border">
+                {/* Gold Type */}
+                <div className="space-y-1.5">
+                  <Label className="text-xs font-semibold">Gold Type *</Label>
+                  <Select value={goldType} onValueChange={setGoldType}>
+                    <SelectTrigger className="h-9 text-xs rounded-xl">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {availableGoldTypes.map((t) => (
+                        <SelectItem key={t.id} value={t.name}>
+                          {t.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                {/* Karat Grade */}
+                <div className="space-y-1.5">
+                  <Label className="text-xs font-semibold">Karat Grade *</Label>
+                  <Select
+                    value={karat}
+                    onValueChange={(val) => {
+                      setKarat(val);
+                      const matched = availableKaratGrades.find((k) => k.karat === val);
+                      if (matched) setPurityPercentage(String(matched.default_purity_percentage));
+                    }}
+                  >
+                    <SelectTrigger className="h-9 text-xs rounded-xl">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {availableKaratGrades.map((k) => (
+                        <SelectItem key={k.id} value={k.karat}>
+                          {k.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                {/* Purity % */}
+                <div className="space-y-1.5">
+                  <Label className="text-xs font-semibold">Purity Percentage (%)</Label>
+                  <Input
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    max="100"
+                    value={purityPercentage}
+                    onChange={(e) => setPurityPercentage(e.target.value)}
+                    placeholder="e.g. 99.9"
+                    className="h-9 text-xs font-mono rounded-xl"
+                  />
+                </div>
+
+                {/* Quality Grade */}
+                <div className="space-y-1.5">
+                  <Label className="text-xs font-semibold">Quality Grading *</Label>
+                  <Select value={qualityGrade} onValueChange={setQualityGrade}>
+                    <SelectTrigger className="h-9 text-xs rounded-xl">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {availableQualityGrades.map((q) => (
+                        <SelectItem key={q.id} value={q.grade}>
+                          {q.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
             </div>
-
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 p-4 rounded-2xl bg-muted/20 border border-border">
-              {/* Gold Type */}
-              <div className="space-y-1.5">
-                <Label className="text-xs font-semibold">Gold Type *</Label>
-                <Select value={goldType} onValueChange={setGoldType}>
-                  <SelectTrigger className="h-9 text-xs rounded-xl">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {availableGoldTypes.map((t) => (
-                      <SelectItem key={t.id} value={t.name}>
-                        {t.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-
-              {/* Karat Grade */}
-              <div className="space-y-1.5">
-                <Label className="text-xs font-semibold">Karat Grade *</Label>
-                <Select
-                  value={karat}
-                  onValueChange={(val) => {
-                    setKarat(val);
-                    const matched = availableKaratGrades.find((k) => k.karat === val);
-                    if (matched) setPurityPercentage(String(matched.default_purity_percentage));
-                  }}
-                >
-                  <SelectTrigger className="h-9 text-xs rounded-xl">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {availableKaratGrades.map((k) => (
-                      <SelectItem key={k.id} value={k.karat}>
-                        {k.label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-
-              {/* Purity % */}
-              <div className="space-y-1.5">
-                <Label className="text-xs font-semibold">Purity Percentage (%)</Label>
-                <Input
-                  type="number"
-                  step="0.01"
-                  min="0"
-                  max="100"
-                  value={purityPercentage}
-                  onChange={(e) => setPurityPercentage(e.target.value)}
-                  placeholder="e.g. 99.9"
-                  className="h-9 text-xs font-mono rounded-xl"
-                />
-              </div>
-
-              {/* Quality Grade */}
-              <div className="space-y-1.5">
-                <Label className="text-xs font-semibold">Quality Grading *</Label>
-                <Select value={qualityGrade} onValueChange={setQualityGrade}>
-                  <SelectTrigger className="h-9 text-xs rounded-xl">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {availableQualityGrades.map((q) => (
-                      <SelectItem key={q.id} value={q.grade}>
-                        {q.label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-          </div>
+          )}
 
           {/* CARD 3: MEASUREMENT INTAKE & UNIT CONVERSION */}
           <div className="p-6 rounded-3xl bg-card border border-border shadow-xs space-y-5">
             <div>
               <h3 className="text-base font-bold text-foreground flex items-center gap-2.5">
                 <span className="w-7 h-7 rounded-xl bg-purple-500/10 text-purple-600 dark:text-purple-400 text-xs flex items-center justify-center font-bold">
-                  3
+                  {isSpecsModuleEnabled ? 3 : 2}
                 </span>
                 Measurement Intake & Unit Conversion
               </h3>
@@ -717,7 +719,7 @@ export function RecordPurchaseForm() {
               <div>
                 <h3 className="text-base font-bold text-foreground flex items-center gap-2.5">
                   <span className="w-7 h-7 rounded-xl bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 text-xs flex items-center justify-center font-bold">
-                    4
+                    {isSpecsModuleEnabled ? 4 : 3}
                   </span>
                   Valuation Rate & Pricing Benchmark
                 </h3>
@@ -815,7 +817,7 @@ export function RecordPurchaseForm() {
             <div>
               <h3 className="text-base font-bold text-foreground flex items-center gap-2.5">
                 <span className="w-7 h-7 rounded-xl bg-sky-500/10 text-sky-600 dark:text-sky-400 text-xs flex items-center justify-center font-bold">
-                  5
+                  {isSpecsModuleEnabled ? 5 : 4}
                 </span>
                 Operational Metadata & Audit Notes
               </h3>
@@ -880,21 +882,32 @@ export function RecordPurchaseForm() {
 
             {/* TRANSACTION SPECIFICATION SUMMARY */}
             <div className="space-y-3 text-xs divide-y divide-border">
-              {/* Gold Quality */}
-              <div className="pt-2 flex justify-between items-center">
-                <span className="text-muted-foreground">Gold Specification:</span>
-                <span className="font-semibold text-foreground">
-                  {karat} • {goldType}
-                </span>
-              </div>
+              {isSpecsModuleEnabled ? (
+                <>
+                  {/* Gold Quality */}
+                  <div className="pt-2 flex justify-between items-center">
+                    <span className="text-muted-foreground">Gold Specification:</span>
+                    <span className="font-semibold text-foreground">
+                      {karat} • {goldType}
+                    </span>
+                  </div>
 
-              {/* Quality & Purity */}
-              <div className="pt-2 flex justify-between items-center">
-                <span className="text-muted-foreground">Quality & Purity:</span>
-                <span className="font-semibold text-foreground">
-                  {qualityGrade} ({purityPercentage}% pure)
-                </span>
-              </div>
+                  {/* Quality & Purity */}
+                  <div className="pt-2 flex justify-between items-center">
+                    <span className="text-muted-foreground">Quality & Purity:</span>
+                    <span className="font-semibold text-foreground">
+                      {qualityGrade} ({purityPercentage}% pure)
+                    </span>
+                  </div>
+                </>
+              ) : (
+                <div className="pt-2 flex justify-between items-center">
+                  <span className="text-muted-foreground">Specifications:</span>
+                  <Badge variant="secondary" className="text-[10px] bg-muted text-muted-foreground font-mono">
+                    Standard Intake (Module Bypassed)
+                  </Badge>
+                </div>
+              )}
 
               {/* Standardized Canonical Weight */}
               <div className="pt-2 flex justify-between items-center">
@@ -992,18 +1005,29 @@ export function RecordPurchaseForm() {
                 {sellerType === "company" ? selectedCompany?.name : selectedAsm?.full_name}
               </span>
             </div>
-            <div className="flex justify-between py-1.5">
-              <span className="text-muted-foreground">Gold Spec:</span>
-              <span className="font-semibold text-foreground">
-                {karat} ({goldType})
-              </span>
-            </div>
-            <div className="flex justify-between py-1.5">
-              <span className="text-muted-foreground">Quality & Purity:</span>
-              <span className="text-foreground">
-                {qualityGrade} ({purityPercentage}% pure)
-              </span>
-            </div>
+            {isSpecsModuleEnabled ? (
+              <>
+                <div className="flex justify-between py-1.5">
+                  <span className="text-muted-foreground">Gold Spec:</span>
+                  <span className="font-semibold text-foreground">
+                    {karat} ({goldType})
+                  </span>
+                </div>
+                <div className="flex justify-between py-1.5">
+                  <span className="text-muted-foreground">Quality & Purity:</span>
+                  <span className="text-foreground">
+                    {qualityGrade} ({purityPercentage}% pure)
+                  </span>
+                </div>
+              </>
+            ) : (
+              <div className="flex justify-between py-1.5">
+                <span className="text-muted-foreground">Quality & Specs:</span>
+                <span className="text-xs text-muted-foreground italic">
+                  Standard Ingest (Module Inactive)
+                </span>
+              </div>
+            )}
             <div className="flex justify-between py-1.5">
               <span className="text-muted-foreground">Pricing Mode:</span>
               <Badge variant={priceMode === "configured" ? "default" : "secondary"} className="text-xs">

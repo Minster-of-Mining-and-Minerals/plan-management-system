@@ -61,7 +61,27 @@ const STORAGE_KEYS = {
   GOLD_TYPES: "prms_gold_types_config_v1",
   KARATS: "prms_karats_config_v1",
   QUALITY_GRADES: "prms_quality_grades_config_v1",
+  SPECS_MODULE_ENABLED: "prms_gold_specs_module_enabled_v1",
 };
+
+export function loadStoredSpecsModuleEnabled(): boolean {
+  if (typeof window === "undefined") return true;
+  try {
+    const raw = localStorage.getItem(STORAGE_KEYS.SPECS_MODULE_ENABLED);
+    if (raw === null) return true;
+    return raw === "true";
+  } catch {
+    return true;
+  }
+}
+
+export function saveStoredSpecsModuleEnabled(enabled: boolean) {
+  if (typeof window === "undefined") return;
+  try {
+    localStorage.setItem(STORAGE_KEYS.SPECS_MODULE_ENABLED, String(enabled));
+    window.dispatchEvent(new Event("gold_parameters_updated"));
+  } catch {}
+}
 
 export function loadStoredGoldTypes(): GoldTypeConfig[] {
   if (typeof window === "undefined") return DEFAULT_GOLD_TYPES;
@@ -121,12 +141,14 @@ export function saveStoredQualityGrades(data: QualityGradeConfig[]) {
 }
 
 export function useGoldParameters() {
+  const [isSpecsModuleEnabled, setIsSpecsModuleEnabled] = useState<boolean>(true);
   const [goldTypes, setGoldTypes] = useState<GoldTypeConfig[]>(DEFAULT_GOLD_TYPES);
   const [karatGrades, setKaratGrades] = useState<KaratGradeConfig[]>(DEFAULT_KARAT_GRADES);
   const [qualityGrades, setQualityGrades] = useState<QualityGradeConfig[]>(DEFAULT_QUALITY_GRADES);
   const [isReady, setIsReady] = useState(false);
 
   const refresh = useCallback(() => {
+    setIsSpecsModuleEnabled(loadStoredSpecsModuleEnabled());
     setGoldTypes(loadStoredGoldTypes());
     setKaratGrades(loadStoredKaratGrades());
     setQualityGrades(loadStoredQualityGrades());
@@ -143,6 +165,17 @@ export function useGoldParameters() {
       window.removeEventListener("storage", handleUpdate);
     };
   }, [refresh]);
+
+  const toggleSpecsModule = (overrideEnabled?: boolean) => {
+    const nextVal = typeof overrideEnabled === "boolean" ? overrideEnabled : !isSpecsModuleEnabled;
+    setIsSpecsModuleEnabled(nextVal);
+    saveStoredSpecsModuleEnabled(nextVal);
+  };
+
+  const setSpecsModuleEnabled = (enabled: boolean) => {
+    setIsSpecsModuleEnabled(enabled);
+    saveStoredSpecsModuleEnabled(enabled);
+  };
 
   // Filtered active choices for purchase recording and benchmarking
   const availableGoldTypes = goldTypes.filter((g) => g.is_available);
@@ -221,6 +254,9 @@ export function useGoldParameters() {
 
   return {
     isReady,
+    isSpecsModuleEnabled,
+    toggleSpecsModule,
+    setSpecsModuleEnabled,
     goldTypes,
     karatGrades,
     qualityGrades,

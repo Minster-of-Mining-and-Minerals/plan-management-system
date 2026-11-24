@@ -435,6 +435,12 @@ async function getFederalOversightDashboard(query = {}) {
   let todayPurchasesCount = 0;
   let todayCanonicalQuantity = 0;
   let todayAmount = 0;
+  let todayCompanyCount = 0;
+  let todayCompanyQuantity = 0;
+  let todayCompanyAmount = 0;
+  let todayAsmCount = 0;
+  let todayAsmQuantity = 0;
+  let todayAsmAmount = 0;
 
   // Center-level aggregates map
   const centerAggMap = new Map();
@@ -460,6 +466,16 @@ async function getFederalOversightDashboard(query = {}) {
       todayPurchasesCount += 1;
       todayCanonicalQuantity += canonical;
       todayAmount += amt;
+
+      if (p.seller_type === "company") {
+        todayCompanyCount += 1;
+        todayCompanyQuantity += canonical;
+        todayCompanyAmount += amt;
+      } else {
+        todayAsmCount += 1;
+        todayAsmQuantity += canonical;
+        todayAsmAmount += amt;
+      }
     }
 
     const pcId = p.purchasing_center_id;
@@ -619,6 +635,18 @@ async function getFederalOversightDashboard(query = {}) {
         count: asmCount,
         canonical_quantity: parseFloat(asmQuantity.toFixed(4)),
         amount: parseFloat(asmAmount.toFixed(2)),
+      },
+    },
+    period_seller_distribution: {
+      company: {
+        count: todayCompanyCount,
+        canonical_quantity: parseFloat(todayCompanyQuantity.toFixed(4)),
+        amount: parseFloat(todayCompanyAmount.toFixed(2)),
+      },
+      asm: {
+        count: todayAsmCount,
+        canonical_quantity: parseFloat(todayAsmQuantity.toFixed(4)),
+        amount: parseFloat(todayAsmAmount.toFixed(2)),
       },
     },
     centers: centerSummaries,

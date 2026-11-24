@@ -124,6 +124,10 @@ export const ROUTE_PERMISSION_RULES: RoutePermissionRule[] = [
     anyPermissions: ["GOLD_PRICES:READ", "GOLD_PRICES:MANAGE", "GOLD_OVERSIGHT:MANAGE", "GOLD_OVERSIGHT:READ"],
   },
   {
+    pattern: "/admin/gold-operations/parameters",
+    anyPermissions: ["GOLD_PRICES:READ", "GOLD_PRICES:MANAGE", "GOLD_OVERSIGHT:MANAGE", "GOLD_OVERSIGHT:READ"],
+  },
+  {
     pattern: "/admin/gold-operations",
     anyPermissions: ["GOLD_OVERSIGHT:READ", "GOLD_OVERSIGHT:MANAGE", "PURCHASING_CENTERS:READ", "PURCHASING_CENTERS:MANAGE"],
   },

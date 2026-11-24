@@ -14,6 +14,8 @@ import {
   Coins,
   Layers,
   Info,
+  Power,
+  AlertCircle,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -47,6 +49,9 @@ import { toast } from "sonner";
 export function GoldParameterConfigurationView() {
   const {
     isReady,
+    isSpecsModuleEnabled,
+    toggleSpecsModule,
+    setSpecsModuleEnabled,
     goldTypes,
     karatGrades,
     qualityGrades,
@@ -163,6 +168,89 @@ export function GoldParameterConfigurationView() {
           </Button>
         </div>
       </div>
+
+      {/* MASTER MODULE ENFORCEMENT TOGGLE CARD */}
+      <div
+        className={`p-6 rounded-3xl border transition-all ${
+          isSpecsModuleEnabled
+            ? "bg-card border-border shadow-xs"
+            : "bg-destructive/5 border-destructive/20 shadow-xs"
+        }`}
+      >
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-5">
+          <div className="flex items-start gap-4">
+            <div
+              className={`w-12 h-12 rounded-2xl flex items-center justify-center shrink-0 ${
+                isSpecsModuleEnabled
+                  ? "bg-amber-500/15 text-amber-600 dark:text-amber-400 ring-1 ring-amber-500/30"
+                  : "bg-muted text-muted-foreground ring-1 ring-border"
+              }`}
+            >
+              <Layers className="h-6 w-6" />
+            </div>
+
+            <div className="space-y-1">
+              <div className="flex items-center gap-2.5 flex-wrap">
+                <h2 className="text-base sm:text-lg font-bold text-foreground">
+                  Gold Quality & Karat Specifications Category Control
+                </h2>
+                <Badge
+                  variant={isSpecsModuleEnabled ? "default" : "secondary"}
+                  className={
+                    isSpecsModuleEnabled
+                      ? "bg-emerald-600 text-white font-semibold text-xs"
+                      : "bg-muted text-muted-foreground text-xs"
+                  }
+                >
+                  {isSpecsModuleEnabled ? "Enforced & Required" : "Disabled / Bypassed"}
+                </Badge>
+              </div>
+              <p className="text-xs text-muted-foreground max-w-2xl leading-relaxed">
+                {isSpecsModuleEnabled
+                  ? "Module is ACTIVE across all purchasing centers. Registrars must specify physical Gold Type, Karat Grade, Purity Percentage, and Quality Grading before recording purchases."
+                  : "Module is TURNED OFF GLOBALLY: The entire Gold Quality, Karat, and Quality Grading section is hidden in the purchasing register. Purchase intake validation automatically passes without requiring quality or karat specifications."}
+              </p>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-3 shrink-0 self-start md:self-auto">
+            <Button
+              type="button"
+              variant={isSpecsModuleEnabled ? "outline" : "default"}
+              size="default"
+              onClick={() => {
+                toggleSpecsModule();
+                toast.success(
+                  isSpecsModuleEnabled
+                    ? "Gold Quality & Karat Specifications module turned OFF globally. Purchasing side validation will bypass specifications."
+                    : "Gold Quality & Karat Specifications module turned ON globally. Specifications will be required in purchasing centers."
+                );
+              }}
+              className={`gap-2 font-bold h-11 px-5 rounded-2xl ${
+                isSpecsModuleEnabled
+                  ? "border-destructive/40 text-destructive hover:bg-destructive/10"
+                  : "bg-emerald-600 hover:bg-emerald-700 text-white shadow-sm"
+              }`}
+            >
+              <Power className="h-4 w-4" />
+              {isSpecsModuleEnabled ? "Turn OFF Entire Category" : "Turn ON Specifications Module"}
+            </Button>
+          </div>
+        </div>
+      </div>
+
+      {/* Warning banner when disabled */}
+      {!isSpecsModuleEnabled && (
+        <div className="p-4 rounded-2xl bg-amber-500/10 border border-amber-500/25 text-xs text-amber-900 dark:text-amber-200 flex items-start gap-3">
+          <AlertCircle className="h-4 w-4 shrink-0 text-amber-600 dark:text-amber-400 mt-0.5" />
+          <div className="space-y-0.5">
+            <p className="font-bold">Specifications Module is currently Bypassed</p>
+            <p className="text-muted-foreground">
+              Gold purchase recording forms in purchasing centers do not render or require Gold Type, Karat, or Quality Grade inputs while this category is toggled off. You can still manage individual availability flags below so they will be ready whenever the module is re-enabled.
+            </p>
+          </div>
+        </div>
+      )}
 
       {/* Navigation Switcher Tabs */}
       <div className="flex flex-wrap items-center gap-2 border-b border-border pb-3">

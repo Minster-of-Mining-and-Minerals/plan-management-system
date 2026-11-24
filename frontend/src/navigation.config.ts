@@ -25,6 +25,7 @@ import {
   BarChart3,
   Layers,
   Share2,
+  Sliders,
 } from "lucide-react";
 
 export type NavItem = {
@@ -103,6 +104,12 @@ export const PRIVATE_CATEGORIZED_NAVIGATION: NavCategory[] = [
             url: "/admin/gold-operations/units",
             icon: Scale,
             anyPermissions: ["GOLD_UNITS:READ", "GOLD_UNITS:MANAGE"],
+          },
+          {
+            title: "Parameters & Standards",
+            url: "/admin/gold-operations/parameters",
+            icon: Sliders,
+            anyPermissions: ["GOLD_PRICES:READ", "GOLD_PRICES:MANAGE", "GOLD_OVERSIGHT:MANAGE"],
           },
         ],
       },

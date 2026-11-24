@@ -21,6 +21,8 @@ import {
   Sliders,
   Sparkles,
   Percent,
+  Activity,
+  Layers,
 } from "lucide-react";
 import {
   ResponsiveContainer,
@@ -75,6 +77,9 @@ const RANGE_PRESETS: { key: string; label: string; range: () => [string, string]
 export function FederalOversightView() {
   const [dateFrom, setDateFrom] = useState(() => addisDate());
   const [dateTo, setDateTo] = useState(() => addisDate());
+  const [activeMetric, setActiveMetric] = useState<"volume" | "amount" | "purchases" | "avg_ticket">("volume");
+  const [sourcingMode, setSourcingMode] = useState<"period" | "all_time">("period");
+  const [overviewDisplayMode, setOverviewDisplayMode] = useState<"period" | "cumulative">("period");
 
   const { data, isLoading, isFetching, refetch } = useGetFederalGoldOversightQuery({
     date_from: dateFrom || undefined,
@@ -84,6 +89,7 @@ export function FederalOversightView() {
   const overview = data?.overview;
   const today = data?.today;
   const sellerDistribution = data?.seller_distribution;
+  const periodSellerDistribution = data?.period_seller_distribution;
   const centers = data?.centers || [];
 
   const isSingleDay = !today?.days || today.days <= 1;
@@ -104,68 +110,93 @@ export function FederalOversightView() {
 
   // Recharts Center Comparison Data
   const centerChartData = useMemo(() => {
-    return centers.map((c) => ({
-      name: c.name,
-      code: c.code,
-      volume: parseFloat(parseFloat(String(c.today_quantity_canonical || 0)).toFixed(2)),
-      amount: parseFloat(parseFloat(String(c.today_amount || 0)).toFixed(2)),
-      totalVolume: parseFloat(parseFloat(String(c.total_quantity_canonical || 0)).toFixed(2)),
-      purchases: c.today_purchases || 0,
-    }));
+    return centers.map((c) => {
+      const volume = parseFloat(parseFloat(String(c.today_quantity_canonical || 0)).toFixed(2));
+      const amount = parseFloat(parseFloat(String(c.today_amount || 0)).toFixed(2));
+      const purchases = c.today_purchases || 0;
+      const avg_ticket = purchases > 0 ? parseFloat((volume / purchases).toFixed(2)) : 0;
+      return {
+        name: c.name,
+        code: c.code,
+        volume,
+        amount,
+        purchases,
+        avg_ticket,
+        totalVolume: parseFloat(parseFloat(String(c.total_quantity_canonical || 0)).toFixed(2)),
+      };
+    });
   }, [centers]);
 
-  // Sourcing Distribution Donut Data
+  // Sourcing Distribution Donut Data (supports Period vs All-Time mode)
   const sourcingChartData = useMemo(() => {
-    const companyVol = parseFloat(String(sellerDistribution?.company?.canonical_quantity || 0));
-    const asmVol = parseFloat(String(sellerDistribution?.asm?.canonical_quantity || 0));
+    const dist = sourcingMode === "period" && periodSellerDistribution
+      ? periodSellerDistribution
+      : sellerDistribution;
+
+    const companyVol = parseFloat(String(dist?.company?.canonical_quantity || 0));
+    const asmVol = parseFloat(String(dist?.asm?.canonical_quantity || 0));
 
     return [
       {
         name: "Registered Companies",
         value: companyVol,
-        purchases: sellerDistribution?.company?.count || 0,
-        amount: sellerDistribution?.company?.amount || 0,
+        purchases: dist?.company?.count || 0,
+        amount: dist?.company?.amount || 0,
         color: "#0284c7",
       },
       {
         name: "Artisanal Miners (ASM)",
         value: asmVol,
-        purchases: sellerDistribution?.asm?.count || 0,
-        amount: sellerDistribution?.asm?.amount || 0,
+        purchases: dist?.asm?.count || 0,
+        amount: dist?.asm?.amount || 0,
         color: "#f59e0b",
       },
     ];
-  }, [sellerDistribution]);
+  }, [sourcingMode, periodSellerDistribution, sellerDistribution]);
 
   // Statistical calculations
   const statisticalMetrics = useMemo(() => {
     const totalGrams = parseFloat(String(today?.canonical_quantity || 0));
     const totalAmount = parseFloat(String(today?.amount || 0));
     const totalPurchases = today?.purchases_count || 0;
+    const days = Math.max(today?.days || 1, 1);
 
     const avgTransactionWeight = totalPurchases > 0 ? (totalGrams / totalPurchases) : 0;
     const avgTransactionValue = totalPurchases > 0 ? (totalAmount / totalPurchases) : 0;
     const effectivePricePerGram = totalGrams > 0 ? (totalAmount / totalGrams) : 0;
+    const dailyVolumePace = totalGrams / days;
 
     // Top Center by Volume
     const sortedCenters = [...centers].sort((a, b) => (b.today_quantity_canonical || 0) - (a.today_quantity_canonical || 0));
     const topCenter = sortedCenters[0] || null;
+    const topCenterVolume = parseFloat(String(topCenter?.today_quantity_canonical || 0));
+    const topCenterShare = totalGrams > 0 ? ((topCenterVolume / totalGrams) * 100).toFixed(1) : "0";
 
-    // ASM Share
-    const companyGrams = parseFloat(String(sellerDistribution?.company?.canonical_quantity || 0));
-    const asmGrams = parseFloat(String(sellerDistribution?.asm?.canonical_quantity || 0));
+    // ASM Share in current distribution
+    const dist = sourcingMode === "period" && periodSellerDistribution
+      ? periodSellerDistribution
+      : sellerDistribution;
+    const companyGrams = parseFloat(String(dist?.company?.canonical_quantity || 0));
+    const asmGrams = parseFloat(String(dist?.asm?.canonical_quantity || 0));
     const allGrams = companyGrams + asmGrams || 1;
     const asmSharePct = ((asmGrams / allGrams) * 100).toFixed(1);
+
+    // Active centers reporting purchases in period
+    const activeReportingCenters = centers.filter((c) => (c.today_purchases || 0) > 0).length;
 
     return {
       avgTransactionWeight: avgTransactionWeight.toFixed(2),
       avgTransactionValue: avgTransactionValue.toLocaleString(undefined, { maximumFractionDigits: 0 }),
       effectivePricePerGram: effectivePricePerGram.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }),
+      dailyVolumePace: dailyVolumePace.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }),
       topCenterName: topCenter ? topCenter.name : "N/A",
-      topCenterVolume: topCenter ? parseFloat(String(topCenter.today_quantity_canonical || 0)).toLocaleString() : "0",
+      topCenterVolume: topCenterVolume.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }),
+      topCenterShare,
       asmSharePct,
+      activeReportingCenters,
+      totalCenters: centers.length,
     };
-  }, [today, centers, sellerDistribution]);
+  }, [today, centers, sourcingMode, periodSellerDistribution, sellerDistribution]);
 
   const centerColumns: ColumnDef<any>[] = [
     {
@@ -407,7 +438,7 @@ export function FederalOversightView() {
           Cross-Center Statistical Analysis & Volume Visualizations
         </h3>
 
-        {/* STATISTICAL SUMMARY TILES */}
+        {/* STATISTICAL SUMMARY TILES (DYNAMIC ANALYTICAL METRICS) */}
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
           <div className="p-4 rounded-2xl bg-card border border-border space-y-1">
             <span className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">
@@ -421,12 +452,12 @@ export function FederalOversightView() {
 
           <div className="p-4 rounded-2xl bg-card border border-border space-y-1">
             <span className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">
-              Avg Transaction Payout
+              Avg Ticket Payout
             </span>
             <p className="text-xl font-bold font-mono text-emerald-600 dark:text-emerald-400">
               {statisticalMetrics.avgTransactionValue} ETB
             </p>
-            <p className="text-[10px] text-muted-foreground">Mean ticket disbursement</p>
+            <p className="text-[10px] text-muted-foreground">Mean transaction disbursement</p>
           </div>
 
           <div className="p-4 rounded-2xl bg-card border border-border space-y-1">
@@ -441,32 +472,56 @@ export function FederalOversightView() {
 
           <div className="p-4 rounded-2xl bg-card border border-border space-y-1">
             <span className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">
-              Artisanal (ASM) Share
+              Top Outpost Volume
             </span>
             <p className="text-xl font-bold font-mono text-sky-600 dark:text-sky-400">
-              {statisticalMetrics.asmSharePct}%
+              {statisticalMetrics.topCenterVolume} g
             </p>
-            <p className="text-[10px] text-muted-foreground">Of nationwide volume</p>
+            <p className="text-[10px] text-muted-foreground truncate">
+              {statisticalMetrics.topCenterName} ({statisticalMetrics.topCenterShare}% share)
+            </p>
           </div>
         </div>
 
         {/* COMPARATIVE GRAPHS GRID */}
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-          {/* Center-by-Center Volume Bar Chart (8 Cols) */}
+          {/* Center-by-Center Volume Bar Chart with Multi-Metric Toggle (8 Cols) */}
           <div className="lg:col-span-8 p-6 rounded-3xl bg-card border border-border shadow-xs space-y-4">
-            <div className="flex items-center justify-between">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
               <div>
                 <h4 className="font-bold text-foreground text-sm flex items-center gap-2">
                   <Store className="h-4 w-4 text-amber-500" />
-                  Purchasing Center Volume Comparison ({periodLabel})
+                  Purchasing Center Comparison ({periodLabel})
                 </h4>
                 <p className="text-xs text-muted-foreground">
-                  Gold weight canonical volume (g) collected per regional center
+                  Interactive multi-metric telemetry across all registered purchasing centers
                 </p>
               </div>
-              <Badge variant="outline" className="text-xs font-mono">
-                {centerChartData.length} Centers
-              </Badge>
+
+              {/* Metric Switcher Controls */}
+              <div className="flex items-center gap-1 bg-muted/50 p-1 rounded-xl border border-border shrink-0 flex-wrap">
+                {(
+                  [
+                    { key: "volume", label: "Canonical Gold (g)" },
+                    { key: "amount", label: "Payout (ETB)" },
+                    { key: "purchases", label: "Transactions (#)" },
+                    { key: "avg_ticket", label: "Avg Ticket (g)" },
+                  ] as const
+                ).map((m) => (
+                  <button
+                    key={m.key}
+                    type="button"
+                    onClick={() => setActiveMetric(m.key)}
+                    className={`px-2.5 py-1 rounded-lg text-xs font-semibold transition-all ${
+                      activeMetric === m.key
+                        ? "bg-background text-foreground shadow-xs border border-border"
+                        : "text-muted-foreground hover:text-foreground"
+                    }`}
+                  >
+                    {m.label}
+                  </button>
+                ))}
+              </div>
             </div>
 
             <div className="h-64 w-full pt-2">
@@ -487,31 +542,67 @@ export function FederalOversightView() {
                       tick={{ fontSize: 11 }}
                       stroke="#888888"
                       tickLine={false}
-                      tickFormatter={(val) => `${val}g`}
+                      tickFormatter={(val) => {
+                        if (activeMetric === "amount") {
+                          return val >= 1_000_000 ? `${(val / 1_000_000).toFixed(1)}M` : val >= 1000 ? `${(val / 1000).toFixed(0)}k` : `${val}`;
+                        }
+                        if (activeMetric === "volume" || activeMetric === "avg_ticket") {
+                          return `${val}g`;
+                        }
+                        return `${val}`;
+                      }}
                     />
                     <RechartsTooltip
                       content={({ active, payload, label }) => {
                         if (active && payload && payload.length) {
                           const item = payload[0].payload;
                           return (
-                            <div className="p-3 bg-popover/95 border border-border shadow-lg rounded-2xl text-xs space-y-1">
-                              <p className="font-bold text-foreground">{label} ({item.code})</p>
-                              <p className="text-amber-600 dark:text-amber-400 font-mono">
-                                Period Volume: {item.volume.toLocaleString()} grams
+                            <div className="p-3 bg-popover/95 backdrop-blur-sm border border-border shadow-lg rounded-2xl text-xs space-y-1.5 min-w-[190px]">
+                              <p className="font-bold text-foreground border-b border-border pb-1">
+                                {label} ({item.code})
                               </p>
-                              <p className="text-emerald-600 dark:text-emerald-400 font-mono">
-                                Period Payout: {item.amount.toLocaleString()} ETB
-                              </p>
-                              <p className="text-muted-foreground font-mono">
-                                Transactions: {item.purchases}
-                              </p>
+                              <div className="space-y-1">
+                                <p className={`font-mono font-bold ${activeMetric === "volume" ? "text-amber-600 dark:text-amber-400" : "text-muted-foreground"}`}>
+                                  • Volume: {item.volume.toLocaleString()} grams
+                                </p>
+                                <p className={`font-mono font-bold ${activeMetric === "amount" ? "text-emerald-600 dark:text-emerald-400" : "text-muted-foreground"}`}>
+                                  • Payout: {item.amount.toLocaleString()} ETB
+                                </p>
+                                <p className={`font-mono font-bold ${activeMetric === "purchases" ? "text-sky-600 dark:text-sky-400" : "text-muted-foreground"}`}>
+                                  • Transactions: {item.purchases}
+                                </p>
+                                <p className={`font-mono font-bold ${activeMetric === "avg_ticket" ? "text-purple-600 dark:text-purple-400" : "text-muted-foreground"}`}>
+                                  • Avg Ticket: {item.avg_ticket} g / txn
+                                </p>
+                              </div>
                             </div>
                           );
                         }
                         return null;
                       }}
                     />
-                    <Bar dataKey="volume" name="Canonical Gold (g)" fill="#f59e0b" radius={[6, 6, 0, 0]} />
+                    <Bar
+                      dataKey={activeMetric}
+                      name={
+                        activeMetric === "volume"
+                          ? "Canonical Gold (g)"
+                          : activeMetric === "amount"
+                          ? "Disbursement (ETB)"
+                          : activeMetric === "purchases"
+                          ? "Transactions"
+                          : "Avg Ticket Size (g)"
+                      }
+                      fill={
+                        activeMetric === "volume"
+                          ? "#f59e0b"
+                          : activeMetric === "amount"
+                          ? "#10b981"
+                          : activeMetric === "purchases"
+                          ? "#0284c7"
+                          : "#8b5cf6"
+                      }
+                      radius={[6, 6, 0, 0]}
+                    />
                   </BarChart>
                 </ResponsiveContainer>
               ) : (
@@ -522,16 +613,44 @@ export function FederalOversightView() {
             </div>
           </div>
 
-          {/* Sourcing Channel Donut (4 Cols) */}
+          {/* Sourcing Channel Donut with Period vs All-Time Toggle (4 Cols) */}
           <div className="lg:col-span-4 p-6 rounded-3xl bg-card border border-border shadow-xs space-y-4">
-            <div>
-              <h4 className="font-bold text-foreground text-sm flex items-center gap-2">
-                <PieChartIcon className="h-4 w-4 text-sky-500" />
-                National Sourcing Parity
-              </h4>
-              <p className="text-xs text-muted-foreground">
-                All-time volume share: Corporate vs Artisanal
-              </p>
+            <div className="flex items-center justify-between flex-wrap gap-2">
+              <div>
+                <h4 className="font-bold text-foreground text-sm flex items-center gap-2">
+                  <PieChartIcon className="h-4 w-4 text-sky-500" />
+                  Sourcing Parity
+                </h4>
+                <p className="text-xs text-muted-foreground">
+                  {sourcingMode === "period" ? `Period share (${periodLabel})` : "All-time cumulative intake"}
+                </p>
+              </div>
+
+              {/* Sourcing Mode Switch */}
+              <div className="flex items-center gap-1 bg-muted/50 p-0.5 rounded-lg border border-border shrink-0">
+                <button
+                  type="button"
+                  onClick={() => setSourcingMode("period")}
+                  className={`px-2 py-0.5 rounded-md text-[10px] font-semibold transition-all ${
+                    sourcingMode === "period"
+                      ? "bg-background text-foreground shadow-xs border border-border"
+                      : "text-muted-foreground hover:text-foreground"
+                  }`}
+                >
+                  Period
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setSourcingMode("all_time")}
+                  className={`px-2 py-0.5 rounded-md text-[10px] font-semibold transition-all ${
+                    sourcingMode === "all_time"
+                      ? "bg-background text-foreground shadow-xs border border-border"
+                      : "text-muted-foreground hover:text-foreground"
+                  }`}
+                >
+                  All-Time
+                </button>
+              </div>
             </div>
 
             <div className="h-52 w-full flex items-center justify-center">
@@ -575,63 +694,138 @@ export function FederalOversightView() {
                   </PieChart>
                 </ResponsiveContainer>
               ) : (
-                <p className="text-xs text-muted-foreground">No sourcing data</p>
+                <p className="text-xs text-muted-foreground">No sourcing data for selected window</p>
               )}
             </div>
 
             <div className="space-y-2 pt-2 border-t border-border">
-              {sourcingChartData.map((item) => (
-                <div key={item.name} className="flex items-center justify-between text-xs">
-                  <div className="flex items-center gap-2">
-                    <div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: item.color }} />
-                    <span className="font-medium text-foreground">{item.name}</span>
+              {sourcingChartData.map((item) => {
+                const total = sourcingChartData.reduce((a, b) => a + b.value, 0) || 1;
+                const pct = ((item.value / total) * 100).toFixed(1);
+                return (
+                  <div key={item.name} className="flex items-center justify-between text-xs">
+                    <div className="flex items-center gap-2">
+                      <div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: item.color }} />
+                      <span className="font-medium text-foreground">{item.name}</span>
+                    </div>
+                    <span className="font-mono font-bold text-foreground">
+                      {item.value.toLocaleString()} g{" "}
+                      <span className="text-[10px] text-muted-foreground font-normal">({pct}%)</span>
+                    </span>
                   </div>
-                  <span className="font-mono font-bold text-muted-foreground">
-                    {item.value.toLocaleString()} g
-                  </span>
-                </div>
-              ))}
+                );
+              })}
             </div>
           </div>
         </div>
       </div>
 
-      {/* ----------------- CUMULATIVE NATIONWIDE OVERVIEW ----------------- */}
+      {/* ----------------- DYNAMIC NATIONWIDE ROLLUPS & OVERVIEW SECTION ----------------- */}
       <div className="space-y-4">
-        <h3 className="text-base font-bold text-foreground">
-          Cumulative National Sourcing & Purchasing
-        </h3>
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+          <div>
+            <h3 className="text-base font-bold text-foreground flex items-center gap-2">
+              <Layers className="h-5 w-5 text-amber-500" />
+              {overviewDisplayMode === "period"
+                ? `Period Operational Rollups (${periodLabel})`
+                : "Cumulative All-Time Nationwide Overview"}
+            </h3>
+            <p className="text-xs text-muted-foreground">
+              {overviewDisplayMode === "period"
+                ? "Live consolidated performance and run-rate metrics matching current date filter"
+                : "Historical aggregate metrics spanning the entire lifecycle of all registered centers"}
+            </p>
+          </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-          <KpiCard
-            title="Active Purchasing Centers"
-            value={`${overview?.active_centers || 0}`}
-            subtitle={`${overview?.total_centers || 0} total registered outposts`}
-            icon={Store}
-            accent="primary"
-          />
-          <KpiCard
-            title="Total Gold Acquired"
-            value={`${(overview?.total_quantity_canonical || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 4 })} g`}
-            subtitle="All-time canonical volume"
-            icon={Scale}
-            accent="success"
-          />
-          <KpiCard
-            title="Total Value Disbursed"
-            value={`${(overview?.total_amount || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ETB`}
-            subtitle="All-time purchasing payouts"
-            icon={TrendingUp}
-            accent="warning"
-          />
-          <KpiCard
-            title="Total Purchases"
-            value={overview?.total_purchases?.toLocaleString() || "0"}
-            subtitle="Cumulative verified receipts"
-            icon={Coins}
-            accent="info"
-          />
+          <div className="flex items-center gap-1 bg-muted/50 p-1 rounded-xl border border-border shrink-0">
+            <button
+              type="button"
+              onClick={() => setOverviewDisplayMode("period")}
+              className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
+                overviewDisplayMode === "period"
+                  ? "bg-background text-foreground shadow-xs border border-border"
+                  : "text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              Period Analytics
+            </button>
+            <button
+              type="button"
+              onClick={() => setOverviewDisplayMode("cumulative")}
+              className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
+                overviewDisplayMode === "cumulative"
+                  ? "bg-background text-foreground shadow-xs border border-border"
+                  : "text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              Cumulative All-Time
+            </button>
+          </div>
         </div>
+
+        {overviewDisplayMode === "period" ? (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            <KpiCard
+              title="Active Center Participation"
+              value={`${statisticalMetrics.activeReportingCenters} of ${statisticalMetrics.totalCenters}`}
+              subtitle={`${((statisticalMetrics.activeReportingCenters / Math.max(statisticalMetrics.totalCenters, 1)) * 100).toFixed(0)}% centers active in period`}
+              icon={Store}
+              accent="primary"
+            />
+            <KpiCard
+              title="Period Canonical Gold"
+              value={`${(today?.canonical_quantity || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 4 })} g`}
+              subtitle={`Daily pace: ~${statisticalMetrics.dailyVolumePace} g/day`}
+              icon={Scale}
+              accent="success"
+            />
+            <KpiCard
+              title="Period Capital Disbursed"
+              value={`${(today?.amount || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ETB`}
+              subtitle={`Effective rate: ${statisticalMetrics.effectivePricePerGram} ETB/g`}
+              icon={DollarSign}
+              accent="warning"
+            />
+            <KpiCard
+              title="Period Transactions"
+              value={`${today?.purchases_count?.toLocaleString() || "0"}`}
+              subtitle={`Mean size: ${statisticalMetrics.avgTransactionWeight} g / purchase`}
+              icon={Coins}
+              accent="info"
+            />
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            <KpiCard
+              title="Active Purchasing Centers"
+              value={`${overview?.active_centers || 0}`}
+              subtitle={`${overview?.total_centers || 0} total registered outposts`}
+              icon={Store}
+              accent="primary"
+            />
+            <KpiCard
+              title="Total Gold Acquired"
+              value={`${(overview?.total_quantity_canonical || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 4 })} g`}
+              subtitle="All-time canonical volume"
+              icon={Scale}
+              accent="success"
+            />
+            <KpiCard
+              title="Total Value Disbursed"
+              value={`${(overview?.total_amount || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ETB`}
+              subtitle="All-time purchasing payouts"
+              icon={TrendingUp}
+              accent="warning"
+            />
+            <KpiCard
+              title="Total Purchases"
+              value={overview?.total_purchases?.toLocaleString() || "0"}
+              subtitle="Cumulative verified receipts"
+              icon={Coins}
+              accent="info"
+            />
+          </div>
+        )}
       </div>
 
       {/* ----------------- QUICK NAVIGATION & OVERSIGHT REGISTERS ----------------- */}
