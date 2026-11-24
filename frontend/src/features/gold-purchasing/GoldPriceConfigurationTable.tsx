@@ -45,7 +45,6 @@ import {
 } from "@/redux/api/goldApi";
 import { DataTable } from "@/features/template/component/tableList/DataTable";
 import { TableLayout } from "@/features/template/component/tableList/TableLayout";
-import { GoldOperationsTabsHeader } from "./GoldOperationsTabsHeader";
 import { useGoldParameters } from "./goldParametersConfig";
 import { Sliders } from "lucide-react";
 import { Link, useRouter } from "@/i18n/navigation";
@@ -424,8 +423,6 @@ export function GoldPriceConfigurationTable() {
 
   return (
     <div className="space-y-6">
-      <GoldOperationsTabsHeader />
-
       <TableLayout
         title="Gold Price Configuration"
         description="Configure unit purchase rates and allowed tolerance ranges based on gold type, karat purity, quality grade, and measurement units. Purchasing center registrars use these official benchmarks or record custom expert evaluations."

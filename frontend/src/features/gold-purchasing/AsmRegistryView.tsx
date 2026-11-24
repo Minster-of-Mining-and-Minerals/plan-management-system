@@ -34,7 +34,6 @@ import { DataTable } from "@/features/template/component/tableList/DataTable";
 import { ColumnDef } from "@tanstack/react-table";
 import type { ActionButton, FilterField } from "@/types/tableLayout";
 import { useSearchParams } from "next/navigation";
-import { GoldOperationsTabsHeader } from "./GoldOperationsTabsHeader";
 import type { AsmMiner } from "@/redux/types/gold";
 
 interface AsmRegistryViewProps {
@@ -307,8 +306,6 @@ export function AsmRegistryView({
 
   return (
     <div className="space-y-6">
-      {isFederalOversight && <GoldOperationsTabsHeader />}
-
       <TableLayout
         title="Artisanal & Small-Scale Mining (ASM) Registry"
         description="Official registry of artisanal miners authorized to sell gold to National Bank and licensed purchasing centers."

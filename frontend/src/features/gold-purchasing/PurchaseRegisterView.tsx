@@ -18,7 +18,6 @@ import { ColumnDef } from "@tanstack/react-table";
 import type { ActionButton, FilterField } from "@/types/tableLayout";
 import { usePermissions } from "@/hooks/usePermissions";
 import { useGetGoldPurchasesQuery } from "@/redux/api/goldApi";
-import { GoldOperationsTabsHeader } from "./GoldOperationsTabsHeader";
 import type { GoldPurchase } from "@/redux/types/gold";
 
 interface PurchaseRegisterViewProps {
@@ -273,8 +272,6 @@ export function PurchaseRegisterView({
 
   return (
     <div className="space-y-6">
-      {isFederalOversight && <GoldOperationsTabsHeader />}
-
       <TableLayout
         title="Gold Purchase Register"
         description={

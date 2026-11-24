@@ -33,7 +33,6 @@ import {
 } from "@/redux/api/goldApi";
 import { DataTable } from "@/features/template/component/tableList/DataTable";
 import { TableLayout } from "@/features/template/component/tableList/TableLayout";
-import { GoldOperationsTabsHeader } from "./GoldOperationsTabsHeader";
 import type { GoldMeasurementUnit } from "@/redux/types/gold";
 
 export function MeasurementUnitsView() {
@@ -271,8 +270,6 @@ export function MeasurementUnitsView() {
 
   return (
     <div className="space-y-6">
-      <GoldOperationsTabsHeader />
-
       <TableLayout
         title="Configurable Gold Measurement Units"
         description="Dynamic weight registry with standardized canonical conversions to grams. Historical transactions preserve their recorded units non-lossily."

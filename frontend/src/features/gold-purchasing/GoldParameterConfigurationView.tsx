@@ -36,7 +36,6 @@ import {
   DialogDescription,
   DialogFooter,
 } from "@/components/ui/dialog";
-import { GoldOperationsTabsHeader } from "./GoldOperationsTabsHeader";
 import {
   useGoldParameters,
   GoldTypeConfig,
@@ -123,8 +122,6 @@ export function GoldParameterConfigurationView() {
 
   return (
     <div className="space-y-6">
-      <GoldOperationsTabsHeader />
-
       {/* Header Banner */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-gradient-to-r from-amber-500/10 via-card to-card p-6 rounded-2xl border border-amber-200/50 dark:border-amber-900/30 shadow-xs">
         <div>

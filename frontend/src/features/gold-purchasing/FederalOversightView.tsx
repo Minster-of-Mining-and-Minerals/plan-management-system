@@ -45,7 +45,6 @@ import { useGetFederalGoldOversightQuery } from "@/redux/api/goldApi";
 import Loading01 from "@/features/template/component/Loading/Loading01";
 import { KpiCard } from "@/features/plan-management/dashboard/components/KpiCard";
 import { AnalyticsPanel } from "@/features/plan-management/dashboard/components/AnalyticsPanel";
-import { GoldOperationsTabsHeader } from "./GoldOperationsTabsHeader";
 
 /** Business dates are in Addis Ababa time (YYYY-MM-DD). */
 function addisDate(offsetDays = 0): string {
@@ -290,8 +289,6 @@ export function FederalOversightView() {
 
   return (
     <div className="space-y-6">
-      <GoldOperationsTabsHeader />
-
       {/* ----------------- TOP HEADER ----------------- */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
