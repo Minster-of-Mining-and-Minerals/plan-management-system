@@ -596,12 +596,15 @@ export function GoldPriceConfigurationTable() {
 
               <div className="space-y-1.5">
                 <Label className="text-xs font-semibold">Measurement Unit</Label>
-                <Select value={createUnitId} onValueChange={setCreateUnitId}>
+                <Select
+                  value={createUnitId || "standard_gram"}
+                  onValueChange={(val) => setCreateUnitId(val === "standard_gram" ? "" : val)}
+                >
                   <SelectTrigger className="h-9 text-xs">
                     <SelectValue placeholder="Standard Gram (g)" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="">Standard Canonical Gram (g)</SelectItem>
+                    <SelectItem value="standard_gram">Standard Canonical Gram (g)</SelectItem>
                     {units.map((u) => (
                       <SelectItem key={u.unit_id} value={u.unit_id}>
                         {u.name} ({u.symbol})
@@ -761,6 +764,31 @@ export function GoldPriceConfigurationTable() {
                       {QUALITY_GRADES.map((q) => (
                         <SelectItem key={q.value} value={q.value}>
                           {q.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="space-y-1.5">
+                  <Label className="text-xs font-semibold">Measurement Unit</Label>
+                  <Select
+                    value={editingConfig.measurement_unit_id || "standard_gram"}
+                    onValueChange={(val) =>
+                      setEditingConfig({
+                        ...editingConfig,
+                        measurement_unit_id: val === "standard_gram" ? "" : val,
+                      })
+                    }
+                  >
+                    <SelectTrigger className="h-9 text-xs">
+                      <SelectValue placeholder="Standard Gram (g)" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="standard_gram">Standard Canonical Gram (g)</SelectItem>
+                      {units.map((u) => (
+                        <SelectItem key={u.unit_id} value={u.unit_id}>
+                          {u.name} ({u.symbol})
                         </SelectItem>
                       ))}
                     </SelectContent>
