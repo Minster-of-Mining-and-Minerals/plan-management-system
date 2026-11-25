@@ -22,8 +22,6 @@ import {
   Layers,
   FileText,
   BadgeCheck,
-  Percent,
-  Lock,
   Info,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -54,7 +52,6 @@ import {
   useLazySearchAsmCandidatesQuery,
   useRegisterAsmMinerMutation,
   useRecordGoldPurchaseMutation,
-  useGetActiveGoldPriceQuery,
 } from "@/redux/api/goldApi";
 import { useGetCompaniesQuery } from "@/redux/api/companyApi";
 import { useGoldParameters } from "./goldParametersConfig";
@@ -68,8 +65,6 @@ export function RecordPurchaseForm() {
   const { can } = usePermissions();
   const {
     isSpecsModuleEnabled,
-    isPurchasingPremiumEnabled,
-    purchasingPremiumRate,
     availableGoldTypes,
     availableKaratGrades,
     availableQualityGrades,
@@ -81,7 +76,7 @@ export function RecordPurchaseForm() {
   const [selectedAsmId, setSelectedAsmId] = useState("");
   const [measurementUnitId, setMeasurementUnitId] = useState("");
   const [quantity, setQuantity] = useState("");
-  const [unitPrice, setUnitPrice] = useState("");
+  const [amountPaid, setAmountPaid] = useState("");
 
   const defaultGoldType = availableGoldTypes[0]?.name || "Raw/Placer Gold";
   const defaultKarat = availableKaratGrades[0]?.karat || "24K";
@@ -113,7 +108,6 @@ export function RecordPurchaseForm() {
     }
   }, [availableQualityGrades, qualityGrade]);
 
-  const [priceMode, setPriceMode] = useState<"configured" | "custom">("configured");
   const [businessDate, setBusinessDate] = useState(() => {
     return new Intl.DateTimeFormat("en-CA", {
       timeZone: "Africa/Addis_Ababa",
@@ -151,23 +145,9 @@ export function RecordPurchaseForm() {
     limit: 50,
   });
 
-  const { data: activePriceConfig, isFetching: isPriceConfigLoading } = useGetActiveGoldPriceQuery({
-    gold_type: isSpecsModuleEnabled ? goldType : undefined,
-    karat: isSpecsModuleEnabled ? karat : undefined,
-    quality_grade: isSpecsModuleEnabled ? qualityGrade : undefined,
-    measurement_unit_id: measurementUnitId || undefined,
-  });
-
   const [searchCandidates, { data: candidateMatches }] = useLazySearchAsmCandidatesQuery();
   const [registerAsm, { isLoading: isRegisteringAsm }] = useRegisterAsmMinerMutation();
   const [recordPurchase, { isLoading: isSubmittingPurchase }] = useRecordGoldPurchaseMutation();
-
-  // Auto-populate unit price when using configured pricing benchmark
-  useEffect(() => {
-    if (priceMode === "configured" && activePriceConfig?.price_per_unit) {
-      setUnitPrice(String(activePriceConfig.price_per_unit));
-    }
-  }, [activePriceConfig, priceMode]);
 
   // Selected Unit metadata & conversion calculation
   const selectedUnit = useMemo(() => {
@@ -182,15 +162,11 @@ export function RecordPurchaseForm() {
 
   // Live calculations
   const parsedQuantity = parseFloat(quantity) || 0;
-  const parsedPrice = parseFloat(unitPrice) || 0;
+  const parsedAmountPaid = parseFloat(amountPaid) || 0;
   const conversionFactor = selectedUnit ? parseFloat(String(selectedUnit.conversion_factor)) || 1.0 : 1.0;
   const canonicalGrams = parsedQuantity > 0 ? parseFloat((parsedQuantity * conversionFactor).toFixed(4)) : 0;
-  const baseTotalAmount = parsedQuantity > 0 && parsedPrice > 0 ? parseFloat((parsedQuantity * parsedPrice).toFixed(2)) : 0;
-  const activePremiumPercentage = isPurchasingPremiumEnabled ? (parseFloat(String(purchasingPremiumRate)) || 0) : 0;
-  const premiumAmount = baseTotalAmount > 0 && activePremiumPercentage > 0 ? parseFloat(((baseTotalAmount * activePremiumPercentage) / 100).toFixed(2)) : 0;
-  const finalTotalAmount = parseFloat((baseTotalAmount + premiumAmount).toFixed(2));
-  // Backward compatible alias
-  const totalAmount = finalTotalAmount;
+  const totalAmount = parsedAmountPaid;
+  const finalTotalAmount = parsedAmountPaid;
 
   // Selected Seller Information
   const selectedCompany = useMemo(() => {
@@ -288,8 +264,8 @@ export function RecordPurchaseForm() {
       toast.error("Please enter a valid positive gold quantity.");
       return;
     }
-    if (parsedPrice < 0) {
-      toast.error("Unit price cannot be negative.");
+    if (parsedAmountPaid <= 0) {
+      toast.error("Please enter a valid positive amount paid (ETB).");
       return;
     }
 
@@ -301,17 +277,11 @@ export function RecordPurchaseForm() {
         asm_id: sellerType === "asm" ? selectedAsmId : undefined,
         quantity: parsedQuantity,
         measurement_unit_id: measurementUnitId,
-        unit_price: parsedPrice,
-        amount_before_premium: baseTotalAmount,
-        premium_percentage: activePremiumPercentage,
-        premium_amount: premiumAmount,
-        total_amount: finalTotalAmount,
+        total_amount: parsedAmountPaid,
         gold_type: isSpecsModuleEnabled ? goldType : undefined,
         karat: isSpecsModuleEnabled ? karat : undefined,
         quality_grade: isSpecsModuleEnabled ? qualityGrade : undefined,
         purity_percentage: isSpecsModuleEnabled && purityPercentage ? parseFloat(purityPercentage) : undefined,
-        is_custom_price: priceMode === "custom",
-        price_configuration_id: priceMode === "configured" ? activePriceConfig?.price_config_id : undefined,
         business_date: businessDate,
         notes: notes.trim() || undefined,
       }).unwrap();
@@ -340,7 +310,7 @@ export function RecordPurchaseForm() {
             Record Gold Purchase
           </h1>
           <p className="text-sm text-muted-foreground mt-1">
-            Register gold acquisition with seller attribution, purity calibration, benchmark pricing, and verifiable receipt generation.
+            Register gold acquisition with seller attribution, purity calibration, and verifiable receipt generation.
           </p>
         </div>
 
@@ -732,180 +702,47 @@ export function RecordPurchaseForm() {
             )}
           </div>
 
-          {/* CARD 4: PRICING BENCHMARK & FINANCIAL VALUATION */}
+          {/* CARD 4: PAYMENT & DISBURSEMENT */}
           <div className="p-6 rounded-3xl bg-card border border-border shadow-xs space-y-5">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-              <div>
-                <h3 className="text-base font-bold text-foreground flex items-center gap-2.5">
-                  <span className="w-7 h-7 rounded-xl bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 text-xs flex items-center justify-center font-bold">
-                    {isSpecsModuleEnabled ? 4 : 3}
-                  </span>
-                  Valuation Rate & Pricing Benchmark
-                </h3>
-                <p className="text-xs text-muted-foreground mt-0.5">
-                  Apply official price schedule or provide assayer expert valuation.
-                </p>
-              </div>
-
-              {/* Mode Toggle */}
-              <div className="flex items-center gap-1.5 bg-muted/50 p-1 rounded-xl border border-border shrink-0">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setPriceMode("configured");
-                    if (activePriceConfig?.price_per_unit) {
-                      setUnitPrice(String(activePriceConfig.price_per_unit));
-                    }
-                  }}
-                  className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
-                    priceMode === "configured"
-                      ? "bg-background text-foreground shadow-xs border border-border"
-                      : "text-muted-foreground hover:text-foreground"
-                  }`}
-                >
-                  Configured Benchmark
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setPriceMode("custom")}
-                  className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
-                    priceMode === "custom"
-                      ? "bg-background text-foreground shadow-xs border border-border"
-                      : "text-muted-foreground hover:text-foreground"
-                  }`}
-                >
-                  Custom Override
-                </button>
-              </div>
+            <div>
+              <h3 className="text-base font-bold text-foreground flex items-center gap-2.5">
+                <span className="w-7 h-7 rounded-xl bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 text-xs flex items-center justify-center font-bold">
+                  {isSpecsModuleEnabled ? 4 : 3}
+                </span>
+                Payment & Disbursement
+              </h3>
+              <p className="text-xs text-muted-foreground mt-0.5">
+                Record the total cash amount paid directly to the seller for this gold purchase.
+              </p>
             </div>
 
-            {/* Active Benchmark Info */}
-            {priceMode === "configured" ? (
-              <div className="p-3.5 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-between flex-wrap gap-2 text-xs">
-                <div className="flex items-center gap-2">
-                  <Badge className="bg-emerald-600 text-white font-semibold text-[11px]">
-                    Official Benchmark: {activePriceConfig ? `${parseFloat(String(activePriceConfig.price_per_unit)).toLocaleString()} ETB / ${selectedUnit?.symbol || "g"}` : "Loading..."}
-                  </Badge>
-                  {activePriceConfig?.min_price_per_unit && activePriceConfig?.max_price_per_unit && (
-                    <span className="text-muted-foreground font-mono text-[11px]">
-                      (Allowed: {parseFloat(String(activePriceConfig.min_price_per_unit)).toLocaleString()} – {parseFloat(String(activePriceConfig.max_price_per_unit)).toLocaleString()} ETB)
-                    </span>
-                  )}
-                </div>
-                <span className="text-[11px] text-muted-foreground">
-                  Synchronized with Federal Price Configuration
-                </span>
-              </div>
-            ) : (
-              <div className="p-3.5 rounded-2xl bg-amber-500/10 border border-amber-500/20 flex items-center gap-2 text-xs text-amber-800 dark:text-amber-300">
-                <Sparkles className="h-4 w-4 shrink-0 text-amber-500" />
-                <span>
-                  Custom Rate Mode: Registrar manually specifies the negotiated or assayed price for this specific transaction batch.
-                </span>
-              </div>
-            )}
-
-            {/* Unit Price Input */}
+            {/* Direct Amount Paid Input */}
             <div className="space-y-1.5">
               <div className="flex items-center justify-between">
                 <Label className="text-xs font-semibold">
-                  Unit Price (ETB / {selectedUnit?.symbol || "unit"}) *
+                  Total Amount Paid (ETB) *
                 </Label>
                 <span className="text-[11px] text-muted-foreground font-mono">
-                  {priceMode === "configured" ? "Automated Rate" : "Manual Rate"}
+                  Direct Cash Outflow
                 </span>
               </div>
-              <Input
-                type="number"
-                step="0.01"
-                min="0"
-                placeholder="0.00"
-                value={unitPrice}
-                onChange={(e) => setUnitPrice(e.target.value)}
-                className={`h-11 text-base font-mono font-bold rounded-xl ${
-                  priceMode === "configured"
-                    ? "bg-muted/40 border-border text-foreground"
-                    : "border-primary/50 text-foreground"
-                }`}
-              />
-            </div>
-
-            {/* UNEDITABLE PERCENTAGE CONFIGURATION SECTION (CENTRAL ADMIN REFERENCE) */}
-            <div className="pt-4 border-t border-border/70 space-y-3.5">
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-                <div className="flex items-center gap-2">
-                  <div className="w-7 h-7 rounded-lg bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 flex items-center justify-center shrink-0">
-                    <Percent className="h-4 w-4" />
-                  </div>
-                  <div>
-                    <Label className="text-xs font-bold text-foreground block">
-                      Purchasing Incentive / Premium Percentage
-                    </Label>
-                    <span className="text-[11px] text-muted-foreground">
-                      Referenced from Private Administration Parameters
-                    </span>
-                  </div>
-                </div>
-                <Badge
-                  variant="outline"
-                  className={
-                    isPurchasingPremiumEnabled
-                      ? "border-emerald-500/40 text-emerald-700 dark:text-emerald-300 bg-emerald-500/10 text-[10px] gap-1 font-semibold self-start sm:self-auto"
-                      : "border-muted-foreground/30 text-muted-foreground bg-muted/40 text-[10px] gap-1 self-start sm:self-auto"
-                  }
-                >
-                  <Lock className="h-3 w-3" />
-                  {isPurchasingPremiumEnabled ? "Active & Authoritative · Uneditable" : "Deactivated from Admin"}
-                </Badge>
+              <div className="relative">
+                <Input
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  placeholder="0.00"
+                  value={amountPaid}
+                  onChange={(e) => setAmountPaid(e.target.value)}
+                  className="h-12 text-lg font-mono font-bold rounded-xl pr-14 border-emerald-500/40 focus-visible:ring-emerald-500"
+                />
+                <span className="absolute right-3.5 top-1/2 -translate-y-1/2 text-xs font-bold text-muted-foreground font-mono">
+                  ETB
+                </span>
               </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 items-center">
-                {/* Uneditable Percentage Input */}
-                <div className="space-y-1.5">
-                  <Label className="text-xs font-semibold text-muted-foreground">
-                    Centrally Configured Rate (%):
-                  </Label>
-                  <div className="relative">
-                    <Input
-                      type="text"
-                      value={
-                        isPurchasingPremiumEnabled
-                          ? `${purchasingPremiumRate}%`
-                          : "0.00% (Deactivated)"
-                      }
-                      disabled
-                      readOnly
-                      className="h-11 text-base font-mono font-extrabold bg-muted/60 border-border text-foreground pr-8 cursor-not-allowed select-none rounded-xl"
-                    />
-                    <Lock className="h-3.5 w-3.5 text-muted-foreground absolute right-3 top-3.5" />
-                  </div>
-                  <span className="text-[10px] text-muted-foreground font-mono">
-                    Refers to active private configuration ({purchasingPremiumRate}%)
-                  </span>
-                </div>
-
-                {/* Live Computed Incentive Amount Display */}
-                <div className="space-y-1.5">
-                  <Label className="text-xs font-semibold text-muted-foreground">
-                    Computed Incentive Amount (+{activePremiumPercentage}%):
-                  </Label>
-                  <div className="h-11 px-3.5 rounded-xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-between font-mono text-base font-bold text-emerald-600 dark:text-emerald-400">
-                    <span>+{premiumAmount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
-                    <span className="text-xs font-sans font-semibold text-emerald-700 dark:text-emerald-300">ETB</span>
-                  </div>
-                  <span className="text-[10px] text-muted-foreground font-mono">
-                    Added to base total to establish final net payout
-                  </span>
-                </div>
-              </div>
-
-              {/* Explanatory Policy Callout */}
-              <div className="p-3 rounded-2xl bg-amber-500/5 border border-amber-500/20 flex items-start gap-2.5 text-xs text-muted-foreground">
-                <Info className="h-4 w-4 text-amber-500 shrink-0 mt-0.5" />
-                <div className="text-[11px] leading-relaxed">
-                  <span className="font-semibold text-foreground">Authoritative Rate Lock:</span> This purchase is referencing the official <strong>{purchasingPremiumRate}%</strong> incentive rate configured centrally from the private administration section. This percentage is read-only at the purchasing center counter. The generated receipt and audit log will document both the base valuation without percentage and the final total including the {purchasingPremiumRate}% incentive.
-                </div>
-              </div>
+              <p className="text-[11px] text-muted-foreground">
+                Enter the total net amount disbursed to the seller. No unit pricing or percentage adjustments applied.
+              </p>
             </div>
           </div>
 
@@ -957,65 +794,29 @@ export function RecordPurchaseForm() {
                 <h3 className="font-bold text-foreground text-sm">Purchase Receipt Audit</h3>
               </div>
               <Badge variant="outline" className="text-[10px] uppercase font-mono">
-                {priceMode === "configured" ? "Benchmark" : "Override"}
+                Direct Intake
               </Badge>
             </div>
 
-            {/* TWO RESULTS TRANSACTION PAYOUT HERO */}
-            <div className="p-4 rounded-2xl bg-gradient-to-br from-amber-500/10 via-emerald-500/5 to-transparent border border-amber-500/20 space-y-3">
-              {/* RESULT 1: TOTAL WITHOUT PERCENTAGE */}
-              <div className="space-y-0.5 pb-2.5 border-b border-border/70">
-                <div className="flex items-center justify-between">
-                  <span className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider">
-                    1. Base Total (Without Percentage)
-                  </span>
-                  <Badge variant="outline" className="text-[10px] font-mono">
-                    Net Valuation
-                  </Badge>
-                </div>
-                <p className="text-xl font-bold font-mono text-foreground">
-                  {baseTotalAmount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                  <span className="text-xs font-normal text-muted-foreground ml-1">ETB</span>
-                </p>
-                <p className="text-[11px] text-muted-foreground font-mono">
-                  {parsedQuantity > 0 && parsedPrice > 0
-                    ? `${parsedQuantity.toLocaleString()} ${selectedUnit?.symbol || "unit"} × ${parsedPrice.toLocaleString()} ETB`
-                    : "Awaiting valid quantity & unit price"}
-                </p>
+            {/* DIRECT TRANSACTION PAYOUT HERO */}
+            <div className="p-4 rounded-2xl bg-gradient-to-br from-amber-500/10 via-emerald-500/5 to-transparent border border-amber-500/20 space-y-2">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-bold text-emerald-700 dark:text-emerald-300 uppercase tracking-wider">
+                  Total Cash Disbursed
+                </span>
+                <Badge className="bg-emerald-600 text-white text-[10px] font-mono font-bold">
+                  Payable
+                </Badge>
               </div>
-
-              {/* INCENTIVE PERCENTAGE ADDITION */}
-              {isPurchasingPremiumEnabled && activePremiumPercentage > 0 && (
-                <div className="flex items-center justify-between text-xs py-1.5 bg-emerald-500/10 px-3 rounded-xl border border-emerald-500/20">
-                  <span className="text-emerald-700 dark:text-emerald-400 font-semibold flex items-center gap-1.5">
-                    <Sparkles className="h-3.5 w-3.5 text-emerald-500" /> +{activePremiumPercentage}% Incentive:
-                  </span>
-                  <span className="font-mono font-bold text-emerald-600 dark:text-emerald-400">
-                    +{premiumAmount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ETB
-                  </span>
-                </div>
-              )}
-
-              {/* RESULT 2: FINAL TOTAL INCLUDING PERCENTAGE */}
-              <div className="space-y-0.5 pt-0.5">
-                <div className="flex items-center justify-between">
-                  <span className="text-xs font-bold text-emerald-700 dark:text-emerald-300 uppercase tracking-wider">
-                    2. Final Total Payout (With Percentage)
-                  </span>
-                  <Badge className="bg-emerald-600 text-white text-[10px] font-mono font-bold">
-                    Payable
-                  </Badge>
-                </div>
-                <p className="text-3xl font-extrabold font-mono text-emerald-600 dark:text-emerald-400">
-                  {finalTotalAmount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                  <span className="text-sm font-semibold text-muted-foreground ml-1.5">ETB</span>
-                </p>
-                <p className="text-[11px] text-muted-foreground font-mono">
-                  {isPurchasingPremiumEnabled && activePremiumPercentage > 0
-                    ? `Base ${baseTotalAmount.toLocaleString()} ETB + ${activePremiumPercentage}% (+${premiumAmount.toLocaleString()} ETB)`
-                    : "No additional percentage applied"}
-                </p>
-              </div>
+              <p className="text-3xl font-extrabold font-mono text-emerald-600 dark:text-emerald-400">
+                {parsedAmountPaid.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                <span className="text-sm font-semibold text-muted-foreground ml-1.5">ETB</span>
+              </p>
+              <p className="text-[11px] text-muted-foreground font-mono">
+                {parsedQuantity > 0 && parsedAmountPaid > 0
+                  ? `Recorded for ${parsedQuantity.toLocaleString()} ${selectedUnit?.symbol || "unit"} gold intake`
+                  : "Awaiting valid quantity & amount paid"}
+              </p>
             </div>
 
             {/* TRANSACTION SPECIFICATION SUMMARY */}
@@ -1078,14 +879,6 @@ export function RecordPurchaseForm() {
                   )}
                 </div>
               </div>
-
-              {/* Unit Rate */}
-              <div className="pt-2 flex justify-between items-center">
-                <span className="text-muted-foreground">Unit Rate:</span>
-                <span className="font-mono text-foreground font-semibold">
-                  {parsedPrice > 0 ? `${parsedPrice.toLocaleString()} ETB / ${selectedUnit?.symbol || "g"}` : "—"}
-                </span>
-              </div>
             </div>
 
             {/* ACTION BUTTONS */}
@@ -1097,7 +890,7 @@ export function RecordPurchaseForm() {
                   (sellerType === "company" && !selectedCompanyId) ||
                   (sellerType === "asm" && !selectedAsmId) ||
                   parsedQuantity <= 0 ||
-                  parsedPrice <= 0
+                  parsedAmountPaid <= 0
                 }
                 className="w-full gap-2 font-bold h-11 rounded-xl shadow-md bg-amber-500 hover:bg-amber-600 text-slate-950 dark:text-slate-950"
               >
@@ -1167,12 +960,6 @@ export function RecordPurchaseForm() {
               </div>
             )}
             <div className="flex justify-between py-1.5">
-              <span className="text-muted-foreground">Pricing Mode:</span>
-              <Badge variant={priceMode === "configured" ? "default" : "secondary"} className="text-xs">
-                {priceMode === "configured" ? "Configured Benchmark" : "Expert Custom Override"}
-              </Badge>
-            </div>
-            <div className="flex justify-between py-1.5">
               <span className="text-muted-foreground">Recorded Quantity:</span>
               <span className="font-mono font-bold text-foreground">
                 {parsedQuantity.toLocaleString()}{" "}
@@ -1185,33 +972,13 @@ export function RecordPurchaseForm() {
                 {canonicalGrams.toLocaleString()} grams
               </span>
             </div>
-            <div className="flex justify-between py-1.5">
-              <span className="text-muted-foreground">Unit Rate:</span>
-              <span className="font-mono text-foreground">{parsedPrice.toLocaleString()} ETB</span>
-            </div>
             
-            {/* TWO RESULTS IN CONFIRMATION MODAL */}
+            {/* DIRECT TOTAL AMOUNT PAID */}
             <div className="p-3.5 rounded-2xl bg-muted/40 border border-border/80 space-y-2 text-xs">
-              <div className="flex justify-between items-center">
-                <span className="text-muted-foreground font-semibold">1. Base Total (Without Percentage):</span>
-                <span className="font-mono font-bold text-foreground">
-                  {baseTotalAmount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ETB
-                </span>
-              </div>
-              {isPurchasingPremiumEnabled && activePremiumPercentage > 0 && (
-                <div className="flex justify-between items-center text-emerald-600 dark:text-emerald-400">
-                  <span className="font-semibold flex items-center gap-1">
-                    <Sparkles className="h-3 w-3" /> +{activePremiumPercentage}% Admin Incentive (Configured & Locked):
-                  </span>
-                  <span className="font-mono font-bold">
-                    +{premiumAmount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ETB
-                  </span>
-                </div>
-              )}
-              <div className="flex justify-between items-center pt-2 border-t border-border/60 text-sm font-bold">
-                <span className="text-emerald-700 dark:text-emerald-300">2. Final Total (With Percentage):</span>
+              <div className="flex justify-between items-center text-sm font-bold">
+                <span className="text-emerald-700 dark:text-emerald-300">Total Amount Paid:</span>
                 <span className="font-mono text-emerald-600 dark:text-emerald-400 text-base">
-                  {finalTotalAmount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ETB
+                  {parsedAmountPaid.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ETB
                 </span>
               </div>
             </div>

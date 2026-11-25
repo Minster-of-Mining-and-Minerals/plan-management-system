@@ -100,7 +100,7 @@ export interface GoldPurchase {
   unit_code_snapshot: string;
   conversion_factor_snapshot: number | string;
   quantity_in_canonical_unit: number | string;
-  unit_price: number | string;
+  unit_price?: number | string | null;
   amount_before_premium?: number | string | null;
   premium_percentage?: number | string | null;
   premium_amount?: number | string | null;
@@ -410,7 +410,7 @@ export interface CreateGoldPurchasePayload {
   asm_id?: string;
   quantity: number | string;
   measurement_unit_id: string;
-  unit_price: number | string;
+  unit_price?: number | string;
   amount_before_premium?: number | string;
   premium_percentage?: number | string;
   premium_amount?: number | string;

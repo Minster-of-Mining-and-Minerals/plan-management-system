@@ -16,7 +16,6 @@ import {
   Info,
   Power,
   AlertCircle,
-  Percent,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -53,11 +52,6 @@ export function GoldParameterConfigurationView() {
     isSpecsModuleEnabled,
     toggleSpecsModule,
     setSpecsModuleEnabled,
-    isPurchasingPremiumEnabled,
-    purchasingPremiumRate,
-    togglePurchasingPremium,
-    setPurchasingPremiumEnabled,
-    setPurchasingPremiumRate,
     goldTypes,
     karatGrades,
     qualityGrades,
@@ -69,14 +63,6 @@ export function GoldParameterConfigurationView() {
     addQualityGrade,
     resetToDefaults,
   } = useGoldParameters();
-
-  const [editingPremiumRate, setEditingPremiumRate] = useState<string>("15");
-
-  useEffect(() => {
-    if (typeof purchasingPremiumRate === "number") {
-      setEditingPremiumRate(String(purchasingPremiumRate));
-    }
-  }, [purchasingPremiumRate]);
 
   const [activeTab, setActiveTab] = useState<"karat" | "gold_type" | "quality">("karat");
 
@@ -252,125 +238,6 @@ export function GoldParameterConfigurationView() {
             </Button>
           </div>
         </div>
-      </div>
-
-      {/* PURCHASING CENTER ADDITIONAL PERCENTAGE (INCENTIVE & PREMIUM RATE) CONFIGURATION CARD */}
-      <div
-        className={`p-6 rounded-3xl border transition-all ${
-          isPurchasingPremiumEnabled
-            ? "bg-card border-border shadow-xs"
-            : "bg-muted/30 border-dashed border-border shadow-xs"
-        }`}
-      >
-        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6">
-          <div className="flex items-start gap-4">
-            <div
-              className={`w-12 h-12 rounded-2xl flex items-center justify-center shrink-0 ${
-                isPurchasingPremiumEnabled
-                  ? "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 ring-1 ring-emerald-500/30"
-                  : "bg-muted text-muted-foreground ring-1 ring-border"
-              }`}
-            >
-              <Percent className="h-6 w-6" />
-            </div>
-
-            <div className="space-y-1">
-              <div className="flex items-center gap-2.5 flex-wrap">
-                <h2 className="text-base sm:text-lg font-bold text-foreground">
-                  Purchasing Center Additional Percentage Configuration
-                </h2>
-                <Badge
-                  variant={isPurchasingPremiumEnabled ? "default" : "secondary"}
-                  className={
-                    isPurchasingPremiumEnabled
-                      ? "bg-emerald-600 text-white font-semibold text-xs"
-                      : "bg-muted text-muted-foreground text-xs"
-                  }
-                >
-                  {isPurchasingPremiumEnabled ? `Active: +${purchasingPremiumRate}% Additional Incentive` : "Disabled (0% Incentive)"}
-                </Badge>
-              </div>
-              <p className="text-xs text-muted-foreground max-w-2xl leading-relaxed">
-                Configure the dynamic incentive percentage applied when purchasing centers buy gold. When active, all purchase disbursements calculate and display both the base valuation and the augmented total with this additional percentage applied.
-              </p>
-            </div>
-          </div>
-
-          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 shrink-0">
-            {/* Percentage Input */}
-            <div className="flex items-center gap-2 bg-muted/40 p-1.5 rounded-2xl border border-border">
-              <span className="text-xs font-semibold pl-2 text-muted-foreground">Incentive:</span>
-              <div className="relative">
-                <Input
-                  type="number"
-                  min="0"
-                  step="0.01"
-                  value={editingPremiumRate}
-                  onChange={(e) => setEditingPremiumRate(e.target.value)}
-                  placeholder="15.00"
-                  className="w-24 h-9 font-mono font-bold text-sm text-right pr-6 rounded-xl bg-background border-border"
-                />
-                <span className="absolute right-2.5 top-1/2 -translate-y-1/2 font-bold text-xs text-muted-foreground">%</span>
-              </div>
-              <Button
-                type="button"
-                size="sm"
-                variant="outline"
-                onClick={async () => {
-                  const val = parseFloat(editingPremiumRate);
-                  if (isNaN(val) || val < 0) {
-                    toast.error("Please enter a valid percentage rate of 0 or greater.");
-                    return;
-                  }
-                  await setPurchasingPremiumRate(val);
-                  toast.success(`Purchasing center incentive rate set to +${val}% and synchronized to server.`);
-                }}
-                className="h-9 px-3 rounded-xl text-xs font-semibold"
-              >
-                Apply %
-              </Button>
-            </div>
-
-            {/* Availability Toggle */}
-            <Button
-              type="button"
-              variant={isPurchasingPremiumEnabled ? "outline" : "default"}
-              size="default"
-              onClick={async () => {
-                const nextState = !isPurchasingPremiumEnabled;
-                await togglePurchasingPremium();
-                toast.success(
-                  nextState
-                    ? `Additional percentage incentive ENABLED (+${purchasingPremiumRate}%).`
-                    : "Additional percentage incentive DISABLED across all purchasing centers."
-                );
-              }}
-              className={`gap-2 font-bold h-11 px-5 rounded-2xl ${
-                isPurchasingPremiumEnabled
-                  ? "border-destructive/40 text-destructive hover:bg-destructive/10"
-                  : "bg-emerald-600 hover:bg-emerald-700 text-white shadow-sm"
-              }`}
-            >
-              <Power className="h-4 w-4" />
-              {isPurchasingPremiumEnabled ? "Disable Percentage" : "Enable Percentage"}
-            </Button>
-          </div>
-        </div>
-
-        {/* Live Example Calculation Preview */}
-        {isPurchasingPremiumEnabled && (
-          <div className="mt-4 pt-4 border-t border-border/60 flex items-center justify-between flex-wrap gap-3 text-xs bg-emerald-500/5 p-3 rounded-2xl border border-emerald-500/20">
-            <div className="flex items-center gap-2">
-              <span className="font-bold text-emerald-700 dark:text-emerald-400">Live Formula Reference:</span>
-              <span className="font-mono text-muted-foreground">
-                Base Payout + ({purchasingPremiumRate}% × Base Payout) = Final Disbursement
-              </span>
-            </div>
-            <div className="font-mono text-[11px] text-muted-foreground">
-              Example: 100,000 ETB Base intake → <strong className="text-foreground font-bold">{(100000 + (100000 * (purchasingPremiumRate || 0) / 100)).toLocaleString()} ETB</strong> (+{(100000 * (purchasingPremiumRate || 0) / 100).toLocaleString()} ETB incentive)
-            </div>
-          </div>
-        )}
       </div>
 
       {/* Warning banner when disabled */}

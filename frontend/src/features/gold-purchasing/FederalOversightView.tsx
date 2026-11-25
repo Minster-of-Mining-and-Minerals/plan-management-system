@@ -209,7 +209,6 @@ export function FederalOversightView() {
     const convertedTotalVolume = totalGrams / unitFactor;
     const avgTransactionWeight = totalPurchases > 0 ? (convertedTotalVolume / totalPurchases) : 0;
     const avgTransactionValue = totalPurchases > 0 ? (totalAmount / totalPurchases) : 0;
-    const effectivePricePerUnit = convertedTotalVolume > 0 ? (totalAmount / convertedTotalVolume) : 0;
     const dailyVolumePace = convertedTotalVolume / days;
 
     // Top Center by Volume
@@ -235,7 +234,6 @@ export function FederalOversightView() {
     return {
       avgTransactionWeight: avgTransactionWeight.toFixed(volumeDecimals),
       avgTransactionValue: avgTransactionValue.toLocaleString(undefined, { maximumFractionDigits: 0 }),
-      effectivePricePerUnit: effectivePricePerUnit.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }),
       dailyVolumePace: dailyVolumePace.toLocaleString(undefined, { minimumFractionDigits: volumeDecimals, maximumFractionDigits: volumeDecimals + 1 }),
       topCenterName: topCenter ? topCenter.name : "N/A",
       topCenterVolume: topCenterVolume.toLocaleString(undefined, { minimumFractionDigits: volumeDecimals, maximumFractionDigits: volumeDecimals + 1 }),
@@ -450,12 +448,12 @@ export function FederalOversightView() {
 
           <div className="p-4 rounded-2xl bg-card border border-border space-y-1">
             <span className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">
-              Effective Price / {unitSymbol}
+              Reporting Centers
             </span>
             <p className="text-xl font-bold font-mono text-foreground">
-              {statisticalMetrics.effectivePricePerUnit} ETB
+              {statisticalMetrics.activeReportingCenters} / {statisticalMetrics.totalCenters}
             </p>
-            <p className="text-[10px] text-muted-foreground">Weighted average rate</p>
+            <p className="text-[10px] text-muted-foreground">Active outposts in period</p>
           </div>
 
           <div className="p-4 rounded-2xl bg-card border border-border space-y-1">
@@ -770,7 +768,7 @@ export function FederalOversightView() {
             <KpiCard
               title="Period Capital Disbursed"
               value={`${(today?.amount || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ETB`}
-              subtitle={`Effective rate: ${statisticalMetrics.effectivePricePerUnit} ETB/${unitSymbol}`}
+              subtitle={`Mean payout: ${statisticalMetrics.avgTransactionValue} ETB / transaction`}
               icon={DollarSign}
               accent="warning"
             />
