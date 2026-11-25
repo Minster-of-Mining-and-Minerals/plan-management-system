@@ -142,39 +142,14 @@ async function recordPurchase(data, actor) {
   const conversionFactor = parseFloat(unit.conversion_factor) || 1.0;
   const canonicalQuantity = parseFloat((qty * conversionFactor).toFixed(4));
 
-  // 5. Validate total amount paid (direct recording without unit price / percentage)
-  let finalTotal = 0;
-  if (data.total_amount !== undefined && data.total_amount !== null && data.total_amount !== "") {
-    finalTotal = parseFloat(data.total_amount);
-  } else if (data.amount_paid !== undefined && data.amount_paid !== null && data.amount_paid !== "") {
-    finalTotal = parseFloat(data.amount_paid);
-  } else if (unit_price !== undefined && unit_price !== null && unit_price !== "") {
-    // Backward compatibility fallback for legacy unit_price submissions
-    const priceVal = parseFloat(unit_price) || 0;
-    const baseComputed = parseFloat((qty * priceVal).toFixed(2));
-    const pctVal = parseFloat(data.premium_percentage) || 0;
-    const prem = pctVal > 0 ? parseFloat(((baseComputed * pctVal) / 100).toFixed(2)) : 0;
-    finalTotal = parseFloat((baseComputed + prem).toFixed(2));
-  }
-
-  if (isNaN(finalTotal) || finalTotal <= 0) {
-    const error = new Error("Total amount paid must be a positive decimal greater than zero.");
-    error.status = 400;
-    throw error;
-  }
-
-  const price = unit_price !== undefined && unit_price !== null && unit_price !== ""
-    ? parseFloat(unit_price)
+  // 5. Physical gold intake: price, money, and monetary calculations are not part of gold purchasing operations
+  const finalTotal = data.total_amount !== undefined && data.total_amount !== null && data.total_amount !== ""
+    ? (parseFloat(data.total_amount) || 0.0)
     : 0.0;
-  const baseTotal = data.amount_before_premium !== undefined && data.amount_before_premium !== null
-    ? parseFloat(data.amount_before_premium)
-    : finalTotal;
-  const pct = data.premium_percentage !== undefined && data.premium_percentage !== null
-    ? parseFloat(data.premium_percentage)
-    : 0.0;
-  const premAmount = data.premium_amount !== undefined && data.premium_amount !== null
-    ? parseFloat(data.premium_amount)
-    : 0.0;
+  const price = 0.0;
+  const baseTotal = 0.0;
+  const pct = 0.0;
+  const premAmount = 0.0;
 
   // 6. Validate seller type and referential integrity
   if (!seller_type || !["company", "asm"].includes(seller_type)) {

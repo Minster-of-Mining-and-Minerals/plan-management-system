@@ -160,26 +160,8 @@ export function PurchaseRegisterView({
       id: "quantity_canonical",
       header: "Canonical (g)",
       cell: ({ row }) => (
-        <span className="font-mono font-medium text-muted-foreground whitespace-nowrap text-xs">
+        <span className="font-mono font-medium text-amber-600 dark:text-amber-400 whitespace-nowrap text-xs">
           {parseFloat(String(row.original.quantity_in_canonical_unit)).toLocaleString()} g
-        </span>
-      ),
-    },
-    {
-      id: "unit_price",
-      header: "Unit Price",
-      cell: ({ row }) => (
-        <span className="font-mono text-xs text-muted-foreground whitespace-nowrap">
-          {parseFloat(String(row.original.unit_price)).toLocaleString()} ETB
-        </span>
-      ),
-    },
-    {
-      id: "total_amount",
-      header: "Total Value",
-      cell: ({ row }) => (
-        <span className="font-mono font-bold text-foreground whitespace-nowrap text-xs">
-          {parseFloat(String(row.original.total_amount)).toLocaleString()} ETB
         </span>
       ),
     },

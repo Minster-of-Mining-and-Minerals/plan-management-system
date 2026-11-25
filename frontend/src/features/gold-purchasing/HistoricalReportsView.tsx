@@ -90,15 +90,6 @@ export function HistoricalReportsView({
       ),
     },
     {
-      id: "total_amount",
-      header: "Total Amount",
-      cell: ({ row }) => (
-        <span className="font-mono font-semibold text-foreground text-xs">
-          {parseFloat(String(row.original.total_amount)).toLocaleString()} ETB
-        </span>
-      ),
-    },
-    {
       accessorKey: "status",
       header: "Status",
       cell: ({ row }) => {

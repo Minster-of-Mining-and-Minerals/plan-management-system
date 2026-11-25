@@ -83,15 +83,6 @@ export function FederalReportMonitoringView() {
       ),
     },
     {
-      id: "today_amount",
-      header: "Settlement Total",
-      cell: ({ row }) => (
-        <span className="font-mono font-semibold text-foreground text-xs">
-          {parseFloat(String(row.original.today_amount)).toLocaleString()} ETB
-        </span>
-      ),
-    },
-    {
       id: "today_report_status",
       header: "Reporting Status",
       cell: ({ row }) => {
@@ -215,10 +206,11 @@ export function FederalReportMonitoringView() {
           accent="warning"
         />
         <KpiCard
-          title="Settlement Payout"
-          value={`${parseFloat(String(today?.amount || 0)).toLocaleString()} ETB`}
-          subtitle="Disbursed settlement funds"
+          title="Reporting Compliance"
+          value={`${today?.reporting_completion_rate || 0}%`}
+          subtitle="Submitted center reports"
           icon={CheckCircle2}
+          accent={Number(today?.reporting_completion_rate || 0) >= 80 ? "success" : "info"}
         />
       </div>
 

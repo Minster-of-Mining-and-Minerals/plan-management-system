@@ -150,15 +150,6 @@ export function DailyReportView({
       ),
     },
     {
-      id: "total_amount",
-      header: "Total Amount",
-      cell: ({ row }) => (
-        <span className="font-mono font-semibold text-foreground text-xs">
-          {parseFloat(String(row.original.total_amount)).toLocaleString()} ETB
-        </span>
-      ),
-    },
-    {
       accessorKey: "status",
       header: "Status",
       cell: ({ row }) => {
@@ -356,10 +347,10 @@ export function DailyReportView({
           accent="success"
         />
         <KpiCard
-          title="Total Financial Settlement"
-          value={`${(summary?.total_amount || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ETB`}
-          subtitle="Total disbursed to sellers"
-          icon={DollarSign}
+          title="Daily Batches Recorded"
+          value={summary?.total_purchases?.toLocaleString() || "0"}
+          subtitle="Individual gold intakes"
+          icon={Coins}
           accent="warning"
         />
       </div>
@@ -415,8 +406,7 @@ export function DailyReportView({
                 {(summary?.seller_breakdown?.company?.total_canonical_quantity || 0).toLocaleString()} g
               </p>
               <p className="text-xs text-muted-foreground">
-                {summary?.seller_breakdown?.company?.purchase_count || 0} transactions •{" "}
-                {(summary?.seller_breakdown?.company?.total_amount || 0).toLocaleString()} ETB
+                {summary?.seller_breakdown?.company?.purchase_count || 0} transactions recorded
               </p>
             </div>
 
@@ -429,8 +419,7 @@ export function DailyReportView({
                 {(summary?.seller_breakdown?.asm?.total_canonical_quantity || 0).toLocaleString()} g
               </p>
               <p className="text-xs text-muted-foreground">
-                {summary?.seller_breakdown?.asm?.purchase_count || 0} transactions •{" "}
-                {(summary?.seller_breakdown?.asm?.total_amount || 0).toLocaleString()} ETB
+                {summary?.seller_breakdown?.asm?.purchase_count || 0} transactions recorded
               </p>
             </div>
           </div>
@@ -478,12 +467,6 @@ export function DailyReportView({
               <span className="text-muted-foreground">Total Canonical Weight:</span>
               <span className="font-mono font-bold text-amber-600">
                 {(summary?.total_quantity_canonical || 0).toLocaleString()} grams
-              </span>
-            </div>
-            <div className="flex justify-between py-1.5">
-              <span className="text-muted-foreground">Total Payout:</span>
-              <span className="font-mono font-bold text-emerald-600">
-                {(summary?.total_amount || 0).toLocaleString()} ETB
               </span>
             </div>
 

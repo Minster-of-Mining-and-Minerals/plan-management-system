@@ -358,58 +358,13 @@ export function PurchaseDetailView({
           </div>
 
           <div className="p-4 rounded-2xl bg-muted/50 border border-border">
-            <p className="text-xs text-muted-foreground">Total Cash Disbursed</p>
-            <p className="text-2xl font-bold font-mono text-emerald-600 dark:text-emerald-400 mt-1">
-              {parseFloat(String(purchase.total_amount)).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+            <p className="text-xs text-muted-foreground">Gold Specification</p>
+            <p className="text-xl font-bold font-mono text-foreground mt-1">
+              {purchase.karat || "Standard"} • {purchase.gold_type || "Gold"}
             </p>
             <p className="text-[11px] text-muted-foreground mt-1">
-              ETB Net Settlement
+              {purchase.quality_grade || "Assayed Intake"} ({purchase.purity_percentage ? `${purchase.purity_percentage}%` : "Fine"})
             </p>
-          </div>
-        </div>
-
-        {/* FINANCIAL SETTLEMENT SUMMARY */}
-        <div className="p-5 rounded-2xl bg-gradient-to-br from-emerald-500/10 via-card to-amber-500/10 border border-border space-y-4">
-          <div className="flex items-center justify-between border-b border-border/80 pb-3">
-            <div>
-              <p className="text-xs font-bold text-foreground flex items-center gap-2">
-                <DollarSign className="h-4 w-4 text-emerald-500" />
-                Disbursement & Payment Details
-              </p>
-              <p className="text-[11px] text-muted-foreground">
-                Total cash disbursed to seller for recorded gold batch.
-              </p>
-            </div>
-            <Badge className="bg-emerald-600 text-white font-mono text-xs">
-              Cash Disbursed
-            </Badge>
-          </div>
-
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div className="p-4 rounded-xl bg-background border border-border">
-              <span className="text-[11px] font-semibold text-muted-foreground uppercase">
-                Intake Volume
-              </span>
-              <p className="text-xl font-bold font-mono text-foreground mt-1">
-                {parseFloat(String(purchase.quantity)).toLocaleString()} {purchase.unit_code_snapshot}
-              </p>
-              <p className="text-[11px] text-muted-foreground mt-1">
-                ({parseFloat(String(purchase.quantity_in_canonical_unit)).toLocaleString()} canonical grams)
-              </p>
-            </div>
-
-            <div className="p-4 rounded-xl bg-emerald-600/15 border border-emerald-600/30">
-              <span className="text-[11px] font-bold text-emerald-800 dark:text-emerald-200 uppercase">
-                Total Amount Paid
-              </span>
-              <p className="text-2xl font-extrabold font-mono text-emerald-600 dark:text-emerald-400 mt-1">
-                {parseFloat(String(purchase.total_amount)).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}{" "}
-                <span className="text-xs font-normal text-muted-foreground">ETB</span>
-              </p>
-              <p className="text-[11px] text-muted-foreground mt-1">
-                Total net disbursement to seller
-              </p>
-            </div>
           </div>
         </div>
 
@@ -424,7 +379,7 @@ export function PurchaseDetailView({
       {/* PRINT-ONLY OFFICIAL RECEIPT VOUCHER */}
       <div className="hidden print:block border-2 border-black p-6 rounded-lg space-y-4 text-black bg-white mt-8">
         <div className="text-center border-b pb-3">
-          <h2 className="text-xl font-bold uppercase tracking-wider">Official Gold Purchase Receipt</h2>
+          <h2 className="text-xl font-bold uppercase tracking-wider">Official Gold Intake & Assay Certificate</h2>
           <p className="text-xs font-mono">{purchase.purchasingCenter?.name} ({purchase.purchasingCenter?.code})</p>
           <p className="text-xs font-mono">Reference: {purchase.purchase_reference}</p>
         </div>
@@ -444,9 +399,9 @@ export function PurchaseDetailView({
 
         <div className="border-t border-b py-2 space-y-1 text-xs">
           <div className="flex justify-between font-bold text-sm pt-1">
-            <span>Total Cash Disbursed:</span>
+            <span>Verified Physical Intake:</span>
             <span className="font-mono text-base">
-              {(parseFloat(String(purchase.total_amount))).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ETB
+              {purchase.quantity} {purchase.unit_code_snapshot} ({purchase.quantity_in_canonical_unit} g)
             </span>
           </div>
         </div>

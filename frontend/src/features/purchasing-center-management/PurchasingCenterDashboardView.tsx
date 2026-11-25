@@ -24,7 +24,6 @@ import {
   AlertCircle,
   ShieldCheck,
   ChevronRight,
-  DollarSign,
   PieChart as PieChartIcon,
   BarChart3,
   Layers,
@@ -172,7 +171,6 @@ export function PurchasingCenterDashboardView({
       return {
         date: t.date,
         volume: parseFloat((canonicalGrams / unitFactor).toFixed(unitFactor >= 1000 ? 3 : 2)),
-        payout: parseFloat(parseFloat(String(t.amount || 0)).toFixed(2)),
         purchases: t.count || 0,
       };
     });
@@ -257,18 +255,6 @@ export function PurchasingCenterDashboardView({
           );
         },
       },
-      {
-        id: "amount",
-        header: "Settlement",
-        cell: ({ row }) => {
-          const amt = Number(row.original.amount ?? row.original.total_amount ?? 0);
-          return (
-            <span className="font-mono font-semibold text-foreground text-xs text-right block">
-              {amt.toLocaleString()} ETB
-            </span>
-          );
-        },
-      },
     ],
     [period, unitFactor, unitSymbol]
   );
@@ -315,18 +301,6 @@ export function PurchasingCenterDashboardView({
                 maximumFractionDigits: unitFactor >= 1000 ? 4 : 3,
               })}{" "}
               {unitSymbol} <span className="text-[10px] text-muted-foreground font-normal">({sharePct}%)</span>
-            </span>
-          );
-        },
-      },
-      {
-        id: "amount",
-        header: "Settlement",
-        cell: ({ row }) => {
-          const amt = Number(row.original.amount ?? row.original.total_amount ?? 0);
-          return (
-            <span className="font-mono font-semibold text-foreground text-xs text-right block">
-              {amt.toLocaleString()} ETB
             </span>
           );
         },
@@ -395,15 +369,6 @@ export function PurchasingCenterDashboardView({
         cell: ({ row }) => (
           <span className="font-mono text-amber-600 dark:text-amber-400 font-bold text-xs">
             {parseFloat(String(row.original.quantity_in_canonical_unit || 0)).toLocaleString()} g
-          </span>
-        ),
-      },
-      {
-        id: "total_amount",
-        header: "Total Amount",
-        cell: ({ row }) => (
-          <span className="font-mono font-semibold text-foreground text-xs">
-            {parseFloat(String(row.original.total_amount || 0)).toLocaleString()} ETB
           </span>
         ),
       },
@@ -595,10 +560,10 @@ export function PurchasingCenterDashboardView({
             accent="success"
           />
           <KpiCard
-            title="Today's Total Value"
-            value={`${(today?.amount || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ETB`}
-            subtitle="Total purchasing payout today"
-            icon={DollarSign}
+            title="Today's Canonical Base (g)"
+            value={`${parseFloat(String(today?.canonical_quantity || 0)).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 4 })} g`}
+            subtitle="Authoritative gram benchmark"
+            icon={Coins}
             accent="warning"
           />
           <KpiCard
@@ -711,9 +676,9 @@ export function PurchasingCenterDashboardView({
             accent="success"
           />
           <KpiCard
-            title="Total Purchase Payout"
-            value={`${(period?.total_amount || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ETB`}
-            subtitle="Capital disbursed to suppliers"
+            title="Canonical Standard Base"
+            value={`${parseFloat(String(period?.total_canonical_quantity || 0)).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 4 })} g`}
+            subtitle="Total standard weight in grams"
             icon={TrendingUp}
             accent="warning"
           />
@@ -742,10 +707,10 @@ export function PurchasingCenterDashboardView({
               <div>
                 <h3 className="font-bold text-foreground text-sm flex items-center gap-2">
                   <Activity className="h-4 w-4 text-amber-500" />
-                  Gold Intake Trajectory & Payout Curve
+                  Daily Gold Intake Trajectory
                 </h3>
                 <p className="text-xs text-muted-foreground">
-                  Daily canonical intake ({unitSymbol}) and capital disbursement (ETB) over time
+                  Daily canonical intake ({unitSymbol}) over time
                 </p>
               </div>
               <Badge variant="outline" className="text-xs font-mono">
@@ -762,10 +727,6 @@ export function PurchasingCenterDashboardView({
                         <stop offset="5%" stopColor="#f59e0b" stopOpacity={0.4} />
                         <stop offset="95%" stopColor="#f59e0b" stopOpacity={0.0} />
                       </linearGradient>
-                      <linearGradient id="payoutGradient" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="5%" stopColor="#10b981" stopOpacity={0.3} />
-                        <stop offset="95%" stopColor="#10b981" stopOpacity={0.0} />
-                      </linearGradient>
                     </defs>
                     <CartesianGrid strokeDasharray="3 3" opacity={0.15} />
                     <XAxis
@@ -775,19 +736,10 @@ export function PurchasingCenterDashboardView({
                       tickLine={false}
                     />
                     <YAxis
-                      yAxisId="left"
                       tick={{ fontSize: 11 }}
                       stroke="#f59e0b"
                       tickLine={false}
                       tickFormatter={(val) => `${val}${unitSymbol}`}
-                    />
-                    <YAxis
-                      yAxisId="right"
-                      orientation="right"
-                      tick={{ fontSize: 11 }}
-                      stroke="#10b981"
-                      tickLine={false}
-                      tickFormatter={(val) => `${(val / 1000).toFixed(0)}k`}
                     />
                     <RechartsTooltip
                       content={({ active, payload, label }) => {
@@ -798,11 +750,6 @@ export function PurchasingCenterDashboardView({
                               <p className="text-amber-600 dark:text-amber-400 font-mono">
                                 Volume: {Number(payload[0]?.value).toLocaleString()} {unitSymbol}
                               </p>
-                              {payload[1] && (
-                                <p className="text-emerald-600 dark:text-emerald-400 font-mono">
-                                  Payout: {Number(payload[1]?.value).toLocaleString()} ETB
-                                </p>
-                              )}
                             </div>
                           );
                         }
@@ -811,7 +758,6 @@ export function PurchasingCenterDashboardView({
                     />
                     <Legend wrapperStyle={{ fontSize: "11px", paddingTop: "8px" }} />
                     <Area
-                      yAxisId="left"
                       type="monotone"
                       dataKey="volume"
                       name={`Intake (${unitSymbol})`}
@@ -819,16 +765,6 @@ export function PurchasingCenterDashboardView({
                       strokeWidth={2.5}
                       fillOpacity={1}
                       fill="url(#volumeGradient)"
-                    />
-                    <Area
-                      yAxisId="right"
-                      type="monotone"
-                      dataKey="payout"
-                      name="Payout (ETB)"
-                      stroke="#10b981"
-                      strokeWidth={2}
-                      fillOpacity={1}
-                      fill="url(#payoutGradient)"
                     />
                   </AreaChart>
                 </ResponsiveContainer>
@@ -1071,7 +1007,7 @@ export function PurchasingCenterDashboardView({
           {/* ASM Miners Breakdown Table */}
           <AnalyticsPanel
             title="ASM Miners & Individual Sourcing Ledger"
-            description="Purchasing volume and payout per artisanal and small-scale miner"
+            description="Purchasing volume and delivery history per artisanal and small-scale miner"
             headerAction={
               <Badge variant="outline" className="text-xs font-mono">
                 {period?.asm_breakdown?.length || 0} Miners

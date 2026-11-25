@@ -76,7 +76,6 @@ export function RecordPurchaseForm() {
   const [selectedAsmId, setSelectedAsmId] = useState("");
   const [measurementUnitId, setMeasurementUnitId] = useState("");
   const [quantity, setQuantity] = useState("");
-  const [amountPaid, setAmountPaid] = useState("");
 
   const defaultGoldType = availableGoldTypes[0]?.name || "Raw/Placer Gold";
   const defaultKarat = availableKaratGrades[0]?.karat || "24K";
@@ -162,11 +161,8 @@ export function RecordPurchaseForm() {
 
   // Live calculations
   const parsedQuantity = parseFloat(quantity) || 0;
-  const parsedAmountPaid = parseFloat(amountPaid) || 0;
   const conversionFactor = selectedUnit ? parseFloat(String(selectedUnit.conversion_factor)) || 1.0 : 1.0;
   const canonicalGrams = parsedQuantity > 0 ? parseFloat((parsedQuantity * conversionFactor).toFixed(4)) : 0;
-  const totalAmount = parsedAmountPaid;
-  const finalTotalAmount = parsedAmountPaid;
 
   // Selected Seller Information
   const selectedCompany = useMemo(() => {
@@ -264,10 +260,6 @@ export function RecordPurchaseForm() {
       toast.error("Please enter a valid positive gold quantity.");
       return;
     }
-    if (parsedAmountPaid <= 0) {
-      toast.error("Please enter a valid positive amount paid (ETB).");
-      return;
-    }
 
     try {
       const res = await recordPurchase({
@@ -277,7 +269,6 @@ export function RecordPurchaseForm() {
         asm_id: sellerType === "asm" ? selectedAsmId : undefined,
         quantity: parsedQuantity,
         measurement_unit_id: measurementUnitId,
-        total_amount: parsedAmountPaid,
         gold_type: isSpecsModuleEnabled ? goldType : undefined,
         karat: isSpecsModuleEnabled ? karat : undefined,
         quality_grade: isSpecsModuleEnabled ? qualityGrade : undefined,
@@ -702,56 +693,12 @@ export function RecordPurchaseForm() {
             )}
           </div>
 
-          {/* CARD 4: PAYMENT & DISBURSEMENT */}
-          <div className="p-6 rounded-3xl bg-card border border-border shadow-xs space-y-5">
-            <div>
-              <h3 className="text-base font-bold text-foreground flex items-center gap-2.5">
-                <span className="w-7 h-7 rounded-xl bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 text-xs flex items-center justify-center font-bold">
-                  {isSpecsModuleEnabled ? 4 : 3}
-                </span>
-                Payment & Disbursement
-              </h3>
-              <p className="text-xs text-muted-foreground mt-0.5">
-                Record the total cash amount paid directly to the seller for this gold purchase.
-              </p>
-            </div>
-
-            {/* Direct Amount Paid Input */}
-            <div className="space-y-1.5">
-              <div className="flex items-center justify-between">
-                <Label className="text-xs font-semibold">
-                  Total Amount Paid (ETB) *
-                </Label>
-                <span className="text-[11px] text-muted-foreground font-mono">
-                  Direct Cash Outflow
-                </span>
-              </div>
-              <div className="relative">
-                <Input
-                  type="number"
-                  step="0.01"
-                  min="0"
-                  placeholder="0.00"
-                  value={amountPaid}
-                  onChange={(e) => setAmountPaid(e.target.value)}
-                  className="h-12 text-lg font-mono font-bold rounded-xl pr-14 border-emerald-500/40 focus-visible:ring-emerald-500"
-                />
-                <span className="absolute right-3.5 top-1/2 -translate-y-1/2 text-xs font-bold text-muted-foreground font-mono">
-                  ETB
-                </span>
-              </div>
-              <p className="text-[11px] text-muted-foreground">
-                Enter the total net amount disbursed to the seller. No unit pricing or percentage adjustments applied.
-              </p>
-            </div>
-          </div>
-
-          {/* CARD 5: OPERATIONAL METADATA */}
+          {/* CARD 4: OPERATIONAL METADATA */}
           <div className="p-6 rounded-3xl bg-card border border-border shadow-xs space-y-5">
             <div>
               <h3 className="text-base font-bold text-foreground flex items-center gap-2.5">
                 <span className="w-7 h-7 rounded-xl bg-sky-500/10 text-sky-600 dark:text-sky-400 text-xs flex items-center justify-center font-bold">
-                  {isSpecsModuleEnabled ? 5 : 4}
+                  {isSpecsModuleEnabled ? 4 : 3}
                 </span>
                 Operational Metadata & Audit Notes
               </h3>
@@ -798,24 +745,24 @@ export function RecordPurchaseForm() {
               </Badge>
             </div>
 
-            {/* DIRECT TRANSACTION PAYOUT HERO */}
-            <div className="p-4 rounded-2xl bg-gradient-to-br from-amber-500/10 via-emerald-500/5 to-transparent border border-amber-500/20 space-y-2">
+            {/* INTAKE QUANTITY HERO */}
+            <div className="p-4 rounded-2xl bg-gradient-to-br from-amber-500/15 via-card to-amber-500/5 border border-amber-500/25 space-y-2">
               <div className="flex items-center justify-between">
-                <span className="text-xs font-bold text-emerald-700 dark:text-emerald-300 uppercase tracking-wider">
-                  Total Cash Disbursed
+                <span className="text-xs font-bold text-amber-700 dark:text-amber-300 uppercase tracking-wider">
+                  Gold Intake Weight
                 </span>
-                <Badge className="bg-emerald-600 text-white text-[10px] font-mono font-bold">
-                  Payable
+                <Badge className="bg-amber-500 text-slate-950 text-[10px] font-mono font-bold">
+                  {selectedUnit?.symbol || "g"}
                 </Badge>
               </div>
-              <p className="text-3xl font-extrabold font-mono text-emerald-600 dark:text-emerald-400">
-                {parsedAmountPaid.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                <span className="text-sm font-semibold text-muted-foreground ml-1.5">ETB</span>
+              <p className="text-3xl font-extrabold font-mono text-amber-600 dark:text-amber-400">
+                {parsedQuantity > 0 ? parsedQuantity.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 4 }) : "0.00"}
+                <span className="text-sm font-semibold text-muted-foreground ml-1.5">{selectedUnit?.symbol || "unit"}</span>
               </p>
               <p className="text-[11px] text-muted-foreground font-mono">
-                {parsedQuantity > 0 && parsedAmountPaid > 0
-                  ? `Recorded for ${parsedQuantity.toLocaleString()} ${selectedUnit?.symbol || "unit"} gold intake`
-                  : "Awaiting valid quantity & amount paid"}
+                {parsedQuantity > 0
+                  ? `Standardized: ${canonicalGrams.toLocaleString()} canonical grams`
+                  : "Awaiting valid gold quantity"}
               </p>
             </div>
 
@@ -889,8 +836,7 @@ export function RecordPurchaseForm() {
                 disabled={
                   (sellerType === "company" && !selectedCompanyId) ||
                   (sellerType === "asm" && !selectedAsmId) ||
-                  parsedQuantity <= 0 ||
-                  parsedAmountPaid <= 0
+                  parsedQuantity <= 0
                 }
                 className="w-full gap-2 font-bold h-11 rounded-xl shadow-md bg-amber-500 hover:bg-amber-600 text-slate-950 dark:text-slate-950"
               >
@@ -971,16 +917,6 @@ export function RecordPurchaseForm() {
               <span className="font-mono font-bold text-amber-600 dark:text-amber-400">
                 {canonicalGrams.toLocaleString()} grams
               </span>
-            </div>
-            
-            {/* DIRECT TOTAL AMOUNT PAID */}
-            <div className="p-3.5 rounded-2xl bg-muted/40 border border-border/80 space-y-2 text-xs">
-              <div className="flex justify-between items-center text-sm font-bold">
-                <span className="text-emerald-700 dark:text-emerald-300">Total Amount Paid:</span>
-                <span className="font-mono text-emerald-600 dark:text-emerald-400 text-base">
-                  {parsedAmountPaid.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ETB
-                </span>
-              </div>
             </div>
           </div>
 

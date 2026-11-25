@@ -92,7 +92,7 @@ export function FederalOversightView() {
   const [dateTo, setDateTo] = useState(() => addisDate());
   const [selectedCenterId, setSelectedCenterId] = useState<string>("all");
   const [selectedUnitCode, setSelectedUnitCode] = useState<string>("GRAM");
-  const [activeMetric, setActiveMetric] = useState<"volume" | "amount" | "purchases" | "avg_ticket">("volume");
+  const [activeMetric, setActiveMetric] = useState<"volume" | "purchases" | "avg_ticket">("volume");
   const [sourcingMode, setSourcingMode] = useState<"period" | "all_time">("period");
   const [overviewDisplayMode, setOverviewDisplayMode] = useState<"period" | "cumulative">("period");
 
@@ -156,7 +156,6 @@ export function FederalOversightView() {
     return centers.map((c) => {
       const canonicalGrams = parseFloat(String(c.today_quantity_canonical || 0));
       const volume = parseFloat((canonicalGrams / unitFactor).toFixed(unitFactor >= 1000 ? 3 : 2));
-      const amount = parseFloat(parseFloat(String(c.today_amount || 0)).toFixed(2));
       const purchases = c.today_purchases || 0;
       const avg_ticket = purchases > 0 ? parseFloat((volume / purchases).toFixed(unitFactor >= 1000 ? 3 : 2)) : 0;
       const totalVolume = parseFloat((parseFloat(String(c.total_quantity_canonical || 0)) / unitFactor).toFixed(unitFactor >= 1000 ? 3 : 2));
@@ -164,7 +163,6 @@ export function FederalOversightView() {
         name: c.name,
         code: c.code,
         volume,
-        amount,
         purchases,
         avg_ticket,
         totalVolume,
@@ -186,14 +184,12 @@ export function FederalOversightView() {
         name: "Registered Companies",
         value: companyVol,
         purchases: dist?.company?.count || 0,
-        amount: dist?.company?.amount || 0,
         color: "#0284c7",
       },
       {
         name: "Artisanal Miners (ASM)",
         value: asmVol,
         purchases: dist?.asm?.count || 0,
-        amount: dist?.asm?.amount || 0,
         color: "#f59e0b",
       },
     ];
@@ -202,13 +198,11 @@ export function FederalOversightView() {
   // Statistical calculations (respects active reporting unit)
   const statisticalMetrics = useMemo(() => {
     const totalGrams = parseFloat(String(today?.canonical_quantity || 0));
-    const totalAmount = parseFloat(String(today?.amount || 0));
     const totalPurchases = today?.purchases_count || 0;
     const days = Math.max(today?.days || 1, 1);
 
     const convertedTotalVolume = totalGrams / unitFactor;
     const avgTransactionWeight = totalPurchases > 0 ? (convertedTotalVolume / totalPurchases) : 0;
-    const avgTransactionValue = totalPurchases > 0 ? (totalAmount / totalPurchases) : 0;
     const dailyVolumePace = convertedTotalVolume / days;
 
     // Top Center by Volume
@@ -233,7 +227,6 @@ export function FederalOversightView() {
 
     return {
       avgTransactionWeight: avgTransactionWeight.toFixed(volumeDecimals),
-      avgTransactionValue: avgTransactionValue.toLocaleString(undefined, { maximumFractionDigits: 0 }),
       dailyVolumePace: dailyVolumePace.toLocaleString(undefined, { minimumFractionDigits: volumeDecimals, maximumFractionDigits: volumeDecimals + 1 }),
       topCenterName: topCenter ? topCenter.name : "N/A",
       topCenterVolume: topCenterVolume.toLocaleString(undefined, { minimumFractionDigits: volumeDecimals, maximumFractionDigits: volumeDecimals + 1 }),
@@ -397,10 +390,10 @@ export function FederalOversightView() {
             accent="success"
           />
           <KpiCard
-            title={`${periodPrefix} Total Value`}
-            value={`${(today?.amount || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ETB`}
-            subtitle="Settled purchasing capital"
-            icon={DollarSign}
+            title={`${periodPrefix} Canonical Grams`}
+            value={`${parseFloat(String(today?.canonical_quantity || 0)).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 4 })} g`}
+            subtitle="Standard baseline intake"
+            icon={Coins}
             accent="warning"
           />
           <KpiCard
@@ -438,12 +431,12 @@ export function FederalOversightView() {
 
           <div className="p-4 rounded-2xl bg-card border border-border space-y-1">
             <span className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">
-              Avg Ticket Payout
+              Daily Intake Pace
             </span>
             <p className="text-xl font-bold font-mono text-emerald-600 dark:text-emerald-400">
-              {statisticalMetrics.avgTransactionValue} ETB
+              ~{statisticalMetrics.dailyVolumePace} {unitSymbol}
             </p>
-            <p className="text-[10px] text-muted-foreground">Mean transaction disbursement</p>
+            <p className="text-[10px] text-muted-foreground">Estimated daily intake pace</p>
           </div>
 
           <div className="p-4 rounded-2xl bg-card border border-border space-y-1">
@@ -489,7 +482,6 @@ export function FederalOversightView() {
                 {(
                   [
                     { key: "volume", label: `Canonical Gold (${unitSymbol})` },
-                    { key: "amount", label: "Payout (ETB)" },
                     { key: "purchases", label: "Transactions (#)" },
                     { key: "avg_ticket", label: `Avg Ticket (${unitSymbol})` },
                   ] as const
@@ -529,9 +521,6 @@ export function FederalOversightView() {
                       stroke="#888888"
                       tickLine={false}
                       tickFormatter={(val) => {
-                        if (activeMetric === "amount") {
-                          return val >= 1_000_000 ? `${(val / 1_000_000).toFixed(1)}M` : val >= 1000 ? `${(val / 1000).toFixed(0)}k` : `${val}`;
-                        }
                         if (activeMetric === "volume" || activeMetric === "avg_ticket") {
                           return `${val}${unitSymbol}`;
                         }
@@ -551,9 +540,6 @@ export function FederalOversightView() {
                                 <p className={`font-mono font-bold ${activeMetric === "volume" ? "text-amber-600 dark:text-amber-400" : "text-muted-foreground"}`}>
                                   • Volume: {item.volume.toLocaleString()} {unitSymbol}
                                 </p>
-                                <p className={`font-mono font-bold ${activeMetric === "amount" ? "text-emerald-600 dark:text-emerald-400" : "text-muted-foreground"}`}>
-                                  • Payout: {item.amount.toLocaleString()} ETB
-                                </p>
                                 <p className={`font-mono font-bold ${activeMetric === "purchases" ? "text-sky-600 dark:text-sky-400" : "text-muted-foreground"}`}>
                                   • Transactions: {item.purchases}
                                 </p>
@@ -572,8 +558,6 @@ export function FederalOversightView() {
                       name={
                         activeMetric === "volume"
                           ? "Canonical Gold (g)"
-                          : activeMetric === "amount"
-                          ? "Disbursement (ETB)"
                           : activeMetric === "purchases"
                           ? "Transactions"
                           : "Avg Ticket Size (g)"
@@ -581,8 +565,6 @@ export function FederalOversightView() {
                       fill={
                         activeMetric === "volume"
                           ? "#f59e0b"
-                          : activeMetric === "amount"
-                          ? "#10b981"
                           : activeMetric === "purchases"
                           ? "#0284c7"
                           : "#8b5cf6"
@@ -669,7 +651,7 @@ export function FederalOversightView() {
                                 {d.value.toLocaleString()} g ({pct}%)
                               </p>
                               <p className="text-[10px] text-muted-foreground">
-                                {d.purchases} purchases • {d.amount.toLocaleString()} ETB
+                                {d.purchases} purchases recorded
                               </p>
                             </div>
                           );
@@ -766,10 +748,10 @@ export function FederalOversightView() {
               accent="success"
             />
             <KpiCard
-              title="Period Capital Disbursed"
-              value={`${(today?.amount || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ETB`}
-              subtitle={`Mean payout: ${statisticalMetrics.avgTransactionValue} ETB / transaction`}
-              icon={DollarSign}
+              title="Period Canonical Grams"
+              value={`${parseFloat(String(today?.canonical_quantity || 0)).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 4 })} g`}
+              subtitle="Base metric in standard grams"
+              icon={Coins}
               accent="warning"
             />
             <KpiCard
@@ -797,9 +779,9 @@ export function FederalOversightView() {
               accent="success"
             />
             <KpiCard
-              title="Total Value Disbursed"
-              value={`${(overview?.total_amount || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ETB`}
-              subtitle="All-time purchasing payouts"
+              title="Cumulative Canonical Grams"
+              value={`${parseFloat(String(overview?.total_quantity_canonical || 0)).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 4 })} g`}
+              subtitle="All-time standard grams acquired"
               icon={TrendingUp}
               accent="warning"
             />
