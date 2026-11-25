@@ -20,6 +20,7 @@ import {
   RefreshCw,
   Clock,
   UserX,
+  MapPin,
   type LucideIcon,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -81,6 +82,18 @@ function placementTone(rate: number): Tone {
   return "rose";
 }
 
+type CardStatus = "warning" | "danger";
+
+/** Cards that need action get a faint tint, a coloured border and a coloured number. */
+const STATUS_CARD: Record<CardStatus, string> = {
+  warning: "border-amber-300 bg-amber-50/70 dark:border-amber-500/40 dark:bg-amber-500/10",
+  danger: "border-rose-300 bg-rose-50/70 dark:border-rose-500/40 dark:bg-rose-500/10",
+};
+const STATUS_VALUE: Record<CardStatus, string> = {
+  warning: "text-amber-700 dark:text-amber-300",
+  danger: "text-rose-700 dark:text-rose-300",
+};
+
 function StatCard({
   label,
   value,
@@ -88,6 +101,8 @@ function StatCard({
   icon: Icon,
   tone,
   progress,
+  status,
+  valueSize = "lg",
 }: {
   label: string;
   value: React.ReactNode;
@@ -95,19 +110,31 @@ function StatCard({
   icon: LucideIcon;
   tone: Tone;
   progress?: number;
+  /** Highlight the card when its value needs attention. */
+  status?: CardStatus;
+  /** "md" for text values (labels), so they don't outshine real numbers. */
+  valueSize?: "lg" | "md";
 }) {
   return (
-    <div className={cn(CARD, "flex flex-col gap-3 p-5")}>
+    <div className={cn(CARD, "flex flex-col gap-3 p-5", status && STATUS_CARD[status])}>
       <div className="flex items-start justify-between gap-3">
         <span className="text-sm font-medium text-muted-foreground">{label}</span>
         <span className={cn("flex h-9 w-9 shrink-0 items-center justify-center rounded-xl", TONE_CHIP[tone])}>
           <Icon className="h-[18px] w-[18px]" aria-hidden="true" />
         </span>
       </div>
-      <div className="text-3xl font-bold leading-none tracking-tight text-foreground tabular-nums">{value}</div>
+      <div
+        className={cn(
+          "leading-none tracking-tight tabular-nums",
+          valueSize === "lg" ? "text-3xl font-bold" : "pt-1.5 text-lg font-semibold",
+          status ? STATUS_VALUE[status] : "text-foreground"
+        )}
+      >
+        {value}
+      </div>
       {progress !== undefined && (
         <div
-          className="h-1.5 w-full overflow-hidden rounded-full bg-muted"
+          className="h-1.5 w-full overflow-hidden rounded-full bg-slate-200/70 dark:bg-slate-800"
           role="progressbar"
           aria-valuenow={progress}
           aria-valuemin={0}
@@ -117,49 +144,98 @@ function StatCard({
           <div className={cn("h-full rounded-full transition-all", TONE_BAR[tone])} style={{ width: `${progress}%` }} />
         </div>
       )}
-      <div className="text-xs text-muted-foreground">{detail}</div>
+      <div className={cn("text-xs", status ? STATUS_VALUE[status] : "text-muted-foreground")}>{detail}</div>
     </div>
   );
 }
 
-/** A labelled horizontal bar split into parts, with an always-visible legend. */
-function SplitBar({
+const TONE_HEX: Record<Tone, string> = {
+  primary: "var(--primary, #0b4a6f)",
+  sky: "#0ea5e9",
+  violet: "#8b5cf6",
+  emerald: "#10b981",
+  amber: "#f59e0b",
+  rose: "#f43f5e",
+  slate: "#94a3b8",
+};
+
+/** Donut chart card with the legend underneath, so labels never get cut off. */
+function DonutCard({
   title,
-  total,
+  description,
+  centerValue,
+  centerLabel,
   parts,
 }: {
   title: string;
-  total: number;
+  description: string;
+  centerValue: number;
+  centerLabel: string;
   parts: Array<{ label: string; value: number; tone: Tone }>;
 }) {
+  const total = parts.reduce((s, p) => s + p.value, 0);
+  const r = 48;
+  const c = 2 * Math.PI * r;
+  let offset = 0;
   return (
-    <div className="space-y-2.5">
-      <div className="flex items-baseline justify-between gap-3">
-        <span className="text-sm font-medium text-foreground">{title}</span>
-        <span className="text-xs text-muted-foreground tabular-nums">{total} total</span>
+    <section className={cn(CARD, "flex flex-col p-5")}>
+      <h3 className="text-base font-semibold text-foreground">{title}</h3>
+      <p className="mt-0.5 text-xs text-muted-foreground">{description}</p>
+      <div className="mt-4 flex flex-1 flex-col items-center justify-center gap-5">
+        <svg
+          viewBox="0 0 120 120"
+          className="h-36 w-36 shrink-0"
+          role="img"
+          aria-label={`${title}: ${parts.map((p) => `${p.label} ${p.value}`).join(", ")}`}
+        >
+          <circle cx="60" cy="60" r={r} fill="none" strokeWidth="14" className="stroke-slate-100 dark:stroke-slate-800" />
+          {total > 0 &&
+            parts.map((p) => {
+              if (p.value <= 0) return null;
+              const len = (p.value / total) * c;
+              const seg = (
+                <circle
+                  key={p.label}
+                  cx="60"
+                  cy="60"
+                  r={r}
+                  fill="none"
+                  strokeWidth="14"
+                  stroke={TONE_HEX[p.tone]}
+                  className={p.tone === "primary" ? "stroke-primary" : undefined}
+                  strokeDasharray={`${len} ${c - len}`}
+                  strokeDashoffset={-offset}
+                  transform="rotate(-90 60 60)"
+                />
+              );
+              offset += len;
+              return seg;
+            })}
+          <text x="60" y="58" textAnchor="middle" className="fill-foreground" fontSize="24" fontWeight="700">
+            {centerValue}
+          </text>
+          <text x="60" y="76" textAnchor="middle" className="fill-muted-foreground" fontSize="9" letterSpacing="0.06em">
+            {centerLabel.toUpperCase()}
+          </text>
+        </svg>
+        <ul className="w-full min-w-0 space-y-2">
+          {parts.map((p) => (
+            <li key={p.label} className="flex items-center justify-between gap-3 rounded-lg bg-muted/40 px-3 py-2 text-sm">
+              <span className="flex min-w-0 items-center gap-2">
+                <span className={cn("h-2.5 w-2.5 shrink-0 rounded-sm", TONE_BAR[p.tone])} aria-hidden="true" />
+                <span className="truncate text-foreground">{p.label}</span>
+              </span>
+              <span className="shrink-0 tabular-nums">
+                <span className="font-semibold text-foreground">{p.value}</span>
+                <span className="ml-1 text-xs text-muted-foreground">
+                  ({total > 0 ? Math.round((p.value / total) * 100) : 0}%)
+                </span>
+              </span>
+            </li>
+          ))}
+        </ul>
       </div>
-      <div className="flex h-2.5 w-full overflow-hidden rounded-full bg-muted">
-        {total > 0 &&
-          parts.map((p) =>
-            p.value > 0 ? (
-              <div
-                key={p.label}
-                className={cn("h-full", TONE_BAR[p.tone])}
-                style={{ width: `${(p.value / total) * 100}%` }}
-              />
-            ) : null
-          )}
-      </div>
-      <div className="flex flex-wrap gap-x-5 gap-y-1.5">
-        {parts.map((p) => (
-          <span key={p.label} className="inline-flex items-center gap-2 text-xs text-muted-foreground">
-            <span className={cn("h-2.5 w-2.5 rounded-sm", TONE_BAR[p.tone])} aria-hidden="true" />
-            {p.label}
-            <span className="font-semibold text-foreground tabular-nums">{p.value}</span>
-          </span>
-        ))}
-      </div>
-    </div>
+    </section>
   );
 }
 
@@ -318,12 +394,16 @@ export function RegionalDashboardView({
 
   const { region, counts, recent_departments, recent_users } = dashboardData;
   const regionName = region?.name || branding.system_name_full || "Regional Administration";
+  const regionCode = region?.code || "REG";
 
   const totalUsers = counts.users.total;
   const assignedUsers = counts.users.assigned;
   const placementRate =
     totalUsers > 0 ? Math.round((assignedUsers / totalUsers) * 100) : 0;
   const inactiveUsers = Math.max(0, counts.users.total - counts.users.active);
+  // Placement needs attention below 80%, and is serious below 50% (only once there is staff).
+  const placementStatus: CardStatus | undefined =
+    totalUsers === 0 ? undefined : placementRate < 50 ? "danger" : placementRate < 80 ? "warning" : undefined;
   const subUnits = Math.max(0, counts.departments.total - counts.departments.root);
   const inactiveDepts = Math.max(0, counts.departments.total - counts.departments.active);
 
@@ -387,7 +467,7 @@ export function RegionalDashboardView({
   ];
 
   return (
-    <div className="space-y-6 animate-in fade-in-50 duration-300">
+    <div className="-m-6 min-h-full space-y-6 bg-slate-100/70 p-6 animate-in fade-in-50 duration-300 dark:bg-transparent">
       {/* Dashboard view switcher */}
       <div
         className="inline-flex max-w-full flex-wrap items-center gap-1 rounded-2xl border border-border/70 bg-card p-1.5 shadow-2xs"
@@ -422,6 +502,20 @@ export function RegionalDashboardView({
       {/* =============================== OVERVIEW =============================== */}
       {activeTab === "overview" && (
         <div className="space-y-6">
+          {/* Section heading */}
+          <div className="flex flex-wrap items-end justify-between gap-3">
+            <div>
+              <h2 className="text-lg font-semibold text-foreground">Administrative &amp; Operational Metrics</h2>
+              <p className="text-sm text-muted-foreground">
+                Organizational structure, staff allocation and access control for {regionName}.
+              </p>
+            </div>
+            <span className="inline-flex items-center gap-1.5 rounded-full border border-emerald-200 bg-emerald-50 px-2.5 py-1 text-xs font-semibold text-emerald-800 dark:border-emerald-500/30 dark:bg-emerald-500/10 dark:text-emerald-300">
+              <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" aria-hidden="true" />
+              Live regional data
+            </span>
+          </div>
+
           {/* Key figures */}
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
             <StatCard
@@ -445,6 +539,7 @@ export function RegionalDashboardView({
               icon={UserCheck}
               tone={placementTone(placementRate)}
               progress={placementRate}
+              status={placementStatus}
             />
             <StatCard
               label="Roles"
@@ -452,6 +547,40 @@ export function RegionalDashboardView({
               detail={`${permissionGroupsData.length} permission ${permissionGroupsData.length === 1 ? "group" : "groups"}`}
               icon={ShieldCheck}
               tone="violet"
+            />
+          </div>
+
+          {/* Secondary figures */}
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+            <StatCard
+              label="Root directorates"
+              value={counts.departments.root}
+              detail="Level 1 structures"
+              icon={Layers}
+              tone="primary"
+            />
+            <StatCard
+              label="Active units"
+              value={counts.departments.active}
+              detail="Operational offices"
+              icon={CheckCircle2}
+              tone="emerald"
+            />
+            <StatCard
+              label="Unassigned staff"
+              value={counts.users.unassigned}
+              detail="Pending assignment to a department"
+              icon={UserCheck}
+              tone={counts.users.unassigned > 0 ? "amber" : "slate"}
+              status={counts.users.unassigned > 0 ? "warning" : undefined}
+            />
+            <StatCard
+              label="Security boundary"
+              value={`${regionCode} Domain`}
+              detail="Strict regional isolation"
+              icon={MapPin}
+              tone="slate"
+              valueSize="md"
             />
           </div>
 
@@ -488,45 +617,34 @@ export function RegionalDashboardView({
             </section>
           )}
 
-          {/* Organization at a glance + quick links */}
-          <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
-            <SectionCard
-              title="Organization at a glance"
-              description={`How ${regionName} is structured and staffed`}
-            >
-              <div className="space-y-6">
-                <SplitBar
-                  title="Staff placement"
-                  total={counts.users.total}
-                  parts={[
-                    { label: "Placed in a department", value: counts.users.assigned, tone: "emerald" },
-                    { label: "Not placed", value: counts.users.unassigned, tone: "amber" },
-                  ]}
-                />
-                <SplitBar
-                  title="Department structure"
-                  total={counts.departments.total}
-                  parts={[
-                    { label: "Directorates", value: counts.departments.root, tone: "primary" },
-                    { label: "Sub-units", value: subUnits, tone: "sky" },
-                  ]}
-                />
-                <SplitBar
-                  title="Account status"
-                  total={counts.users.total}
-                  parts={[
-                    { label: "Active", value: counts.users.active, tone: "emerald" },
-                    { label: "Inactive", value: inactiveUsers, tone: "slate" },
-                  ]}
-                />
-              </div>
-            </SectionCard>
+          {/* Breakdown charts + quick links */}
+          <div className="grid grid-cols-1 gap-4 lg:grid-cols-2 xl:grid-cols-3">
+            <DonutCard
+              title="Personnel Placement Mix"
+              description="Staff allocated to departments vs unassigned"
+              centerValue={counts.users.total}
+              centerLabel="Total staff"
+              parts={[
+                { label: "Assigned in departments", value: counts.users.assigned, tone: "emerald" },
+                { label: "Unassigned personnel", value: counts.users.unassigned, tone: "amber" },
+              ]}
+            />
+            <DonutCard
+              title="Department Hierarchy"
+              description="Root directorates vs sub-directorate divisions"
+              centerValue={counts.departments.total}
+              centerLabel="Units"
+              parts={[
+                { label: "Root directorates", value: counts.departments.root, tone: "primary" },
+                { label: "Sub-directorates & units", value: subUnits, tone: "sky" },
+              ]}
+            />
 
-            <SectionCard title="Quick links" description="Manage your region">
+            <SectionCard title="Quick links" description="Manage your region" className="lg:col-span-2 xl:col-span-1">
               {visibleLinks.length === 0 ? (
                 <EmptyState>You don&apos;t have access to any management pages.</EmptyState>
               ) : (
-                <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 xl:grid-cols-1">
                   {visibleLinks.map((l) => {
                     const Icon = l.icon;
                     return (
