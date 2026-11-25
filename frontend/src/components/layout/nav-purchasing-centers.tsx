@@ -59,8 +59,16 @@ export function NavPurchasingCenters({
       {/* Individual Purchasing Center sub-items */}
       {centers.map((center) => {
         const url = `${basePath}/${center.purchasing_center_id}`;
-        const isActive = currentPath === url || currentPath.startsWith(`${url}/`);
-        const logoUrl = center.logo_path ? getFileUrl(center.logo_path) : null;
+        const isActive =
+          currentPath === url ||
+          currentPath.startsWith(`${url}/`) ||
+          currentPath === `/purchasing-centers/${center.purchasing_center_id}` ||
+          currentPath.startsWith(`/purchasing-centers/${center.purchasing_center_id}/`);
+        const logoPath =
+          center.logo_path ||
+          (center as unknown as { branding?: { logo_primary_path?: string } })?.branding
+            ?.logo_primary_path;
+        const logoUrl = logoPath ? getFileUrl(logoPath) : null;
 
         return (
           <SidebarMenuSubItem key={center.purchasing_center_id}>

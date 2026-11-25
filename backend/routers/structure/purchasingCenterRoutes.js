@@ -3,7 +3,7 @@
 const express = require("express");
 const router = express.Router();
 const purchasingCenterController = require("../../controllers/structure/purchasingCenterController");
-const { authenticateToken, checkPermission } = require("../../middlewares/authMiddleware");
+const { authenticateToken, checkPermission, checkAnyPermission } = require("../../middlewares/authMiddleware");
 const { isSuperAdminActor } = require("../../utils/structureScopeUtils");
 
 // Public listing of active purchasing centers
@@ -25,7 +25,7 @@ router.get("/public", async (req, res) => {
   }
 });
 
-// Authorization middleware: PC users can access their assigned center; federal users require PURCHASING_CENTERS:READ
+// Authorization middleware: PC users can access their assigned center; federal users require PURCHASING_CENTERS:READ or GOLD permissions
 const authorizePurchasingCenterRead = (req, res, next) => {
   if (isSuperAdminActor(req)) {
     return next();
@@ -48,10 +48,17 @@ const authorizePurchasingCenterRead = (req, res, next) => {
     });
   }
 
-  return checkPermission("PURCHASING_CENTERS", "READ")(req, res, next);
+  return checkAnyPermission([
+    { resource: "PURCHASING_CENTERS", action: "READ" },
+    { resource: "PURCHASING_CENTERS", action: "MANAGE" },
+    { resource: "GOLD_OVERSIGHT", action: "READ" },
+    { resource: "GOLD_OVERSIGHT", action: "MANAGE" },
+    { resource: "GOLD_PURCHASES", action: "READ" },
+    { resource: "GOLD_PURCHASES", action: "MANAGE" },
+  ])(req, res, next);
 };
 
-// Authorization middleware: PC users can list centers (scoped to own center by controller); federal users require PURCHASING_CENTERS:READ
+// Authorization middleware: PC users can list centers (scoped to own center by controller); federal users require PURCHASING_CENTERS:READ or GOLD permissions
 const authorizePurchasingCenterList = (req, res, next) => {
   if (isSuperAdminActor(req)) {
     return next();
@@ -68,7 +75,14 @@ const authorizePurchasingCenterList = (req, res, next) => {
     });
   }
 
-  return checkPermission("PURCHASING_CENTERS", "READ")(req, res, next);
+  return checkAnyPermission([
+    { resource: "PURCHASING_CENTERS", action: "READ" },
+    { resource: "PURCHASING_CENTERS", action: "MANAGE" },
+    { resource: "GOLD_OVERSIGHT", action: "READ" },
+    { resource: "GOLD_OVERSIGHT", action: "MANAGE" },
+    { resource: "GOLD_PURCHASES", action: "READ" },
+    { resource: "GOLD_PURCHASES", action: "MANAGE" },
+  ])(req, res, next);
 };
 
 router.use(authenticateToken);

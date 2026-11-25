@@ -139,7 +139,7 @@ export function AppSidebar() {
     (item) => item.url === "/admin/purchasing-centers"
   );
   const { data: purchasingCentersData } = useGetPurchasingCentersQuery(
-    { is_active: true },
+    undefined,
     {
       skip: !isAuthReady || !canAccessPurchasingCenters,
       refetchOnMountOrArgChange: true,
