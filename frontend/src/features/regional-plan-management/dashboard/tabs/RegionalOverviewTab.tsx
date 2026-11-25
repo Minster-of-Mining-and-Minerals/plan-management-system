@@ -24,6 +24,7 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Link } from "@/i18n/navigation";
+import { cn } from "@/lib/utils";
 import {
   REGIONAL_PALETTE,
   hexToRgba,
@@ -38,6 +39,76 @@ import type { RegionalPlanDashboardState } from "../types";
 
 interface RegionalOverviewTabProps {
   state: RegionalPlanDashboardState;
+}
+
+const clampPct = (v: number) => Math.min(100, Math.max(0, Number.isFinite(v) ? v : 0));
+
+/**
+ * One layout for every headline card: title + icon, big value, bar,
+ * two small figures, and a footer line. Same slots in the same order
+ * keeps all cards in a row the same height.
+ */
+function MetricCard({
+  label,
+  icon: Icon,
+  color,
+  value,
+  suffix,
+  bar,
+  left,
+  right,
+  footerLabel,
+  footerValue,
+}: {
+  label: string;
+  icon: React.ElementType;
+  color: string;
+  value: React.ReactNode;
+  suffix?: string;
+  bar: Array<{ value: number; color: string }>;
+  left: React.ReactNode;
+  right: React.ReactNode;
+  footerLabel: string;
+  footerValue: React.ReactNode;
+}) {
+  return (
+    <div className="flex flex-col rounded-2xl border border-border/70 bg-card p-5 shadow-2xs">
+      <div className="flex items-start justify-between gap-3">
+        <span className="truncate text-sm font-medium text-muted-foreground">{label}</span>
+        <span
+          className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl"
+          style={{ backgroundColor: hexToRgba(color, 0.12), color }}
+        >
+          <Icon className="h-[18px] w-[18px]" aria-hidden="true" />
+        </span>
+      </div>
+      <div className="mt-2 flex min-w-0 items-baseline gap-1.5">
+        <span className="text-3xl font-bold leading-none tracking-tight tabular-nums text-foreground">{value}</span>
+        {suffix && <span className="truncate text-xs text-muted-foreground">{suffix}</span>}
+      </div>
+      <div className="mt-4 flex h-2 w-full overflow-hidden rounded-full bg-slate-100 dark:bg-slate-800" aria-hidden="true">
+        {bar.map((seg, i) =>
+          seg.value > 0 ? (
+            <div
+              key={i}
+              className="h-full transition-all duration-700 motion-reduce:transition-none"
+              style={{ width: `${clampPct(seg.value)}%`, backgroundColor: seg.color }}
+            />
+          ) : null
+        )}
+      </div>
+      <div className="mt-2 flex items-center justify-between gap-2 text-xs text-muted-foreground">
+        {left}
+        {right}
+      </div>
+      <div className="mt-auto pt-4">
+        <div className="flex items-center justify-between gap-2 border-t border-border/60 pt-3 text-xs text-muted-foreground">
+          <span>{footerLabel}</span>
+          {footerValue}
+        </div>
+      </div>
+    </div>
+  );
 }
 
 export function RegionalOverviewTab({ state }: RegionalOverviewTabProps) {
@@ -94,307 +165,154 @@ export function RegionalOverviewTab({ state }: RegionalOverviewTabProps) {
       ? REGIONAL_PALETTE.amber.DEFAULT
       : REGIONAL_PALETTE.rose.DEFAULT;
 
+  const workflowTotal =
+    agg.approved_count + agg.pending_approval_count + agg.pending_validation_count + agg.rejected_count;
+
   return (
     <div className="space-y-6">
-      {/* 1. Overview Statistics Cards Grid */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
-        {/* Card 1: Overall Plan Progress against 100% */}
-        <div className="rounded-2xl border border-border/80 bg-white dark:bg-card p-5 shadow-xs relative overflow-hidden flex flex-col justify-between">
-          <div
-            className="absolute -right-6 -bottom-6 h-24 w-24 rounded-full blur-2xl pointer-events-none"
-            style={{ backgroundColor: hexToRgba(tierColor, 0.2) }}
-          />
-          <div>
-            <div className="flex items-center justify-between pb-2">
-              <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-                Overall Plan Progress
-              </span>
-              <div
-                className="h-8 w-8 rounded-xl flex items-center justify-center font-bold"
-                style={{ backgroundColor: hexToRgba(tierColor, 0.12), color: tierColor }}
-              >
-                <TrendingUp className="h-4 w-4" />
-              </div>
-            </div>
-            <div className="flex items-baseline gap-2 mt-1">
-              <span className="text-3xl font-extrabold tracking-tight text-foreground">
-                {agg.achievement_percent}%
-              </span>
-              <span className="text-xs font-medium text-muted-foreground">of 100%</span>
-            </div>
-            <div className="mt-3 space-y-1.5">
-              <div className="h-2 w-full rounded-full bg-slate-100 dark:bg-slate-800 overflow-hidden">
-                <div
-                  className="h-full rounded-full transition-all duration-700"
-                  style={{
-                    width: `${Math.min(100, Math.max(0, agg.achievement_percent))}%`,
-                    backgroundColor: tierColor,
-                  }}
-                />
-              </div>
-              <div className="flex justify-between text-[11px] text-muted-foreground">
-                <span className="font-medium text-emerald-700 dark:text-emerald-400">
-                  {agg.completed_nodes} completed
-                </span>
-                <span className="font-medium text-slate-500">
-                  {agg.incomplete_nodes} in progress
-                </span>
-              </div>
-            </div>
-          </div>
-          <div className="pt-3 border-t border-border/50 text-[11px] text-muted-foreground flex items-center justify-between mt-2">
-            <span>Authoritative Rollup</span>
+      {/* 1. Headline cards: one shared layout so every card lines up */}
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        <MetricCard
+          label="Overall plan progress"
+          icon={TrendingUp}
+          color={tierColor}
+          value={`${agg.achievement_percent}%`}
+          suffix="of target"
+          bar={[{ value: clampPct(agg.achievement_percent), color: tierColor }]}
+          left={<span className="font-medium text-emerald-700 dark:text-emerald-400">{agg.completed_nodes} completed</span>}
+          right={<span>{agg.incomplete_nodes} in progress</span>}
+          footerLabel="Performance tier"
+          footerValue={
             <Badge
               variant="outline"
-              className="text-[10px] h-5 capitalize"
+              className="h-5 text-[11px] capitalize"
               style={{ borderColor: tierColor, color: tierColor }}
             >
-              {achievementTier} Tier
+              {achievementTier.replace("-", " ")}
             </Badge>
-          </div>
-        </div>
+          }
+        />
 
-        {/* Card 2: Target vs Actual Delivery */}
-        <div className="rounded-2xl border border-border/80 bg-white dark:bg-card p-5 shadow-xs relative overflow-hidden flex flex-col justify-between">
-          <div
-            className="absolute -right-6 -bottom-6 h-24 w-24 rounded-full blur-2xl pointer-events-none"
-            style={{ backgroundColor: hexToRgba(REGIONAL_PALETTE.teal.DEFAULT, 0.15) }}
-          />
-          <div>
-            <div className="flex items-center justify-between pb-2">
-              <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-                Target vs Actual Delivery
-              </span>
-              <div className="h-8 w-8 rounded-xl bg-teal-500/10 text-teal-700 flex items-center justify-center">
-                <Target className="h-4 w-4" />
-              </div>
-            </div>
-            <div className="mt-1">
-              <div className="flex items-baseline gap-1.5">
-                <span className="text-2xl font-bold text-foreground">
-                  {agg.total_actual.toLocaleString()}
-                </span>
-                <span className="text-xs text-muted-foreground">
-                  / {agg.total_target.toLocaleString()} planned
-                </span>
-              </div>
-              <p className="text-[11px] text-muted-foreground mt-1">
-                Remaining target: <strong className="text-foreground">{agg.remaining_target.toLocaleString()}</strong>
-              </p>
-            </div>
-          </div>
-          <div className="pt-3 border-t border-border/50 text-[11px] flex items-center justify-between mt-2">
-            <span className="text-muted-foreground">Delivery Variance</span>
+        <MetricCard
+          label="Target vs actual"
+          icon={Target}
+          color={REGIONAL_PALETTE.teal.DEFAULT}
+          value={agg.total_actual.toLocaleString()}
+          suffix={`/ ${agg.total_target.toLocaleString()} planned`}
+          bar={[
+            {
+              value: agg.total_target > 0 ? clampPct((agg.total_actual / agg.total_target) * 100) : 0,
+              color: REGIONAL_PALETTE.teal.DEFAULT,
+            },
+          ]}
+          left={<span>Remaining {agg.remaining_target.toLocaleString()}</span>}
+          right={
+            <span>
+              {agg.total_target > 0 ? Math.round((agg.total_actual / agg.total_target) * 100) : 0}% delivered
+            </span>
+          }
+          footerLabel="Variance"
+          footerValue={
             <span
-              className={`font-semibold ${
+              className={cn(
+                "font-semibold tabular-nums",
                 agg.variance >= 0 ? "text-emerald-700 dark:text-emerald-400" : "text-amber-700 dark:text-amber-400"
-              }`}
+              )}
             >
               {agg.variance >= 0 ? "+" : ""}
               {agg.variance.toLocaleString()} ({agg.variance_percent >= 0 ? "+" : ""}
               {agg.variance_percent}%)
             </span>
-          </div>
-        </div>
+          }
+        />
 
-        {/* Card 3: Milestone / KPI Reporting Delivery */}
-        <div className="rounded-2xl border border-border/80 bg-white dark:bg-card p-5 shadow-xs relative overflow-hidden flex flex-col justify-between">
-          <div
-            className="absolute -right-6 -bottom-6 h-24 w-24 rounded-full blur-2xl pointer-events-none"
-            style={{ backgroundColor: hexToRgba(REGIONAL_PALETTE.amber.DEFAULT, 0.15) }}
-          />
-          <div>
-            <div className="flex items-center justify-between pb-2">
-              <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-                Reporting Completion
-              </span>
-              <div className="h-8 w-8 rounded-xl bg-amber-500/10 text-amber-700 flex items-center justify-center">
-                <FileCheck2 className="h-4 w-4" />
-              </div>
-            </div>
-            <div className="flex items-baseline gap-2 mt-1">
-              <span className="text-3xl font-extrabold text-foreground">
-                {agg.reporting_completion_percent}%
-              </span>
-              <span className="text-xs font-medium text-muted-foreground">of 100%</span>
-            </div>
-            <div className="mt-3 space-y-1.5">
-              <div className="h-2 w-full rounded-full bg-slate-100 dark:bg-slate-800 overflow-hidden">
-                <div
-                  className="h-full rounded-full bg-amber-500 transition-all duration-700"
-                  style={{
-                    width: `${Math.min(100, Math.max(0, agg.reporting_completion_percent))}%`,
-                  }}
-                />
-              </div>
-              <div className="flex justify-between text-[11px] text-muted-foreground">
-                <span className="font-semibold text-emerald-700 dark:text-emerald-400">
-                  {agg.reported_kpis} Reported
-                </span>
-                <span className="font-semibold text-amber-700 dark:text-amber-400">
-                  {agg.unreported_kpis} Unreported
-                </span>
-              </div>
-            </div>
-          </div>
-          <div className="pt-3 border-t border-border/50 text-[11px] text-muted-foreground flex items-center justify-between mt-2">
-            <span>Period Scope</span>
+        <MetricCard
+          label="Reporting completion"
+          icon={FileCheck2}
+          color={REGIONAL_PALETTE.amber.DEFAULT}
+          value={`${agg.reporting_completion_percent}%`}
+          suffix="of KPIs"
+          bar={[{ value: clampPct(agg.reporting_completion_percent), color: REGIONAL_PALETTE.amber.DEFAULT }]}
+          left={<span className="font-medium text-emerald-700 dark:text-emerald-400">{agg.reported_kpis} reported</span>}
+          right={<span className="font-medium text-amber-700 dark:text-amber-400">{agg.unreported_kpis} not reported</span>}
+          footerLabel="Period"
+          footerValue={
             <span className="font-medium text-foreground">
-              {currentPeriodLabel || `Year ${currentPlanningYear || "Active"}`}
+              {currentPeriodLabel || `Year ${currentPlanningYear || "active"}`}
             </span>
-          </div>
-        </div>
+          }
+        />
 
-        {/* Card 4: Workflow Validation & Approval Gates */}
-        <div className="rounded-2xl border border-border/80 bg-white dark:bg-card p-5 shadow-xs relative overflow-hidden flex flex-col justify-between">
-          <div
-            className="absolute -right-6 -bottom-6 h-24 w-24 rounded-full blur-2xl pointer-events-none"
-            style={{ backgroundColor: hexToRgba(REGIONAL_PALETTE.indigo.DEFAULT, 0.15) }}
-          />
-          <div>
-            <div className="flex items-center justify-between pb-2">
-              <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-                Workflow Gates
-              </span>
-              <div className="h-8 w-8 rounded-xl bg-indigo-500/10 text-indigo-700 flex items-center justify-center">
-                <ShieldCheck className="h-4 w-4" />
-              </div>
-            </div>
-            <div className="grid grid-cols-2 gap-2 mt-2">
-              <div className="p-2 rounded-xl bg-amber-50 dark:bg-amber-950/20 border border-amber-200/60 dark:border-amber-900/40">
-                <span className="text-[10px] uppercase font-semibold text-amber-800 dark:text-amber-300">
-                  Pending Appr.
-                </span>
-                <div className="text-lg font-bold text-amber-900 dark:text-amber-200 mt-0.5">
-                  {agg.pending_approval_count}
-                </div>
-              </div>
-              <div className="p-2 rounded-xl bg-indigo-50 dark:bg-indigo-950/20 border border-indigo-200/60 dark:border-indigo-900/40">
-                <span className="text-[10px] uppercase font-semibold text-indigo-800 dark:text-indigo-300">
-                  Pending Valid.
-                </span>
-                <div className="text-lg font-bold text-indigo-900 dark:text-indigo-200 mt-0.5">
-                  {agg.pending_validation_count}
-                </div>
-              </div>
-              <div className="p-2 rounded-xl bg-emerald-50 dark:bg-emerald-950/20 border border-emerald-200/60 dark:border-emerald-900/40">
-                <span className="text-[10px] uppercase font-semibold text-emerald-800 dark:text-emerald-300">
-                  Approved
-                </span>
-                <div className="text-lg font-bold text-emerald-900 dark:text-emerald-200 mt-0.5">
-                  {agg.approved_count}
-                </div>
-              </div>
-              <div className="p-2 rounded-xl bg-rose-50 dark:bg-rose-950/20 border border-rose-200/60 dark:border-rose-900/40">
-                <span className="text-[10px] uppercase font-semibold text-rose-800 dark:text-rose-300">
-                  Rejected
-                </span>
-                <div className="text-lg font-bold text-rose-900 dark:text-rose-200 mt-0.5">
-                  {agg.rejected_count}
-                </div>
-              </div>
-            </div>
-          </div>
-          <div className="pt-2 text-[10px] text-muted-foreground flex items-center justify-between mt-2">
-            <span>Bypass Gate Status</span>
-            <span className="font-medium text-emerald-700">Enforced</span>
-          </div>
-        </div>
+        <MetricCard
+          label="Awaiting review"
+          icon={ShieldCheck}
+          color={REGIONAL_PALETTE.indigo.DEFAULT}
+          value={(agg.pending_approval_count + agg.pending_validation_count).toLocaleString()}
+          suffix="achievement reports"
+          bar={
+            workflowTotal > 0
+              ? [
+                  { value: (agg.approved_count / workflowTotal) * 100, color: REGIONAL_PALETTE.emerald.DEFAULT },
+                  { value: (agg.pending_approval_count / workflowTotal) * 100, color: REGIONAL_PALETTE.amber.DEFAULT },
+                  { value: (agg.pending_validation_count / workflowTotal) * 100, color: REGIONAL_PALETTE.indigo.DEFAULT },
+                  { value: (agg.rejected_count / workflowTotal) * 100, color: REGIONAL_PALETTE.rose.DEFAULT },
+                ]
+              : []
+          }
+          left={<span>{agg.pending_approval_count} need approval</span>}
+          right={<span>{agg.pending_validation_count} need validation</span>}
+          footerLabel="Decided"
+          footerValue={
+            <span className="tabular-nums">
+              <span className="font-semibold text-emerald-700 dark:text-emerald-400">{agg.approved_count} approved</span>
+              {" · "}
+              <span className="font-semibold text-rose-700 dark:text-rose-400">{agg.rejected_count} rejected</span>
+            </span>
+          }
+        />
       </div>
 
-      {/* 2. Hierarchy Depth Summary Cards (SF -> Goal -> KPI -> Task) */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        {/* Tier 1: Strategic Focuses */}
-        <div
-          onClick={() => {
-            updateFilter("selectedHierarchyLevel", 1);
-            setActiveSection("hierarchy");
-          }}
-          className="rounded-2xl border border-emerald-500/20 bg-emerald-500/5 hover:bg-emerald-500/10 transition-all p-4 cursor-pointer group shadow-2xs"
-        >
-          <div className="flex items-center justify-between pb-1">
-            <span className="text-xs font-semibold text-emerald-900 dark:text-emerald-200">
-              Strategic Focus (L1)
-            </span>
-            <Compass className="h-4 w-4 text-emerald-700 group-hover:translate-x-0.5 transition-transform" />
-          </div>
-          <div className="text-2xl font-bold text-foreground mt-1">
-            {agg.total_sf}
-          </div>
-          <p className="text-[11px] text-muted-foreground mt-1 flex items-center gap-1">
-            <span>Explore Pillars</span>
-            <ArrowRight className="h-3 w-3" />
-          </p>
-        </div>
-
-        {/* Tier 2: Goals */}
-        <div
-          onClick={() => {
-            updateFilter("selectedHierarchyLevel", 2);
-            setActiveSection("hierarchy");
-          }}
-          className="rounded-2xl border border-teal-500/20 bg-teal-500/5 hover:bg-teal-500/10 transition-all p-4 cursor-pointer group shadow-2xs"
-        >
-          <div className="flex items-center justify-between pb-1">
-            <span className="text-xs font-semibold text-teal-900 dark:text-teal-200">
-              Strategic Goals (L2)
-            </span>
-            <Layers className="h-4 w-4 text-teal-700 group-hover:translate-x-0.5 transition-transform" />
-          </div>
-          <div className="text-2xl font-bold text-foreground mt-1">
-            {agg.total_goals}
-          </div>
-          <p className="text-[11px] text-muted-foreground mt-1 flex items-center gap-1">
-            <span>Explore Goals</span>
-            <ArrowRight className="h-3 w-3" />
-          </p>
-        </div>
-
-        {/* Tier 3: KPIs */}
-        <div
-          onClick={() => {
-            updateFilter("selectedHierarchyLevel", 3);
-            setActiveSection("hierarchy");
-          }}
-          className="rounded-2xl border border-amber-500/20 bg-amber-500/5 hover:bg-amber-500/10 transition-all p-4 cursor-pointer group shadow-2xs"
-        >
-          <div className="flex items-center justify-between pb-1">
-            <span className="text-xs font-semibold text-amber-900 dark:text-amber-200">
-              Key Indicators (L3)
-            </span>
-            <Target className="h-4 w-4 text-amber-700 group-hover:translate-x-0.5 transition-transform" />
-          </div>
-          <div className="text-2xl font-bold text-foreground mt-1">
-            {agg.total_kpis}
-          </div>
-          <p className="text-[11px] text-muted-foreground mt-1 flex items-center gap-1">
-            <span>{agg.reported_kpis} reported</span>
-            <ArrowRight className="h-3 w-3" />
-          </p>
-        </div>
-
-        {/* Tier 4: Tasks / Milestones */}
-        <div
-          onClick={() => {
-            updateFilter("selectedHierarchyLevel", 4);
-            setActiveSection("hierarchy");
-          }}
-          className="rounded-2xl border border-blue-500/20 bg-blue-500/5 hover:bg-blue-500/10 transition-all p-4 cursor-pointer group shadow-2xs"
-        >
-          <div className="flex items-center justify-between pb-1">
-            <span className="text-xs font-semibold text-blue-900 dark:text-blue-200">
-              Tasks & Milestones (L4+)
-            </span>
-            <ListChecks className="h-4 w-4 text-blue-700 group-hover:translate-x-0.5 transition-transform" />
-          </div>
-          <div className="text-2xl font-bold text-foreground mt-1">
-            {agg.total_tasks}
-          </div>
-          <p className="text-[11px] text-muted-foreground mt-1 flex items-center gap-1">
-            <span>Operational leaves</span>
-            <ArrowRight className="h-3 w-3" />
-          </p>
-        </div>
+      {/* 2. Plan structure by level (click to open that level in Hierarchy & Targets) */}
+      <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
+        {[
+          { level: 1, label: "Strategic focus", code: "L1", count: agg.total_sf, hint: "View pillars", icon: Compass, color: REGIONAL_PALETTE.emerald.DEFAULT },
+          { level: 2, label: "Goals", code: "L2", count: agg.total_goals, hint: "View goals", icon: Layers, color: REGIONAL_PALETTE.teal.DEFAULT },
+          { level: 3, label: "KPIs", code: "L3", count: agg.total_kpis, hint: `${agg.reported_kpis} reported`, icon: Target, color: REGIONAL_PALETTE.amber.DEFAULT },
+          { level: 4, label: "Tasks & milestones", code: "L4+", count: agg.total_tasks, hint: "View tasks", icon: ListChecks, color: REGIONAL_PALETTE.indigo.DEFAULT },
+        ].map((lvl) => {
+          const Icon = lvl.icon;
+          return (
+            <button
+              key={lvl.level}
+              type="button"
+              onClick={() => {
+                updateFilter("selectedHierarchyLevel", lvl.level);
+                setActiveSection("hierarchy");
+              }}
+              className="group flex flex-col gap-2 rounded-2xl border border-border/70 bg-card p-4 text-left shadow-2xs transition-colors hover:border-primary/40 hover:bg-primary/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
+            >
+              <span className="flex items-center justify-between gap-2">
+                <span className="flex min-w-0 items-center gap-2">
+                  <span
+                    className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg"
+                    style={{ backgroundColor: hexToRgba(lvl.color, 0.12), color: lvl.color }}
+                  >
+                    <Icon className="h-4 w-4" aria-hidden="true" />
+                  </span>
+                  <span className="truncate text-sm font-medium text-foreground">{lvl.label}</span>
+                </span>
+                <span className="shrink-0 rounded-md bg-muted px-1.5 py-0.5 text-[11px] font-semibold text-muted-foreground">
+                  {lvl.code}
+                </span>
+              </span>
+              <span className="text-2xl font-bold tabular-nums text-foreground">{lvl.count}</span>
+              <span className="flex items-center gap-1 text-xs text-muted-foreground group-hover:text-primary">
+                {lvl.hint}
+                <ArrowRight className="h-3 w-3 transition-transform group-hover:translate-x-0.5 motion-reduce:transition-none" aria-hidden="true" />
+              </span>
+            </button>
+          );
+        })}
       </div>
 
       {/* 3. Visual Charts Row 1: Target Achievement & Performance Breakdown */}
