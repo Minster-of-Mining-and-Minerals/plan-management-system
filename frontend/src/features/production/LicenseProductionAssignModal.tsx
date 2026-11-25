@@ -28,6 +28,7 @@ import {
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
+import { Switch } from "@/components/ui/switch";
 import {
   useGetProductionItemsQuery,
   useGetFrequenciesQuery,
@@ -68,6 +69,7 @@ export function LicenseProductionAssignModal({
   const [allowPastReporting, setAllowPastReporting] = useState(false);
   const [pastReportingDuration, setPastReportingDuration] = useState("7");
   const [pastReportingUnit, setPastReportingUnit] = useState<"days" | "months" | "quarters" | "years">("days");
+  const [allowReportUpdates, setAllowReportUpdates] = useState(false);
   const [notes, setNotes] = useState("");
 
   const licenseStart = license.effective_start_date || (license.effective_year_from ? `${license.effective_year_from}-01-01` : "");
@@ -140,6 +142,7 @@ export function LicenseProductionAssignModal({
         allow_past_reporting: allowPastReporting,
         past_reporting_duration: allowPastReporting ? Number(pastReportingDuration) || 0 : 0,
         past_reporting_unit: allowPastReporting ? pastReportingUnit : "days",
+        allow_report_updates: allowReportUpdates,
         notes: notes.trim() || null,
       }).unwrap();
 
@@ -352,6 +355,24 @@ export function LicenseProductionAssignModal({
                 </div>
               </div>
             )}
+          </div>
+
+          {/* Allow Monthly Report Updates / Revisions Policy */}
+          <div className="p-3 rounded-lg border border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/50 space-y-1.5">
+            <div className="flex items-center justify-between">
+              <div className="space-y-0.5">
+                <Label className="text-xs font-semibold text-foreground">
+                  Allow Monthly Report Updates
+                </Label>
+                <p className="text-[11px] text-muted-foreground max-w-sm">
+                  Allow company cashiers/operators to submit versionized updates for reported months. Revisions require an explicit reason and do not affect official calculations until approved.
+                </p>
+              </div>
+              <Switch
+                checked={allowReportUpdates}
+                onCheckedChange={setAllowReportUpdates}
+              />
+            </div>
           </div>
 
           {/* Effective Period */}

@@ -187,6 +187,7 @@ async function createAssignment(data, userId) {
     allow_past_reporting,
     past_reporting_duration,
     past_reporting_unit,
+    allow_report_updates,
     notes,
   } = data;
 
@@ -283,6 +284,7 @@ async function createAssignment(data, userId) {
     effective_to: effective_to || null,
     requires_review: !!requires_review,
     allow_past_reporting: !!allow_past_reporting,
+    allow_report_updates: !!allow_report_updates,
     past_reporting_duration: past_reporting_duration !== undefined ? Number(past_reporting_duration) : 0,
     past_reporting_unit: past_reporting_unit || "days",
     notes: notes ? notes.trim() : null,
@@ -401,6 +403,7 @@ async function updateAssignment(assignmentId, data) {
   if (data.effective_to !== undefined) assignment.effective_to = data.effective_to;
   if (data.requires_review !== undefined) assignment.requires_review = !!data.requires_review;
   if (data.allow_past_reporting !== undefined) assignment.allow_past_reporting = !!data.allow_past_reporting;
+  if (data.allow_report_updates !== undefined) assignment.allow_report_updates = !!data.allow_report_updates;
   if (data.past_reporting_duration !== undefined) assignment.past_reporting_duration = Number(data.past_reporting_duration);
   if (data.past_reporting_unit !== undefined) assignment.past_reporting_unit = data.past_reporting_unit;
   if (data.notes !== undefined) assignment.notes = data.notes ? data.notes.trim() : null;
@@ -817,7 +820,7 @@ async function submitReport(data, userId, companyScope = null) {
     if (!resolvedPeriodKey) resolvedPeriodKey = report_date;
   }
 
-  // Duplicate check: check if an active report exists for same period key, assignment
+  // Duplicate check & versioned update check
   const existingReport = await CompanyProductionReport.findOne({
     where: {
       assignment_id: assignment.assignment_id,
@@ -825,17 +828,62 @@ async function submitReport(data, userId, companyScope = null) {
         { report_date },
         { reporting_period_key: resolvedPeriodKey },
       ],
+      status: { [Op.ne]: "rejected" },
     },
+    order: [["version_number", "DESC"]],
   });
+
+  let versionNumber = 1;
+  let parentReportId = null;
+  let revisionReason = null;
+  let status = assignment.requires_review ? "submitted" : "approved";
+
   if (existingReport) {
-    const err = new Error(`A production report for ${resolvedPeriodLabel} has already been submitted for this item.`);
-    err.status = 409;
-    throw err;
+    if (freqCode === "monthly") {
+      // Monthly reporting: check if report updates are permitted by the Ministry
+      if (!assignment.allow_report_updates) {
+        const err = new Error("Monthly report updates are not permitted by the Federal Ministry for this assignment.");
+        err.status = 403;
+        throw err;
+      }
+
+      // Updating requires an explicit reason
+      revisionReason = (data.revision_reason || data.notes || "").trim();
+      if (!revisionReason) {
+        const err = new Error("A reason for updating the monthly report must be provided.");
+        err.status = 400;
+        throw err;
+      }
+
+      // Check if a revision is already pending approval
+      const pendingRevision = await CompanyProductionReport.findOne({
+        where: {
+          assignment_id: assignment.assignment_id,
+          reporting_period_key: resolvedPeriodKey,
+          status: ["submitted", "pending_approval"],
+          parent_report_id: { [Op.ne]: null },
+        },
+      });
+      if (pendingRevision) {
+        const err = new Error(`A revision for ${resolvedPeriodLabel} (Version v${pendingRevision.version_number}) is already pending approval by the Ministry.`);
+        err.status = 409;
+        throw err;
+      }
+
+      // Versionize the update: link to parent and increment version
+      versionNumber = (existingReport.version_number || 1) + 1;
+      parentReportId = existingReport.report_id;
+      // Revisions ALWAYS require approval from private section before affecting official calculations
+      status = "submitted";
+    } else {
+      // For all other frequencies (daily, quarterly, semi_annual, annual), strictly prevent duplicate reporting
+      const err = new Error(`A production report for ${resolvedPeriodLabel} has already been submitted for this item.`);
+      err.status = 409;
+      throw err;
+    }
   }
 
   const resolvedTargetPeriodId = linkedTargetPeriod ? linkedTargetPeriod.target_id : (approvedTarget ? approvedTarget.target_id : null);
-
-  const status = assignment.requires_review ? "submitted" : "approved";
 
   const report = await CompanyProductionReport.create({
     company_id: assignment.company_id,
@@ -852,6 +900,9 @@ async function submitReport(data, userId, companyScope = null) {
     quantity_reported: numQty,
     reported_unit_id: unitId,
     normalized_quantity: normalizedQuantity,
+    version_number: versionNumber,
+    parent_report_id: parentReportId,
+    revision_reason: revisionReason,
     status,
     notes: notes ? notes.trim() : null,
     submitted_by: userId,
@@ -947,6 +998,21 @@ async function reviewReport(reportId, { action, review_comments }, userId) {
   report.review_comments = review_comments ? review_comments.trim() : null;
 
   await report.save();
+
+  // If this report is an approved revision, mark older versions for this period as "superseded"
+  if (action === "approved" && report.parent_report_id) {
+    await CompanyProductionReport.update(
+      { status: "superseded" },
+      {
+        where: {
+          assignment_id: report.assignment_id,
+          reporting_period_key: report.reporting_period_key,
+          report_id: { [Op.ne]: report.report_id },
+          status: "approved",
+        },
+      }
+    );
+  }
   return await getReportById(reportId);
 }
 
@@ -1114,6 +1180,8 @@ async function calculateProductionPerformance({
     where: reportWhere,
     attributes: [
       "report_id",
+      "parent_report_id",
+      "version_number",
       "report_date",
       "quantity_reported",
       "reported_unit_id",
@@ -1125,6 +1193,9 @@ async function calculateProductionPerformance({
 
   let totalActualBase = 0;
   for (const r of reports) {
+    if (r.status === "superseded" || r.status === "rejected") continue;
+    if (r.parent_report_id && r.status !== "approved") continue; // Exclude pending revisions from calculation
+    if (assignment.requires_review && r.status !== "approved") continue;
     totalActualBase += Number(r.normalized_quantity || 0);
   }
   totalActualBase = roundDecimal(totalActualBase, 4);

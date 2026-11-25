@@ -60,6 +60,7 @@ export function EditAssignmentModal({
   const [allowPastReporting, setAllowPastReporting] = useState(false);
   const [pastReportingDuration, setPastReportingDuration] = useState("7");
   const [pastReportingUnit, setPastReportingUnit] = useState<"days" | "months" | "quarters" | "years">("days");
+  const [allowReportUpdates, setAllowReportUpdates] = useState(false);
   const [isActive, setIsActive] = useState(true);
   const [notes, setNotes] = useState("");
 
@@ -76,6 +77,7 @@ export function EditAssignmentModal({
       setAllowPastReporting(Boolean(assignment.allow_past_reporting));
       setPastReportingDuration(String(assignment.past_reporting_duration ?? 7));
       setPastReportingUnit((assignment.past_reporting_unit as any) || "days");
+      setAllowReportUpdates(Boolean(assignment.allow_report_updates));
       setIsActive(assignment.is_active ?? true);
       setNotes(assignment.notes || "");
     } else if (!open) {
@@ -122,6 +124,7 @@ export function EditAssignmentModal({
           allow_past_reporting: allowPastReporting,
           past_reporting_duration: allowPastReporting ? Number(pastReportingDuration) || 0 : 0,
           past_reporting_unit: allowPastReporting ? pastReportingUnit : "days",
+          allow_report_updates: allowReportUpdates,
           is_active: isActive,
           notes: notes || null,
         },
@@ -295,6 +298,24 @@ export function EditAssignmentModal({
                 </div>
               </div>
             )}
+          </div>
+
+          {/* Allow Monthly Report Updates / Revisions Policy */}
+          <div className="p-3 rounded-lg border border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/50 space-y-1.5">
+            <div className="flex items-center justify-between">
+              <div className="space-y-0.5">
+                <Label className="text-xs font-semibold text-foreground">
+                  Allow Monthly Report Updates
+                </Label>
+                <p className="text-[11px] text-muted-foreground max-w-sm">
+                  Allow company cashiers/operators to submit versionized updates for reported months. Revisions require an explicit reason and do not affect official calculations until approved.
+                </p>
+              </div>
+              <Switch
+                checked={allowReportUpdates}
+                onCheckedChange={setAllowReportUpdates}
+              />
+            </div>
           </div>
 
           {/* Effective Validity Range */}

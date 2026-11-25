@@ -155,6 +155,7 @@ export interface CompanyProductionAssignment {
   allow_past_reporting?: boolean;
   past_reporting_duration?: number | null;
   past_reporting_unit?: "days" | "months" | "quarters" | "semi_annual" | "years" | string | null;
+  allow_report_updates?: boolean;
   is_active: boolean;
   notes?: string | null;
   company?: {
@@ -211,7 +212,10 @@ export interface CompanyProductionReport {
   quantity_reported: number | string;
   reported_unit_id: string;
   normalized_quantity: number | string;
-  status: "draft" | "submitted" | "approved" | "rejected";
+  version_number?: number;
+  parent_report_id?: string | null;
+  revision_reason?: string | null;
+  status: "draft" | "submitted" | "approved" | "rejected" | "superseded";
   notes?: string | null;
   submitted_by?: string | null;
   reviewed_by?: string | null;
@@ -474,6 +478,31 @@ export interface ReportingHierarchyNode {
   targetPeriodId?: string | null;
   isReportingLevel?: boolean;
   requiresDailyMatrix?: boolean;
+  activeReport?: {
+    reportId: string;
+    versionNumber?: number;
+    quantityReported: number;
+    unitSymbol: string;
+    status: string;
+    reportDate: string;
+    periodLabel?: string;
+    notes?: string | null;
+    submittedByName?: string;
+    createdAt?: string;
+  } | null;
+  pendingRevision?: {
+    reportId: string;
+    versionNumber?: number;
+    quantityReported: number;
+    unitSymbol: string;
+    status: string;
+    revisionReason?: string | null;
+    createdAt?: string;
+  } | null;
+  hasReport?: boolean;
+  allowUpdate?: boolean;
+  canUpdate?: boolean;
+  canPreview?: boolean;
   classification: {
     status: ReportingPeriodClassification;
     isAccessible: boolean;
@@ -496,6 +525,7 @@ export interface TargetAlignedReportingHierarchyResponse {
     allow_past_reporting?: boolean;
     past_reporting_duration?: number | null;
     past_reporting_unit?: string | null;
+    allow_report_updates?: boolean;
     effective_from?: string | null;
     effective_to?: string | null;
   };

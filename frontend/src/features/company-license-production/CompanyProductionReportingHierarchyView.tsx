@@ -18,10 +18,21 @@ import {
   RotateCcw,
   Scale,
   Sparkles,
+  Eye,
+  RefreshCw,
+  FileText,
 } from "lucide-react";
 import { Card, CardHeader, CardTitle, CardContent, CardFooter } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from "@/components/ui/dialog";
 import {
   useGetReportingHierarchyQuery,
 } from "@/redux/api/productionApi";
@@ -38,6 +49,10 @@ interface CompanyProductionReportingHierarchyViewProps {
     reportDate: string;
     periodLabel?: string;
     targetPeriodId?: string | null;
+    isUpdate?: boolean;
+    existingQuantity?: number;
+    currentVersion?: number;
+    parentReportId?: string;
   }) => void;
   onViewReportDetail?: (report: any) => void;
 }
@@ -53,6 +68,7 @@ export function CompanyProductionReportingHierarchyView({
   // Navigation path: array of selected nodes [root, quarterNode, monthNode]
   const [activePath, setActivePath] = useState<ReportingHierarchyNode[]>([]);
   const [activeDailyMatrixMonth, setActiveDailyMatrixMonth] = useState<string | null>(null);
+  const [previewNode, setPreviewNode] = useState<ReportingHierarchyNode | null>(null);
 
   const { data: hierarchyBundle, isLoading, refetch } = useGetReportingHierarchyQuery({
     assignmentId,
@@ -370,6 +386,41 @@ export function CompanyProductionReportingHierarchyView({
                     </div>
                   )}
 
+                  {/* Reported Status or Pending Revision Summary */}
+                  {node.hasReport && (
+                    <div className={`p-2.5 rounded-lg border text-xs space-y-1 ${
+                      node.pendingRevision
+                        ? "bg-amber-500/10 border-amber-500/30 text-amber-900 dark:text-amber-200"
+                        : "bg-emerald-500/10 border-emerald-500/30 text-emerald-900 dark:text-emerald-200"
+                    }`}>
+                      <div className="flex items-center justify-between font-semibold">
+                        <span className="flex items-center gap-1.5">
+                          {node.pendingRevision ? (
+                            <>
+                              <Clock className="h-3.5 w-3.5 text-amber-600 animate-pulse" />
+                              <span>Revision v{node.pendingRevision.versionNumber} Pending Approval</span>
+                            </>
+                          ) : (
+                            <>
+                              <CheckCircle2 className="h-3.5 w-3.5 text-emerald-600" />
+                              <span>Reported (v{node.activeReport?.versionNumber || 1})</span>
+                            </>
+                          )}
+                        </span>
+                        <span className="font-mono font-bold">
+                          {node.pendingRevision
+                            ? `${node.pendingRevision.quantityReported.toLocaleString()} ${unitSymbol}`
+                            : `${(node.activeReport?.quantityReported ?? node.actualQuantity).toLocaleString()} ${unitSymbol}`}
+                        </span>
+                      </div>
+                      {node.pendingRevision?.revisionReason && (
+                        <div className="text-[11px] text-amber-800/80 dark:text-amber-300/80 italic line-clamp-1">
+                          Reason: {node.pendingRevision.revisionReason}
+                        </div>
+                      )}
+                    </div>
+                  )}
+
                   {node.classification.reason && (
                     <p className="text-[10px] text-muted-foreground/80 italic bg-muted/20 px-2 py-1 rounded">
                       {node.classification.reason}
@@ -399,6 +450,58 @@ export function CompanyProductionReportingHierarchyView({
                       Explore Period Breakdown
                       <ChevronRight className="h-3.5 w-3.5 ml-auto" />
                     </Button>
+                  ) : node.pendingRevision ? (
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => setPreviewNode(node)}
+                      className="w-full text-xs font-semibold gap-1.5 border-amber-300 bg-amber-50/70 hover:bg-amber-100 dark:bg-amber-950/40 dark:border-amber-800 text-amber-900 dark:text-amber-200 h-8.5"
+                    >
+                      <Eye className="h-3.5 w-3.5 text-amber-600" />
+                      Revision v{node.pendingRevision.versionNumber} Pending Approval
+                    </Button>
+                  ) : node.hasReport ? (
+                    node.canUpdate ? (
+                      <div className="flex items-center gap-2 w-full">
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => setPreviewNode(node)}
+                          title="Preview current reported figures"
+                          className="px-2.5 h-8.5 text-xs text-muted-foreground hover:text-foreground shrink-0"
+                        >
+                          <Eye className="h-3.5 w-3.5" />
+                        </Button>
+                        <Button
+                          size="sm"
+                          onClick={() => {
+                            onOpenReportModal({
+                              reportDate: node.startDate,
+                              periodLabel: node.label,
+                              targetPeriodId: node.targetPeriodId,
+                              isUpdate: true,
+                              existingQuantity: node.activeReport?.quantityReported,
+                              currentVersion: node.activeReport?.versionNumber || 1,
+                              parentReportId: node.activeReport?.reportId,
+                            });
+                          }}
+                          className="flex-1 text-xs font-semibold gap-1.5 bg-gradient-to-r from-amber-600 to-amber-700 hover:from-amber-700 hover:to-amber-800 text-white shadow-xs h-8.5"
+                        >
+                          <RefreshCw className="h-3.5 w-3.5" />
+                          Update {node.label} Report
+                        </Button>
+                      </div>
+                    ) : (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => setPreviewNode(node)}
+                        className="w-full text-xs font-semibold gap-1.5 border-border hover:bg-muted text-foreground h-8.5"
+                      >
+                        <Eye className="h-3.5 w-3.5 text-primary" />
+                        Preview Reported Data
+                      </Button>
+                    )
                   ) : !node.classification.isAccessible ? (
                     <Button
                       size="sm"
@@ -425,6 +528,144 @@ export function CompanyProductionReportingHierarchyView({
           })}
         </div>
       )}
+
+      {/* Preview Reported Data Dialog */}
+      <Dialog open={Boolean(previewNode)} onOpenChange={(open) => !open && setPreviewNode(null)}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-base font-bold">
+              <Eye className="h-5 w-5 text-primary" />
+              <span>{previewNode?.label} Reported Data Details</span>
+            </DialogTitle>
+            <DialogDescription className="text-xs text-muted-foreground font-mono">
+              Period: {previewNode?.startDate} to {previewNode?.endDate}
+            </DialogDescription>
+          </DialogHeader>
+
+          {previewNode && (
+            <div className="space-y-4 py-1">
+              {/* Target & Current Approved Baseline */}
+              <div className="grid grid-cols-2 gap-2 text-xs">
+                <div className="p-2.5 rounded-lg bg-muted/40 border">
+                  <div className="text-[10px] text-muted-foreground uppercase font-semibold">Scheduled Target</div>
+                  <div className="font-mono font-bold text-sm text-foreground mt-0.5">
+                    {previewNode.targetQuantity.toLocaleString()} {unitSymbol}
+                  </div>
+                </div>
+                <div className="p-2.5 rounded-lg bg-emerald-500/10 border border-emerald-500/30">
+                  <div className="text-[10px] text-emerald-800 dark:text-emerald-300 uppercase font-semibold">Active Official Actual</div>
+                  <div className="font-mono font-bold text-sm text-emerald-700 dark:text-emerald-400 mt-0.5">
+                    {previewNode.activeReport
+                      ? `${previewNode.activeReport.quantityReported.toLocaleString()} ${unitSymbol}`
+                      : `${previewNode.actualQuantity.toLocaleString()} ${unitSymbol}`}
+                  </div>
+                </div>
+              </div>
+
+              {/* Active Report Details */}
+              {previewNode.activeReport && (
+                <div className="p-3 rounded-lg border bg-muted/20 space-y-2 text-xs">
+                  <div className="flex items-center justify-between">
+                    <span className="font-semibold text-foreground flex items-center gap-1.5">
+                      <CheckCircle2 className="h-4 w-4 text-emerald-600" />
+                      Active Report (v{previewNode.activeReport.versionNumber})
+                    </span>
+                    <Badge variant="outline" className="text-[10px] font-mono capitalize">
+                      {previewNode.activeReport.status}
+                    </Badge>
+                  </div>
+                  <div className="grid grid-cols-2 gap-2 text-[11px] text-muted-foreground">
+                    <div>
+                      Submitted by: <strong className="text-foreground">{previewNode.activeReport.submittedByName || "Company Reporter"}</strong>
+                    </div>
+                    <div>
+                      Date: <strong className="text-foreground">{previewNode.activeReport.createdAt ? new Date(previewNode.activeReport.createdAt).toLocaleDateString() : "N/A"}</strong>
+                    </div>
+                  </div>
+                  {previewNode.activeReport.notes && (
+                    <div className="text-[11px] bg-background/80 p-2 rounded border text-muted-foreground">
+                      <strong className="text-foreground">Notes: </strong>{previewNode.activeReport.notes}
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Pending Revision Callout */}
+              {previewNode.pendingRevision && (
+                <div className="p-3 rounded-lg border border-amber-400 bg-amber-500/10 space-y-2 text-xs">
+                  <div className="flex items-center justify-between">
+                    <span className="font-semibold text-amber-900 dark:text-amber-200 flex items-center gap-1.5">
+                      <Clock className="h-4 w-4 text-amber-600" />
+                      Pending Revision (v{previewNode.pendingRevision.versionNumber})
+                    </span>
+                    <Badge className="bg-amber-500 text-white text-[10px]">
+                      Awaiting Review
+                    </Badge>
+                  </div>
+                  <div className="flex items-center justify-between text-xs">
+                    <span className="text-muted-foreground">Proposed Quantity:</span>
+                    <span className="font-mono font-bold text-amber-800 dark:text-amber-300">
+                      {previewNode.pendingRevision.quantityReported.toLocaleString()} {unitSymbol}
+                    </span>
+                  </div>
+                  {previewNode.pendingRevision.revisionReason && (
+                    <div className="text-[11px] bg-background/80 p-2 rounded border border-amber-300 dark:border-amber-800 text-foreground">
+                      <span className="font-semibold text-amber-800 dark:text-amber-300">Revision Reason: </span>
+                      {previewNode.pendingRevision.revisionReason}
+                    </div>
+                  )}
+                  <p className="text-[10px] text-amber-800/90 dark:text-amber-300/90 italic">
+                    * Not included in official calculation totals until approved by the Federal Ministry.
+                  </p>
+                </div>
+              )}
+
+              {/* If not allowed to update */}
+              {!previewNode.allowUpdate && (
+                <div className="p-2.5 rounded-lg bg-slate-100 dark:bg-slate-800/60 text-[11px] text-muted-foreground flex items-center gap-2">
+                  <Lock className="h-3.5 w-3.5 text-slate-500 shrink-0" />
+                  <span>Report revisions are currently locked by the Federal Ministry for this assignment.</span>
+                </div>
+              )}
+            </div>
+          )}
+
+          <DialogFooter className="pt-2 flex items-center justify-between">
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => setPreviewNode(null)}
+              className="text-xs h-8"
+            >
+              Close
+            </Button>
+            {previewNode?.canUpdate && !previewNode?.pendingRevision && (
+              <Button
+                type="button"
+                size="sm"
+                onClick={() => {
+                  const node = previewNode;
+                  setPreviewNode(null);
+                  onOpenReportModal({
+                    reportDate: node.startDate,
+                    periodLabel: node.label,
+                    targetPeriodId: node.targetPeriodId,
+                    isUpdate: true,
+                    existingQuantity: node.activeReport?.quantityReported,
+                    currentVersion: node.activeReport?.versionNumber || 1,
+                    parentReportId: node.activeReport?.reportId,
+                  });
+                }}
+                className="text-xs h-8 gap-1.5 bg-gradient-to-r from-amber-600 to-amber-700 hover:from-amber-700 hover:to-amber-800 text-white shadow-xs"
+              >
+                <RefreshCw className="h-3.5 w-3.5" />
+                Update Report
+              </Button>
+            )}
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

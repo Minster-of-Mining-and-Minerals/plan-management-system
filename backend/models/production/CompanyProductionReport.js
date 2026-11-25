@@ -59,6 +59,16 @@ module.exports = (sequelize, DataTypes) => {
         foreignKey: "target_period_id",
         as: "targetPeriod",
       });
+
+      CompanyProductionReport.belongsTo(models.CompanyProductionReport, {
+        foreignKey: "parent_report_id",
+        as: "parentReport",
+      });
+
+      CompanyProductionReport.hasMany(models.CompanyProductionReport, {
+        foreignKey: "parent_report_id",
+        as: "revisions",
+      });
     }
   }
 
@@ -95,6 +105,19 @@ module.exports = (sequelize, DataTypes) => {
       },
       target_period_id: {
         type: DataTypes.UUID,
+        allowNull: true,
+      },
+      version_number: {
+        type: DataTypes.INTEGER,
+        allowNull: false,
+        defaultValue: 1,
+      },
+      parent_report_id: {
+        type: DataTypes.UUID,
+        allowNull: true,
+      },
+      revision_reason: {
+        type: DataTypes.TEXT,
         allowNull: true,
       },
       reporting_frequency: {

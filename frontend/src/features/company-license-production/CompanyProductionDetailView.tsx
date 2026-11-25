@@ -41,6 +41,8 @@ import {
   Compass,
   Sparkles,
   PieChart as PieChartIcon,
+  AlertTriangle,
+  RefreshCw,
 } from "lucide-react";
 import {
   ResponsiveContainer,
@@ -176,6 +178,13 @@ export function CompanyProductionDetailView({
   const [isReportModalOpen, setIsReportModalOpen] = useState(false);
   const [selectedTargetPeriodId, setSelectedTargetPeriodId] = useState<string | null>(null);
   const [selectedPeriodLabel, setSelectedPeriodLabel] = useState<string | null>(null);
+
+  // Versionized Report Revision State
+  const [isReportUpdate, setIsReportUpdate] = useState<boolean>(false);
+  const [existingReportQuantity, setExistingReportQuantity] = useState<number | null>(null);
+  const [currentVersionNumber, setCurrentVersionNumber] = useState<number>(1);
+  const [parentReportId, setParentReportId] = useState<string | null>(null);
+  const [reportRevisionReason, setReportRevisionReason] = useState<string>("");
 
   // -------------------------------------------------------------
   // TAB 5: RESPONSIBILITY ASSIGNMENT STATE
@@ -529,6 +538,13 @@ export function CompanyProductionDetailView({
       return;
     }
 
+    if (isReportUpdate && !reportRevisionReason.trim()) {
+      actionFeedback.error("Please provide a reason explaining this monthly report revision.", {
+        title: "Revision Reason Required",
+      });
+      return;
+    }
+
     try {
       await submitReport({
         assignment_id: assignmentId || "",
@@ -539,15 +555,23 @@ export function CompanyProductionDetailView({
         target_period_id: selectedTargetPeriodId || undefined,
         period_label: selectedPeriodLabel || undefined,
         notes: reportNotes,
-      }).unwrap();
+        revision_reason: isReportUpdate ? reportRevisionReason.trim() : undefined,
+        parent_report_id: isReportUpdate && parentReportId ? parentReportId : undefined,
+      } as any).unwrap();
 
       actionFeedback.success(
-        `Production actual of ${qty} ${unitSymbol} successfully recorded.`,
-        { title: "Report Submitted" }
+        isReportUpdate
+          ? `Revision v${currentVersionNumber + 1} for ${qty} ${unitSymbol} submitted for Federal Ministry review.`
+          : `Production actual of ${qty} ${unitSymbol} successfully recorded.`,
+        { title: isReportUpdate ? "Revision Submitted for Approval" : "Report Submitted" }
       );
 
       setReportQuantity("");
       setReportNotes("");
+      setReportRevisionReason("");
+      setIsReportUpdate(false);
+      setExistingReportQuantity(null);
+      setParentReportId(null);
       setIsReportModalOpen(false);
       refetchDetail();
     } catch (err: any) {
@@ -1841,10 +1865,24 @@ export function CompanyProductionDetailView({
               {/* Target-Aligned Reporting Hierarchy & Daily Matrix Engine */}
               <CompanyProductionReportingHierarchyView
                 assignmentId={assignmentId || ""}
-                onOpenReportModal={({ reportDate: selDate, periodLabel: selLabel, targetPeriodId: selTargetId }) => {
+                onOpenReportModal={({
+                  reportDate: selDate,
+                  periodLabel: selLabel,
+                  targetPeriodId: selTargetId,
+                  isUpdate,
+                  existingQuantity,
+                  currentVersion,
+                  parentReportId: selParentId,
+                }) => {
                   setReportDate(selDate);
                   setSelectedPeriodLabel(selLabel || null);
                   setSelectedTargetPeriodId(selTargetId || null);
+                  setIsReportUpdate(Boolean(isUpdate));
+                  setExistingReportQuantity(existingQuantity ?? null);
+                  setCurrentVersionNumber(currentVersion || 1);
+                  setParentReportId(selParentId || null);
+                  setReportQuantity(existingQuantity !== undefined && existingQuantity !== null ? String(existingQuantity) : "");
+                  setReportRevisionReason("");
                   setIsReportModalOpen(true);
                 }}
               />
@@ -1854,15 +1892,38 @@ export function CompanyProductionDetailView({
                 <DialogContent className="max-w-xl">
                   <DialogHeader>
                     <DialogTitle className="flex items-center gap-2 text-base font-bold">
-                      <Factory className="h-5 w-5 text-primary" />
-                      Submit Production Actual ({assignment?.reportingFrequency?.name || "Periodic"} Schedule)
+                      {isReportUpdate ? (
+                        <>
+                          <RefreshCw className="h-5 w-5 text-amber-600" />
+                          <span>Submit Monthly Production Revision (v{currentVersionNumber + 1})</span>
+                        </>
+                      ) : (
+                        <>
+                          <Factory className="h-5 w-5 text-primary" />
+                          <span>Submit Production Actual ({assignment?.reportingFrequency?.name || "Periodic"} Schedule)</span>
+                        </>
+                      )}
                     </DialogTitle>
                     <DialogDescription className="text-xs text-muted-foreground">
-                      Target Version v{approvedTarget?.version_number} Active | Selected Period: {selectedPeriodLabel || reportDate}
+                      {isReportUpdate
+                        ? `Revising ${selectedPeriodLabel || reportDate} | Previously approved baseline: ${existingReportQuantity?.toLocaleString()} ${unitSymbol} (v${currentVersionNumber})`
+                        : `Target Version v${approvedTarget?.version_number} Active | Selected Period: ${selectedPeriodLabel || reportDate}`}
                     </DialogDescription>
                   </DialogHeader>
 
                   <form onSubmit={handleReportSubmit} className="space-y-4">
+                    {isReportUpdate && (
+                      <div className="p-3 rounded-lg border border-amber-300 dark:border-amber-800 bg-amber-50/80 dark:bg-amber-950/40 text-xs text-amber-900 dark:text-amber-200 space-y-1">
+                        <div className="font-semibold flex items-center gap-1.5">
+                          <AlertTriangle className="h-4 w-4 text-amber-600 shrink-0" />
+                          <span>Audit-Tracked Revision Workflow</span>
+                        </div>
+                        <p className="text-[11px] text-amber-800/90 dark:text-amber-300/90">
+                          This submission generates Version v{currentVersionNumber + 1} of this monthly report. It is routed for Federal Ministry approval and will <strong>not</strong> alter official calculations or target completion rates until approved.
+                        </p>
+                      </div>
+                    )}
+
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                       <div className="space-y-1.5">
                         <Label className="text-xs font-semibold">Report Date</Label>
@@ -1877,7 +1938,7 @@ export function CompanyProductionDetailView({
 
                       <div className="space-y-1.5">
                         <Label className="text-xs font-semibold">
-                          Actual Extracted Quantity ({unitSymbol})
+                          {isReportUpdate ? "Revised" : "Actual Extracted"} Quantity ({unitSymbol})
                         </Label>
                         <div className="relative">
                           <Input
@@ -1896,6 +1957,21 @@ export function CompanyProductionDetailView({
                         </div>
                       </div>
                     </div>
+
+                    {isReportUpdate && (
+                      <div className="space-y-1.5">
+                        <Label className="text-xs font-semibold text-amber-900 dark:text-amber-200">
+                          Reason for Monthly Revision <span className="text-rose-500">*</span>
+                        </Label>
+                        <Textarea
+                          required
+                          placeholder="Provide a mandatory explanation for updating the reported figure (e.g., month-end reconciliation, assay lab adjustments, scale discrepancy)..."
+                          value={reportRevisionReason}
+                          onChange={(e) => setReportRevisionReason(e.target.value)}
+                          className="text-xs h-20 border-amber-300 dark:border-amber-800 focus-visible:ring-amber-500"
+                        />
+                      </div>
+                    )}
 
                     <div className="space-y-1.5">
                       <Label className="text-xs font-semibold">Reporting Department (Optional)</Label>
@@ -1928,18 +2004,31 @@ export function CompanyProductionDetailView({
                       <Button
                         type="button"
                         variant="outline"
-                        onClick={() => setIsReportModalOpen(false)}
+                        onClick={() => {
+                          setIsReportModalOpen(false);
+                          setIsReportUpdate(false);
+                          setExistingReportQuantity(null);
+                          setReportRevisionReason("");
+                        }}
                         className="text-xs h-8"
                       >
                         Cancel
                       </Button>
                       <Button
                         type="submit"
-                        disabled={isSubmittingReport || !reportQuantity}
-                        className="text-xs h-8 gap-1.5 bg-primary text-white"
+                        disabled={isSubmittingReport || !reportQuantity || (isReportUpdate && !reportRevisionReason.trim())}
+                        className={`text-xs h-8 gap-1.5 text-white ${
+                          isReportUpdate
+                            ? "bg-gradient-to-r from-amber-600 to-amber-700 hover:from-amber-700 hover:to-amber-800 shadow-xs"
+                            : "bg-primary"
+                        }`}
                       >
-                        <Send className="h-3.5 w-3.5" />
-                        {isSubmittingReport ? "Submitting..." : "Submit Production Actual"}
+                        {isReportUpdate ? <RefreshCw className="h-3.5 w-3.5" /> : <Send className="h-3.5 w-3.5" />}
+                        {isSubmittingReport
+                          ? "Submitting..."
+                          : isReportUpdate
+                          ? `Submit Revision (v${currentVersionNumber + 1})`
+                          : "Submit Production Actual"}
                       </Button>
                     </DialogFooter>
                   </form>

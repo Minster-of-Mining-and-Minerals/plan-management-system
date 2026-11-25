@@ -591,9 +591,12 @@ async function buildTargetAlignedReportingHierarchy({ assignmentId, year = null,
   const allowanceWindow = calculateAllowanceWindow(assignment, todayStr);
   const license = assignment.license;
 
-  // Calculate annual actual total
+  // Calculate annual actual total (excluding superseded/rejected and unapproved revisions)
   let annualActualTotal = 0;
   for (const r of reports) {
+    if (r.status === "superseded" || r.status === "rejected") continue;
+    if (r.parent_report_id && r.status !== "approved") continue; // Exclude pending revisions from calculation
+    if (assignment.requires_review && r.status !== "approved") continue;
     annualActualTotal += Number(r.quantity_reported) || 0;
   }
 
@@ -698,7 +701,16 @@ async function buildTargetAlignedReportingHierarchy({ assignmentId, year = null,
   // Iterate over primary periods and build hierarchy nodes
   for (const p of primaryPeriods) {
     const periodReports = reports.filter((r) => r.report_date >= p.startDate && r.report_date <= p.endDate);
-    const pActualQty = periodReports.reduce((sum, r) => sum + (Number(r.quantity_reported) || 0), 0);
+    
+    // Effective reports for calculations (excluding superseded, rejected, and unapproved revisions)
+    const effectivePeriodReports = periodReports.filter((r) => {
+      if (r.status === "superseded" || r.status === "rejected") return false;
+      if (r.parent_report_id && r.status !== "approved") return false;
+      if (assignment.requires_review && r.status !== "approved") return false;
+      return true;
+    });
+
+    const pActualQty = effectivePeriodReports.reduce((sum, r) => sum + (Number(r.quantity_reported) || 0), 0);
     const pAchievement = p.targetQuantity > 0 ? (pActualQty / p.targetQuantity) * 100 : 0;
 
     const pClassification = classifyPeriodRange({
@@ -717,6 +729,14 @@ async function buildTargetAlignedReportingHierarchy({ assignmentId, year = null,
       (targetDepth === "monthly" && reportingFreq === "monthly") ||
       (targetDepth === "annual" && reportingFreq === "annual");
 
+    const pActiveReport = periodReports
+      .filter((r) => r.status === "approved" || (!assignment.requires_review && !r.parent_report_id && r.status !== "rejected" && r.status !== "superseded"))
+      .sort((a, b) => (b.version_number || 1) - (a.version_number || 1))[0] || null;
+
+    const pPendingRevision = periodReports
+      .filter((r) => r.parent_report_id && (r.status === "submitted" || r.status === "pending_approval"))
+      .sort((a, b) => (b.version_number || 1) - (a.version_number || 1))[0] || null;
+
     const pNode = {
       id: p.id,
       level: p.level,
@@ -732,6 +752,35 @@ async function buildTargetAlignedReportingHierarchy({ assignmentId, year = null,
       classification: pClassification,
       targetPeriodId: p.targetId,
       isReportingLevel: isDirectReportingLevel,
+      activeReport: pActiveReport
+        ? {
+            reportId: pActiveReport.report_id,
+            versionNumber: pActiveReport.version_number || 1,
+            quantityReported: Number(pActiveReport.quantity_reported),
+            unitSymbol: pActiveReport.reportedUnit?.symbol || unitSymbol,
+            status: pActiveReport.status,
+            reportDate: pActiveReport.report_date,
+            periodLabel: pActiveReport.period_label,
+            notes: pActiveReport.notes,
+            submittedByName: pActiveReport.submitter?.full_name || "Company Representative",
+            createdAt: pActiveReport.created_at,
+          }
+        : null,
+      pendingRevision: pPendingRevision
+        ? {
+            reportId: pPendingRevision.report_id,
+            versionNumber: pPendingRevision.version_number || 2,
+            quantityReported: Number(pPendingRevision.quantity_reported),
+            unitSymbol: pPendingRevision.reportedUnit?.symbol || unitSymbol,
+            status: pPendingRevision.status,
+            revisionReason: pPendingRevision.revision_reason || pPendingRevision.notes,
+            createdAt: pPendingRevision.created_at,
+          }
+        : null,
+      hasReport: Boolean(pActiveReport || pPendingRevision),
+      allowUpdate: Boolean(assignment.allow_report_updates),
+      canUpdate: Boolean(assignment.allow_report_updates) && !pPendingRevision && pClassification.isAccessible,
+      canPreview: Boolean(pActiveReport || pPendingRevision),
       children: [],
     };
 
@@ -746,7 +795,15 @@ async function buildTargetAlignedReportingHierarchy({ assignmentId, year = null,
 
       for (const sm of subIntervals) {
         const smReports = reports.filter((r) => r.report_date >= sm.period_start_date && r.report_date <= sm.period_end_date);
-        const smActualQty = smReports.reduce((sum, r) => sum + (Number(r.quantity_reported) || 0), 0);
+        
+        const effectiveSmReports = smReports.filter((r) => {
+          if (r.status === "superseded" || r.status === "rejected") return false;
+          if (r.parent_report_id && r.status !== "approved") return false;
+          if (assignment.requires_review && r.status !== "approved") return false;
+          return true;
+        });
+
+        const smActualQty = effectiveSmReports.reduce((sum, r) => sum + (Number(r.quantity_reported) || 0), 0);
 
         const smClassification = classifyPeriodRange({
           startDate: sm.period_start_date,
@@ -757,6 +814,14 @@ async function buildTargetAlignedReportingHierarchy({ assignmentId, year = null,
           assignment,
           approvedTarget: approvedRootTarget,
         });
+
+        const smActiveReport = smReports
+          .filter((r) => r.status === "approved" || (!assignment.requires_review && !r.parent_report_id && r.status !== "rejected" && r.status !== "superseded"))
+          .sort((a, b) => (b.version_number || 1) - (a.version_number || 1))[0] || null;
+
+        const smPendingRevision = smReports
+          .filter((r) => r.parent_report_id && (r.status === "submitted" || r.status === "pending_approval"))
+          .sort((a, b) => (b.version_number || 1) - (a.version_number || 1))[0] || null;
 
         pNode.children.push({
           id: `sub-${sm.period_start_date}-${sm.period_end_date}`,
@@ -772,6 +837,35 @@ async function buildTargetAlignedReportingHierarchy({ assignmentId, year = null,
           targetPeriodId: p.targetId,
           isReportingLevel: reportingFreq === "monthly",
           requiresDailyMatrix: reportingFreq === "daily",
+          activeReport: smActiveReport
+            ? {
+                reportId: smActiveReport.report_id,
+                versionNumber: smActiveReport.version_number || 1,
+                quantityReported: Number(smActiveReport.quantity_reported),
+                unitSymbol: smActiveReport.reportedUnit?.symbol || unitSymbol,
+                status: smActiveReport.status,
+                reportDate: smActiveReport.report_date,
+                periodLabel: smActiveReport.period_label,
+                notes: smActiveReport.notes,
+                submittedByName: smActiveReport.submitter?.full_name || "Company Representative",
+                createdAt: smActiveReport.created_at,
+              }
+            : null,
+          pendingRevision: smPendingRevision
+            ? {
+                reportId: smPendingRevision.report_id,
+                versionNumber: smPendingRevision.version_number || 2,
+                quantityReported: Number(smPendingRevision.quantity_reported),
+                unitSymbol: smPendingRevision.reportedUnit?.symbol || unitSymbol,
+                status: smPendingRevision.status,
+                revisionReason: smPendingRevision.revision_reason || smPendingRevision.notes,
+                createdAt: smPendingRevision.created_at,
+              }
+            : null,
+          hasReport: Boolean(smActiveReport || smPendingRevision),
+          allowUpdate: Boolean(assignment.allow_report_updates),
+          canUpdate: Boolean(assignment.allow_report_updates) && !smPendingRevision && smClassification.isAccessible,
+          canPreview: Boolean(smActiveReport || smPendingRevision),
           children: [],
         });
       }
@@ -794,6 +888,7 @@ async function buildTargetAlignedReportingHierarchy({ assignmentId, year = null,
       allow_past_reporting: assignment.allow_past_reporting,
       past_reporting_duration: assignment.past_reporting_duration,
       past_reporting_unit: assignment.past_reporting_unit,
+      allow_report_updates: Boolean(assignment.allow_report_updates),
       effective_from: assignment.effective_from,
       effective_to: assignment.effective_to,
     },

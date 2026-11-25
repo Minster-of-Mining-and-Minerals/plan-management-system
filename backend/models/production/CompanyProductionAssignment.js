@@ -117,6 +117,11 @@ module.exports = (sequelize, DataTypes) => {
         allowNull: false,
         defaultValue: false,
       },
+      allow_report_updates: {
+        type: DataTypes.BOOLEAN,
+        allowNull: false,
+        defaultValue: false,
+      },
       past_reporting_duration: {
         type: DataTypes.INTEGER,
         allowNull: true,

@@ -185,9 +185,16 @@ export function FederalProductionReportsView() {
       accessorKey: "period_label",
       header: "Reporting Period",
       cell: ({ row }) => (
-        <span className="text-xs text-muted-foreground">
-          {row.original.period_label || "Daily Record"}
-        </span>
+        <div className="flex items-center gap-1.5 flex-wrap">
+          <span className="text-xs text-muted-foreground">
+            {row.original.period_label || "Daily Record"}
+          </span>
+          {row.original.version_number && row.original.version_number > 1 && (
+            <Badge variant="outline" className="text-[9px] font-mono border-amber-300 bg-amber-50 dark:bg-amber-950/40 text-amber-800 dark:text-amber-300 font-semibold px-1 py-0">
+              v{row.original.version_number} Revision
+            </Badge>
+          )}
+        </div>
       ),
     },
     {
@@ -583,6 +590,23 @@ export function FederalProductionReportsView() {
                 <span className="text-muted-foreground block">Report Date</span>
                 <span className="font-mono text-foreground">{activeReport.report_date}</span>
               </div>
+
+              {activeReport.version_number && activeReport.version_number > 1 && (
+                <div className="col-span-2 p-2.5 rounded-lg border border-amber-300 dark:border-amber-800 bg-amber-50/70 dark:bg-amber-950/40 text-xs text-amber-900 dark:text-amber-200 space-y-1">
+                  <div className="font-semibold flex items-center justify-between">
+                    <span>Amendment Version v{activeReport.version_number}</span>
+                    <Badge variant="outline" className="text-[10px] border-amber-400 bg-amber-100 dark:bg-amber-900 text-amber-900 dark:text-amber-200">
+                      Supersedes Previous Approved Version Upon Approval
+                    </Badge>
+                  </div>
+                  {activeReport.revision_reason && (
+                    <div className="text-[11px] pt-1">
+                      <span className="font-semibold text-muted-foreground">Revision Reason: </span>
+                      <span className="text-foreground italic">{activeReport.revision_reason}</span>
+                    </div>
+                  )}
+                </div>
+              )}
 
               {activeReport.notes && (
                 <div className="col-span-2 pt-1 border-t border-border/40">

@@ -548,8 +548,16 @@ export const productionApi = baseApi.injectEndpoints({
       }),
       transformResponse: (response: { success: boolean; data: CompanyProductionReport }) =>
         response.data,
-      invalidatesTags: [
+      invalidatesTags: (result, error, body) => [
         { type: "CompanyProductionReports", id: "LIST" },
+        ...(body?.assignment_id
+          ? [
+              { type: "CompanyProductionReports" as const, id: `HIERARCHY_${body.assignment_id}` },
+              { type: "CompanyProductionReports" as const, id: `DAILY_MATRIX_${body.assignment_id}` },
+              { type: "CompanyProductionAssignments" as const, id: body.assignment_id },
+            ]
+          : []),
+        { type: "CompanyProductionAssignments", id: "DETAIL" },
         { type: "ProductionDashboard", id: "FEDERAL" },
         { type: "ProductionDashboard", id: "COMPANY" },
       ],
