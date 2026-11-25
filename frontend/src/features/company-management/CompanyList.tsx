@@ -28,6 +28,7 @@ import { TableLayout } from "@/features/template/component/tableList/TableLayout
 import { ActiveStatusBadge } from "@/components/ui/active-status-badge";
 import { matchesActiveInactiveFilter } from "@/utils/tableUtils";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import {
@@ -58,6 +59,7 @@ export function CompanyList() {
   const searchQuery = searchParams.get("search") || "";
 
   const [statusFilter, setStatusFilter] = useState<string>("");
+  const [licenseTypeFilter, setLicenseTypeFilter] = useState<string>("all");
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingCompany, setEditingCompany] = useState<Company | null>(null);
 
@@ -79,6 +81,7 @@ export function CompanyList() {
 
   const { data: companies = [], isLoading, refetch } = useGetCompaniesQuery({
     search: searchQuery || undefined,
+    license_type: licenseTypeFilter !== "all" ? licenseTypeFilter : undefined,
   });
 
   const [createCompany, { isLoading: isCreating }] = useCreateCompanyMutation();
@@ -189,8 +192,17 @@ export function CompanyList() {
   };
 
   const filteredData = useMemo(() => {
-    return companies.filter((c) => matchesActiveInactiveFilter(statusFilter, c.is_active));
-  }, [companies, statusFilter]);
+    return companies.filter((c) => {
+      if (!matchesActiveInactiveFilter(statusFilter, c.is_active)) return false;
+      if (licenseTypeFilter !== "all") {
+        const types = (c.license_types || []).map((t) => t.toLowerCase());
+        if (!types.some((t) => t.includes(licenseTypeFilter) || licenseTypeFilter.includes(t))) {
+          return false;
+        }
+      }
+      return true;
+    });
+  }, [companies, statusFilter, licenseTypeFilter]);
 
   const columns = useMemo<ColumnDef<Company>[]>(() => {
     return [
@@ -238,7 +250,7 @@ export function CompanyList() {
         accessorKey: "licenses_count",
         header: "Licenses",
         cell: ({ row }) => {
-          const count = (row.original as any).licenses_count ?? 0;
+          const count = row.original.licenses_count ?? 0;
           return (
             <Link
               href={`/admin/companies/${row.original.company_id}?tab=licenses`}
@@ -247,6 +259,43 @@ export function CompanyList() {
               <FileText className="w-4 h-4 text-emerald-600" />
               <span>{count}</span>
             </Link>
+          );
+        },
+      },
+      {
+        id: "license_types",
+        header: "License Type",
+        cell: ({ row }) => {
+          const types = row.original.license_types || [];
+          const unique = Array.from(new Set(types.map((t) => t.toLowerCase())));
+          if (unique.length === 0) {
+            return <span className="text-xs text-muted-foreground italic">—</span>;
+          }
+          return (
+            <div className="flex items-center gap-1 flex-wrap max-w-[190px]">
+              {unique.includes("mining") && (
+                <Badge className="bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300 border border-emerald-300 text-[10px] font-semibold py-0 px-1.5 capitalize">
+                  Mining
+                </Badge>
+              )}
+              {unique.includes("exploration") && (
+                <Badge className="bg-blue-100 text-blue-800 dark:bg-blue-950 dark:text-blue-300 border border-blue-300 text-[10px] font-semibold py-0 px-1.5 capitalize">
+                  Exploration
+                </Badge>
+              )}
+              {unique.includes("processing") && (
+                <Badge className="bg-purple-100 text-purple-800 dark:bg-purple-950 dark:text-purple-300 border border-purple-300 text-[10px] font-semibold py-0 px-1.5 capitalize">
+                  Processing
+                </Badge>
+              )}
+              {unique
+                .filter((t) => !["mining", "exploration", "processing"].includes(t))
+                .map((t) => (
+                  <Badge key={t} variant="outline" className="text-[10px] capitalize py-0 px-1.5 font-medium">
+                    {t}
+                  </Badge>
+                ))}
+            </div>
           );
         },
       },
@@ -361,10 +410,24 @@ export function CompanyList() {
   const filterFields = useMemo<FilterField[]>(() => {
     return [
       {
+        key: "license_type",
+        label: "License Type",
+        type: "select",
+        options: [
+          { label: "All License Types", value: "all" },
+          { label: "Mining", value: "mining" },
+          { label: "Exploration", value: "exploration" },
+          { label: "Processing", value: "processing" },
+        ],
+        value: licenseTypeFilter,
+        onChange: (val) => setLicenseTypeFilter(String(val || "all")),
+      },
+      {
         key: "status",
         label: "Status",
         type: "select",
         options: [
+          { label: "All Statuses", value: "" },
           { label: "Active", value: "active" },
           { label: "Inactive", value: "inactive" },
         ],
@@ -372,7 +435,7 @@ export function CompanyList() {
         onChange: (val) => setStatusFilter(String(val || "")),
       },
     ];
-  }, [statusFilter]);
+  }, [statusFilter, licenseTypeFilter]);
 
   const actionButtons = useMemo<ActionButton[]>(() => {
     const btns: ActionButton[] = [];

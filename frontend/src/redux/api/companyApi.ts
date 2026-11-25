@@ -14,7 +14,7 @@ import type { Role } from "../types/user";
 export const companyApi = baseApi.injectEndpoints({
   overrideExisting: true,
   endpoints: (builder) => ({
-    getCompanies: builder.query<Company[], { is_active?: boolean; search?: string } | void>({
+    getCompanies: builder.query<Company[], { is_active?: boolean; search?: string; license_type?: string } | void>({
       query: (params) => ({
         url: "/companies",
         params: params || undefined,

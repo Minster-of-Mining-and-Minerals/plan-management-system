@@ -43,17 +43,31 @@ async function listCompanies(query = {}) {
   let structureCounts = new Map();
   let userCounts = new Map();
   let licenseCounts = new Map();
+  let companyLicenseTypes = new Map();
 
   if (companyIds.length > 0) {
     const [licRows] = await sequelize.query(`
-      SELECT company_id, COUNT(*) as count 
-      FROM company_licenses 
-      WHERE company_id IN (:companyIds) AND deleted_at IS NULL AND is_active = true 
-      GROUP BY company_id;
+      SELECT cl.company_id, lt.code as license_type_code, lt.name as license_type_name, COUNT(*) as count 
+      FROM company_licenses cl
+      JOIN license_types lt ON cl.license_type_id = lt.license_type_id
+      WHERE cl.company_id IN (:companyIds) AND cl.deleted_at IS NULL AND cl.is_active = true 
+      GROUP BY cl.company_id, lt.code, lt.name;
     `, { replacements: { companyIds } });
 
     for (const row of licRows) {
-      licenseCounts.set(row.company_id, parseInt(row.count, 10));
+      const cId = row.company_id;
+      const prevCount = licenseCounts.get(cId) || 0;
+      licenseCounts.set(cId, prevCount + parseInt(row.count, 10));
+
+      if (!companyLicenseTypes.has(cId)) {
+        companyLicenseTypes.set(cId, new Set());
+      }
+      if (row.license_type_code) {
+        companyLicenseTypes.get(cId).add(row.license_type_code.toLowerCase());
+      }
+      if (row.license_type_name) {
+        companyLicenseTypes.get(cId).add(row.license_type_name.toLowerCase());
+      }
     }
 
     const [structRows] = await sequelize.query(`
@@ -79,15 +93,28 @@ async function listCompanies(query = {}) {
     }
   }
 
-  return companies.map((company) => {
+  let mappedCompanies = companies.map((company) => {
     const plain = company.toJSON ? company.toJSON() : { ...company };
+    const lTypes = companyLicenseTypes.has(plain.company_id)
+      ? Array.from(companyLicenseTypes.get(plain.company_id))
+      : [];
     return {
       ...plain,
       licenses_count: licenseCounts.get(plain.company_id) || 0,
+      license_types: lTypes,
       structures_count: structureCounts.get(plain.company_id) || 0,
       active_users_count: userCounts.get(plain.company_id) || 0,
     };
   });
+
+  if (query.license_type && query.license_type.toLowerCase() !== "all") {
+    const reqType = query.license_type.toLowerCase().trim();
+    mappedCompanies = mappedCompanies.filter((c) =>
+      c.license_types && c.license_types.some((t) => t.includes(reqType) || reqType.includes(t))
+    );
+  }
+
+  return mappedCompanies;
 }
 
 async function getCompanyById(companyId) {

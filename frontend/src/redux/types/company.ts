@@ -53,6 +53,8 @@ export interface Company {
   created_at: string;
   updated_at: string;
   branding?: CompanyBrandingData | null;
+  licenses_count?: number;
+  license_types?: string[];
   structures_count?: number;
   active_users_count?: number;
 }
