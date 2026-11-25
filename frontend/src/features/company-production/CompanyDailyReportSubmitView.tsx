@@ -193,16 +193,34 @@ export function CompanyDailyReportSubmitView({ companyId: propCompanyId }: { com
         setFormError("Please select a valid production month.");
         return;
       }
-      finalReportDate = bounds.endDate;
+      finalReportDate = bounds.startDate;
       finalPeriodLabel = bounds.label;
+
+      if (selectedAssignment.effective_from && bounds.endDate < selectedAssignment.effective_from) {
+        setFormError(`Reporting month (${finalPeriodLabel}) ends before assignment start date (${selectedAssignment.effective_from}).`);
+        return;
+      }
+      if (selectedAssignment.effective_to && bounds.startDate > selectedAssignment.effective_to) {
+        setFormError(`Reporting month (${finalPeriodLabel}) starts after assignment end date (${selectedAssignment.effective_to}).`);
+        return;
+      }
     } else if (frequencyCode === "weekly") {
       const bounds = getISOWeekBounds(selectedWeek);
       if (!bounds) {
         setFormError("Please select a valid production week.");
         return;
       }
-      finalReportDate = bounds.endDate;
+      finalReportDate = bounds.startDate;
       finalPeriodLabel = bounds.label;
+
+      if (selectedAssignment.effective_from && bounds.endDate < selectedAssignment.effective_from) {
+        setFormError(`Reporting week (${finalPeriodLabel}) ends before assignment start date (${selectedAssignment.effective_from}).`);
+        return;
+      }
+      if (selectedAssignment.effective_to && bounds.startDate > selectedAssignment.effective_to) {
+        setFormError(`Reporting week (${finalPeriodLabel}) starts after assignment end date (${selectedAssignment.effective_to}).`);
+        return;
+      }
     } else {
       if (!reportDate) {
         setFormError("Please choose a production date.");
@@ -210,17 +228,17 @@ export function CompanyDailyReportSubmitView({ companyId: propCompanyId }: { com
       }
       finalReportDate = reportDate;
       finalPeriodLabel = reportDate;
-    }
 
-    // Boundary check with assignment effective range
-    if (selectedAssignment.effective_from && finalReportDate < selectedAssignment.effective_from) {
-      setFormError(`Reporting date (${finalReportDate}) cannot be earlier than assignment start date (${selectedAssignment.effective_from}).`);
-      return;
-    }
+      // Boundary check with assignment effective range for daily
+      if (selectedAssignment.effective_from && finalReportDate < selectedAssignment.effective_from) {
+        setFormError(`Reporting date (${finalReportDate}) cannot be earlier than assignment start date (${selectedAssignment.effective_from}).`);
+        return;
+      }
 
-    if (selectedAssignment.effective_to && finalReportDate > selectedAssignment.effective_to) {
-      setFormError(`Reporting date (${finalReportDate}) cannot be later than assignment end date (${selectedAssignment.effective_to}).`);
-      return;
+      if (selectedAssignment.effective_to && finalReportDate > selectedAssignment.effective_to) {
+        setFormError(`Reporting date (${finalReportDate}) cannot be later than assignment end date (${selectedAssignment.effective_to}).`);
+        return;
+      }
     }
 
     const numQuantity = parseFloat(quantity);

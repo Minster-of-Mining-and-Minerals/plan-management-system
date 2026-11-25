@@ -28,6 +28,8 @@ const {
 const {
   calculateAllowanceWindow,
   classifyReportingDate,
+  classifyPeriodRange,
+  classifyReportingPeriod,
   buildTargetAlignedReportingHierarchy,
   buildDailyReportingMatrix,
   getBusinessToday,
@@ -727,24 +729,49 @@ async function submitReport(data, userId, companyScope = null) {
     throw err;
   }
 
-  // Check effective dates
-  if (new Date(report_date) < new Date(assignment.effective_from)) {
-    const err = new Error(`Report date cannot be earlier than assignment effective date (${assignment.effective_from}).`);
-    err.status = 400;
-    throw err;
-  }
-  if (assignment.effective_to && new Date(report_date) > new Date(assignment.effective_to)) {
-    const err = new Error(`Report date cannot be later than assignment end date (${assignment.effective_to}).`);
-    err.status = 400;
-    throw err;
+  const freqCode = assignment.reportingFrequency ? assignment.reportingFrequency.code : "daily";
+
+  // Check effective dates for daily reporting
+  if (freqCode === "daily") {
+    if (new Date(report_date) < new Date(assignment.effective_from)) {
+      const err = new Error(`Report date cannot be earlier than assignment effective date (${assignment.effective_from}).`);
+      err.status = 400;
+      throw err;
+    }
+    if (assignment.effective_to && new Date(report_date) > new Date(assignment.effective_to)) {
+      const err = new Error(`Report date cannot be later than assignment end date (${assignment.effective_to}).`);
+      err.status = 400;
+      throw err;
+    }
   }
 
-  // 4. Centralized Period Access and Rolling Past-Reporting Allowance Enforcement
+  // 4. Centralized Period Access and Frequency-Aware Period Window Enforcement
+
+  // Look up target period allocation if specified or match by date
+  let linkedTargetPeriod = null;
+  if (data.target_period_id) {
+    linkedTargetPeriod = await CompanyProductionTarget.findByPk(data.target_period_id);
+  }
+  if (!linkedTargetPeriod && approvedTarget) {
+    linkedTargetPeriod = await CompanyProductionTarget.findOne({
+      where: {
+        assignment_id: assignment.assignment_id,
+        version_number: approvedTarget.version_number,
+        parent_target_id: approvedTarget.target_id,
+        period_start_date: { [Op.lte]: report_date },
+        period_end_date: { [Op.gte]: report_date },
+      },
+    });
+  }
+
   const todayStr = getBusinessToday();
   const allowanceWindow = calculateAllowanceWindow(assignment, todayStr);
   const licenseRecord = assignment.license_id ? await CompanyLicense.findByPk(assignment.license_id) : null;
-  const dateClassification = classifyReportingDate({
+  const periodClassification = classifyReportingPeriod({
+    frequencyCode: freqCode,
     dateStr: report_date,
+    periodStartDate: linkedTargetPeriod?.period_start_date || null,
+    periodEndDate: linkedTargetPeriod?.period_end_date || null,
     todayStr,
     allowanceWindow,
     license: licenseRecord,
@@ -752,8 +779,8 @@ async function submitReport(data, userId, companyScope = null) {
     approvedTarget,
   });
 
-  if (!dateClassification.isAccessible) {
-    const err = new Error(dateClassification.reason || "Reporting period is locked.");
+  if (!periodClassification.isAccessible) {
+    const err = new Error(periodClassification.reason || "Reporting period is locked.");
     err.status = 403;
     throw err;
   }
@@ -763,7 +790,6 @@ async function submitReport(data, userId, companyScope = null) {
   const normalizedQuantity = roundDecimal(numQty * factorToBase, 4);
 
   // Resolve period label and deterministic period key based on frequency
-  const freqCode = assignment.reportingFrequency ? assignment.reportingFrequency.code : "daily";
   let resolvedPeriodLabel = period_label ? String(period_label).trim() : null;
   let resolvedPeriodKey = data.reporting_period_key ? String(data.reporting_period_key).trim() : null;
 
@@ -807,24 +833,7 @@ async function submitReport(data, userId, companyScope = null) {
     throw err;
   }
 
-  // Find linked target period allocation node (e.g. Q4 or November)
-  let resolvedTargetPeriodId = data.target_period_id || null;
-  if (!resolvedTargetPeriodId) {
-    const matchingPeriod = await CompanyProductionTarget.findOne({
-      where: {
-        assignment_id: assignment.assignment_id,
-        version_number: approvedTarget.version_number,
-        parent_target_id: approvedTarget.target_id,
-        period_start_date: { [Op.lte]: report_date },
-        period_end_date: { [Op.gte]: report_date },
-      },
-    });
-    if (matchingPeriod) {
-      resolvedTargetPeriodId = matchingPeriod.target_id;
-    } else {
-      resolvedTargetPeriodId = approvedTarget.target_id;
-    }
-  }
+  const resolvedTargetPeriodId = linkedTargetPeriod ? linkedTargetPeriod.target_id : (approvedTarget ? approvedTarget.target_id : null);
 
   const status = assignment.requires_review ? "submitted" : "approved";
 

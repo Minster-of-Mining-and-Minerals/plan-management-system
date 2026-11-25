@@ -353,6 +353,157 @@ function classifyPeriodRange({
 }
 
 /**
+ * Classify a report submission according to the assignment's reporting frequency
+ * (daily, monthly, quarterly, semi_annual, annual) and optional period bounds.
+ */
+function classifyReportingPeriod({
+  frequencyCode = "daily",
+  dateStr,
+  periodStartDate = null,
+  periodEndDate = null,
+  todayStr,
+  allowanceWindow,
+  license,
+  assignment,
+  existingReport = null,
+  approvedTarget = null,
+}) {
+  const normFreq = String(frequencyCode || "daily").toLowerCase().trim();
+
+  // If daily: delegate strictly to classifyReportingDate
+  if (normFreq === "daily") {
+    return classifyReportingDate({
+      dateStr,
+      todayStr,
+      allowanceWindow,
+      license,
+      assignment,
+      existingReport,
+      approvedTarget,
+    });
+  }
+
+  // Common license and assignment checks
+  if (!assignment.is_active) {
+    return {
+      status: PERIOD_STATUS.INACTIVE_ASSIGNMENT,
+      isAccessible: false,
+      reason: "Production assignment is inactive.",
+    };
+  }
+
+  if (!approvedTarget) {
+    return {
+      status: PERIOD_STATUS.NO_APPROVED_TARGET,
+      isAccessible: false,
+      reason: "Production target has not been approved by the Federal Ministry.",
+    };
+  }
+
+  // Determine period start and end dates
+  let startDate = periodStartDate;
+  let endDate = periodEndDate;
+
+  if (!startDate || !endDate) {
+    const [yStr, mStr] = dateStr.split("-");
+    const year = parseInt(yStr, 10);
+    const month = parseInt(mStr, 10);
+
+    if (normFreq === "monthly") {
+      const monthRange = getMonthDateRange(year, month);
+      startDate = monthRange.startDate;
+      endDate = monthRange.endDate;
+    } else if (normFreq === "quarterly") {
+      const q = getQuarterFromMonth(month);
+      const qRange = getQuarterDateRange(year, q);
+      startDate = qRange.startDate;
+      endDate = qRange.endDate;
+    } else if (normFreq === "semi_annual" || normFreq === "half_year") {
+      const h = month <= 6 ? 1 : 2;
+      const hRange = getHalfYearDateRange(year, h);
+      startDate = hRange.startDate;
+      endDate = hRange.endDate;
+    } else if (normFreq === "annual" || normFreq === "yearly") {
+      startDate = `${year}-01-01`;
+      endDate = `${year}-12-31`;
+    } else {
+      startDate = dateStr;
+      endDate = dateStr;
+    }
+  }
+
+  // Check license effective bounds
+  if (license) {
+    if (license.status !== "active") {
+      return {
+        status: PERIOD_STATUS.OUTSIDE_LICENSE_PERIOD,
+        isAccessible: false,
+        reason: `Associated license '${license.license_number}' is not active (${license.status}).`,
+      };
+    }
+    if (license.effective_start_date && endDate < license.effective_start_date) {
+      return {
+        status: PERIOD_STATUS.OUTSIDE_LICENSE_PERIOD,
+        isAccessible: false,
+        reason: `Date is earlier than license start date (${license.effective_start_date}).`,
+      };
+    }
+    if (license.effective_end_date && startDate > license.effective_end_date) {
+      return {
+        status: PERIOD_STATUS.OUTSIDE_LICENSE_PERIOD,
+        isAccessible: false,
+        reason: `Date exceeds license expiration date (${license.effective_end_date}).`,
+      };
+    }
+  }
+
+  // Check assignment effective bounds
+  if (assignment.effective_from && endDate < assignment.effective_from) {
+    return {
+      status: PERIOD_STATUS.OUTSIDE_LICENSE_PERIOD,
+      isAccessible: false,
+      reason: `Date is earlier than assignment start date (${assignment.effective_from}).`,
+    };
+  }
+  if (assignment.effective_to && startDate > assignment.effective_to) {
+    return {
+      status: PERIOD_STATUS.OUTSIDE_LICENSE_PERIOD,
+      isAccessible: false,
+      reason: `Date exceeds assignment end date (${assignment.effective_to}).`,
+    };
+  }
+
+  // Existing report check
+  if (existingReport) {
+    if (existingReport.status === "rejected") {
+      return {
+        status: PERIOD_STATUS.REJECTED,
+        isAccessible: true,
+        reason: `Report was rejected. Review comments: ${existingReport.review_comments || "Correction required."}`,
+        report: existingReport,
+      };
+    }
+    return {
+      status: existingReport.status === "approved" ? PERIOD_STATUS.COMPLETED : PERIOD_STATUS.SUBMITTED,
+      isAccessible: false,
+      reason: `Report already submitted for this period.`,
+      report: existingReport,
+    };
+  }
+
+  // Classify period range
+  return classifyPeriodRange({
+    startDate,
+    endDate,
+    todayStr,
+    allowanceWindow,
+    license,
+    assignment,
+    approvedTarget,
+  });
+}
+
+/**
  * Build the full Target-Aligned Reporting Hierarchy for a specific production assignment and year
  */
 async function buildTargetAlignedReportingHierarchy({ assignmentId, year = null, dateOverride = null }) {
@@ -841,6 +992,10 @@ module.exports = {
   calculateAllowanceWindow,
   classifyReportingDate,
   classifyPeriodRange,
+  classifyReportingPeriod,
+  getMonthDateRange,
+  getQuarterDateRange,
+  getHalfYearDateRange,
   buildTargetAlignedReportingHierarchy,
   buildDailyReportingMatrix,
 };
