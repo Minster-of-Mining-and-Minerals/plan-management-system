@@ -22,6 +22,9 @@ import {
   Layers,
   FileText,
   BadgeCheck,
+  Percent,
+  Lock,
+  Info,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -826,6 +829,84 @@ export function RecordPurchaseForm() {
                 }`}
               />
             </div>
+
+            {/* UNEDITABLE PERCENTAGE CONFIGURATION SECTION (CENTRAL ADMIN REFERENCE) */}
+            <div className="pt-4 border-t border-border/70 space-y-3.5">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                <div className="flex items-center gap-2">
+                  <div className="w-7 h-7 rounded-lg bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 flex items-center justify-center shrink-0">
+                    <Percent className="h-4 w-4" />
+                  </div>
+                  <div>
+                    <Label className="text-xs font-bold text-foreground block">
+                      Purchasing Incentive / Premium Percentage
+                    </Label>
+                    <span className="text-[11px] text-muted-foreground">
+                      Referenced from Private Administration Parameters
+                    </span>
+                  </div>
+                </div>
+                <Badge
+                  variant="outline"
+                  className={
+                    isPurchasingPremiumEnabled
+                      ? "border-emerald-500/40 text-emerald-700 dark:text-emerald-300 bg-emerald-500/10 text-[10px] gap-1 font-semibold self-start sm:self-auto"
+                      : "border-muted-foreground/30 text-muted-foreground bg-muted/40 text-[10px] gap-1 self-start sm:self-auto"
+                  }
+                >
+                  <Lock className="h-3 w-3" />
+                  {isPurchasingPremiumEnabled ? "Active & Authoritative · Uneditable" : "Deactivated from Admin"}
+                </Badge>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 items-center">
+                {/* Uneditable Percentage Input */}
+                <div className="space-y-1.5">
+                  <Label className="text-xs font-semibold text-muted-foreground">
+                    Centrally Configured Rate (%):
+                  </Label>
+                  <div className="relative">
+                    <Input
+                      type="text"
+                      value={
+                        isPurchasingPremiumEnabled
+                          ? `${purchasingPremiumRate}%`
+                          : "0.00% (Deactivated)"
+                      }
+                      disabled
+                      readOnly
+                      className="h-11 text-base font-mono font-extrabold bg-muted/60 border-border text-foreground pr-8 cursor-not-allowed select-none rounded-xl"
+                    />
+                    <Lock className="h-3.5 w-3.5 text-muted-foreground absolute right-3 top-3.5" />
+                  </div>
+                  <span className="text-[10px] text-muted-foreground font-mono">
+                    Refers to active private configuration ({purchasingPremiumRate}%)
+                  </span>
+                </div>
+
+                {/* Live Computed Incentive Amount Display */}
+                <div className="space-y-1.5">
+                  <Label className="text-xs font-semibold text-muted-foreground">
+                    Computed Incentive Amount (+{activePremiumPercentage}%):
+                  </Label>
+                  <div className="h-11 px-3.5 rounded-xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-between font-mono text-base font-bold text-emerald-600 dark:text-emerald-400">
+                    <span>+{premiumAmount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                    <span className="text-xs font-sans font-semibold text-emerald-700 dark:text-emerald-300">ETB</span>
+                  </div>
+                  <span className="text-[10px] text-muted-foreground font-mono">
+                    Added to base total to establish final net payout
+                  </span>
+                </div>
+              </div>
+
+              {/* Explanatory Policy Callout */}
+              <div className="p-3 rounded-2xl bg-amber-500/5 border border-amber-500/20 flex items-start gap-2.5 text-xs text-muted-foreground">
+                <Info className="h-4 w-4 text-amber-500 shrink-0 mt-0.5" />
+                <div className="text-[11px] leading-relaxed">
+                  <span className="font-semibold text-foreground">Authoritative Rate Lock:</span> This purchase is referencing the official <strong>{purchasingPremiumRate}%</strong> incentive rate configured centrally from the private administration section. This percentage is read-only at the purchasing center counter. The generated receipt and audit log will document both the base valuation without percentage and the final total including the {purchasingPremiumRate}% incentive.
+                </div>
+              </div>
+            </div>
           </div>
 
           {/* CARD 5: OPERATIONAL METADATA */}
@@ -1120,7 +1201,7 @@ export function RecordPurchaseForm() {
               {isPurchasingPremiumEnabled && activePremiumPercentage > 0 && (
                 <div className="flex justify-between items-center text-emerald-600 dark:text-emerald-400">
                   <span className="font-semibold flex items-center gap-1">
-                    <Sparkles className="h-3 w-3" /> +{activePremiumPercentage}% Additional Incentive:
+                    <Sparkles className="h-3 w-3" /> +{activePremiumPercentage}% Admin Incentive (Configured & Locked):
                   </span>
                   <span className="font-mono font-bold">
                     +{premiumAmount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ETB
