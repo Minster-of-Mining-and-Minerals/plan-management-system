@@ -112,6 +112,33 @@ export function CompanyProductionDashboardView({
     { skip: !companyId }
   );
 
+  const recentReports = dashboardData?.recent_reports || [];
+
+  // Chart 2: Output Trajectory & Reporting Timeline (Hook unconditionally placed at top level)
+  const timelineChartData = useMemo(() => {
+    if (!recentReports || recentReports.length === 0) return [];
+    const dateMap = new Map<string, number>();
+    recentReports.forEach((r: any) => {
+      const d = r.report_date;
+      const q = Number(r.quantity_reported || r.normalized_quantity || 0);
+      if (d) {
+        dateMap.set(d, (dateMap.get(d) || 0) + q);
+      }
+    });
+    const sortedDates = Array.from(dateMap.keys()).sort();
+    let runningCumulative = 0;
+    return sortedDates.map((date) => {
+      const dailyQty = dateMap.get(date) || 0;
+      runningCumulative += dailyQty;
+      return {
+        date: date.length > 5 ? date.slice(5) : date,
+        fullDate: date,
+        daily: dailyQty,
+        cumulative: runningCumulative,
+      };
+    });
+  }, [recentReports]);
+
   if (isLoading) {
     return <Loading01 />;
   }
@@ -129,7 +156,6 @@ export function CompanyProductionDashboardView({
   }
 
   const performances = dashboardData?.performances || [];
-  const recentReports = dashboardData?.recent_reports || [];
 
   // Multi-Filter Application
   const filteredPerformances = performances.filter((p) => {
@@ -253,31 +279,6 @@ export function CompanyProductionDashboardView({
       unit,
     };
   });
-
-  // Chart 2: Output Trajectory & Reporting Timeline
-  const timelineChartData = useMemo(() => {
-    if (!recentReports || recentReports.length === 0) return [];
-    const dateMap = new Map<string, number>();
-    recentReports.forEach((r: any) => {
-      const d = r.report_date;
-      const q = Number(r.quantity_reported || r.normalized_quantity || 0);
-      if (d) {
-        dateMap.set(d, (dateMap.get(d) || 0) + q);
-      }
-    });
-    const sortedDates = Array.from(dateMap.keys()).sort();
-    let runningCumulative = 0;
-    return sortedDates.map((date) => {
-      const dailyQty = dateMap.get(date) || 0;
-      runningCumulative += dailyQty;
-      return {
-        date: date.length > 5 ? date.slice(5) : date,
-        fullDate: date,
-        daily: dailyQty,
-        cumulative: runningCumulative,
-      };
-    });
-  }, [recentReports]);
 
   // Chart 3: Mineral Output Share (Donut)
   const piePalette = [
