@@ -1,34 +1,28 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useState } from "react";
 import { useSession } from "next-auth/react";
 import { Link } from "@/i18n/navigation";
 import { useSearchParams, useRouter, useParams } from "next/navigation";
-import Image from "next/image";
 import {
   Building2,
   Users,
   ShieldCheck,
   Paintbrush,
-  MapPin,
   ArrowRight,
   UserCheck,
   Layers,
-  Sparkles,
   CheckCircle2,
-  TrendingUp,
   ListTree,
   AlertCircle,
-  GitBranch,
   Key,
   Shield,
-  Activity,
   RefreshCw,
-  FolderLock,
   Clock,
+  UserX,
+  type LucideIcon,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import { ActiveStatusBadge } from "@/components/ui/active-status-badge";
 import { useBranding } from "@/providers/BrandingProvider";
 import { usePermissions } from "@/hooks/usePermissions";
@@ -45,17 +39,6 @@ import { useGetPermissionGroupsQuery } from "@/redux/api/permissionGroupApi";
 import Loading01 from "@/features/template/component/Loading/Loading01";
 import { cn } from "@/lib/utils";
 
-// Shared federal dashboard presentation components
-import { KpiCard } from "@/features/plan-management/dashboard/components/KpiCard";
-import {
-  AnalyticsPanel,
-  DashboardSectionHeader,
-} from "@/features/plan-management/dashboard/components/AnalyticsPanel";
-import { DonutStatCard } from "@/features/plan-management/dashboard/components/DonutStatCard";
-import { SimpleBarChart } from "@/features/plan-management/dashboard/components/SimpleBarChart";
-import { useDashboardAppearance } from "@/features/plan-management/dashboard/hooks/useDashboardAppearance";
-import { hexToRgba } from "@/features/plan-management/dashboard/utils/dashboardAppearanceUtils";
-
 type DashboardTab = "overview" | "strategic-preview" | "issues-preview";
 
 export interface RegionalDashboardViewProps {
@@ -63,21 +46,168 @@ export interface RegionalDashboardViewProps {
   hideHeaderNavigation?: boolean;
 }
 
+/* -------------------------------------------------------------------------
+   Presentation helpers (one consistent card language for the whole page)
+------------------------------------------------------------------------- */
+
+type Tone = "primary" | "sky" | "violet" | "emerald" | "amber" | "rose" | "slate";
+
+const TONE_CHIP: Record<Tone, string> = {
+  primary: "bg-primary/10 text-primary",
+  sky: "bg-sky-500/10 text-sky-700 dark:text-sky-300",
+  violet: "bg-violet-500/10 text-violet-700 dark:text-violet-300",
+  emerald: "bg-emerald-500/10 text-emerald-700 dark:text-emerald-300",
+  amber: "bg-amber-500/15 text-amber-700 dark:text-amber-300",
+  rose: "bg-rose-500/10 text-rose-700 dark:text-rose-300",
+  slate: "bg-slate-500/10 text-slate-700 dark:text-slate-300",
+};
+
+const TONE_BAR: Record<Tone, string> = {
+  primary: "bg-primary",
+  sky: "bg-sky-500",
+  violet: "bg-violet-500",
+  emerald: "bg-emerald-500",
+  amber: "bg-amber-500",
+  rose: "bg-rose-500",
+  slate: "bg-slate-400",
+};
+
+const CARD = "rounded-2xl border border-border/70 bg-card shadow-2xs";
+
+/** Placement colour follows the value: good, needs work, poor. */
+function placementTone(rate: number): Tone {
+  if (rate >= 80) return "emerald";
+  if (rate >= 50) return "amber";
+  return "rose";
+}
+
+function StatCard({
+  label,
+  value,
+  detail,
+  icon: Icon,
+  tone,
+  progress,
+}: {
+  label: string;
+  value: React.ReactNode;
+  detail: React.ReactNode;
+  icon: LucideIcon;
+  tone: Tone;
+  progress?: number;
+}) {
+  return (
+    <div className={cn(CARD, "flex flex-col gap-3 p-5")}>
+      <div className="flex items-start justify-between gap-3">
+        <span className="text-sm font-medium text-muted-foreground">{label}</span>
+        <span className={cn("flex h-9 w-9 shrink-0 items-center justify-center rounded-xl", TONE_CHIP[tone])}>
+          <Icon className="h-[18px] w-[18px]" aria-hidden="true" />
+        </span>
+      </div>
+      <div className="text-3xl font-bold leading-none tracking-tight text-foreground tabular-nums">{value}</div>
+      {progress !== undefined && (
+        <div
+          className="h-1.5 w-full overflow-hidden rounded-full bg-muted"
+          role="progressbar"
+          aria-valuenow={progress}
+          aria-valuemin={0}
+          aria-valuemax={100}
+          aria-label={label}
+        >
+          <div className={cn("h-full rounded-full transition-all", TONE_BAR[tone])} style={{ width: `${progress}%` }} />
+        </div>
+      )}
+      <div className="text-xs text-muted-foreground">{detail}</div>
+    </div>
+  );
+}
+
+/** A labelled horizontal bar split into parts, with an always-visible legend. */
+function SplitBar({
+  title,
+  total,
+  parts,
+}: {
+  title: string;
+  total: number;
+  parts: Array<{ label: string; value: number; tone: Tone }>;
+}) {
+  return (
+    <div className="space-y-2.5">
+      <div className="flex items-baseline justify-between gap-3">
+        <span className="text-sm font-medium text-foreground">{title}</span>
+        <span className="text-xs text-muted-foreground tabular-nums">{total} total</span>
+      </div>
+      <div className="flex h-2.5 w-full overflow-hidden rounded-full bg-muted">
+        {total > 0 &&
+          parts.map((p) =>
+            p.value > 0 ? (
+              <div
+                key={p.label}
+                className={cn("h-full", TONE_BAR[p.tone])}
+                style={{ width: `${(p.value / total) * 100}%` }}
+              />
+            ) : null
+          )}
+      </div>
+      <div className="flex flex-wrap gap-x-5 gap-y-1.5">
+        {parts.map((p) => (
+          <span key={p.label} className="inline-flex items-center gap-2 text-xs text-muted-foreground">
+            <span className={cn("h-2.5 w-2.5 rounded-sm", TONE_BAR[p.tone])} aria-hidden="true" />
+            {p.label}
+            <span className="font-semibold text-foreground tabular-nums">{p.value}</span>
+          </span>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function SectionCard({
+  title,
+  description,
+  action,
+  children,
+  className,
+}: {
+  title: string;
+  description?: string;
+  action?: React.ReactNode;
+  children: React.ReactNode;
+  className?: string;
+}) {
+  return (
+    <section className={cn(CARD, "flex flex-col p-5", className)}>
+      <div className="mb-4 flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <h3 className="text-base font-semibold text-foreground">{title}</h3>
+          {description && <p className="mt-0.5 text-xs text-muted-foreground">{description}</p>}
+        </div>
+        {action}
+      </div>
+      {children}
+    </section>
+  );
+}
+
+function EmptyState({ children }: { children: React.ReactNode }) {
+  return (
+    <div className="flex flex-1 items-center justify-center rounded-xl border border-dashed border-border/80 px-4 py-10 text-center text-sm text-muted-foreground">
+      {children}
+    </div>
+  );
+}
+
 export function RegionalDashboardView({
   overrideRegionId,
   hideHeaderNavigation = false,
 }: RegionalDashboardViewProps = {}) {
   const { data: session } = useSession();
-  const { branding, logoPrimaryUrl } = useBranding();
+  const { branding } = useBranding();
   const { can } = usePermissions();
   const router = useRouter();
   const searchParams = useSearchParams();
   const params = useParams<{ id?: string }>();
-
-  const { tone, chartPalette, color, textPrimary, textSecondary } =
-    useDashboardAppearance();
-  const primaryTone = tone("primary");
-  const accentTone = tone("accent");
 
   const user = session?.user;
   const activeRegionId = overrideRegionId || params?.id || user?.region_id;
@@ -130,13 +260,12 @@ export function RegionalDashboardView({
     { skip: !activeRegionId }
   );
 
-  // 4. Fetch live regional planning execution summary & department scorecard
-  const { data: planSummary } = useGetRegionalExecutionDashboardSummaryQuery(
+  // 4. Regional planning execution summary & department scorecard (prefetched for the Strategic tab)
+  useGetRegionalExecutionDashboardSummaryQuery(
     { region_id: activeRegionId as string },
     { skip: !activeRegionId }
   );
-
-  const { data: planDeptData } = useGetRegionalExecutionDashboardDepartmentUserQuery(
+  useGetRegionalExecutionDashboardDepartmentUserQuery(
     { region_id: activeRegionId as string },
     { skip: !activeRegionId }
   );
@@ -189,566 +318,344 @@ export function RegionalDashboardView({
 
   const { region, counts, recent_departments, recent_users } = dashboardData;
   const regionName = region?.name || branding.system_name_full || "Regional Administration";
-  const regionCode = region?.code || "REG";
 
   const totalUsers = counts.users.total;
   const assignedUsers = counts.users.assigned;
   const placementRate =
     totalUsers > 0 ? Math.round((assignedUsers / totalUsers) * 100) : 0;
+  const inactiveUsers = Math.max(0, counts.users.total - counts.users.active);
+  const subUnits = Math.max(0, counts.departments.total - counts.departments.root);
+  const inactiveDepts = Math.max(0, counts.departments.total - counts.departments.active);
+
+  // Things worth acting on, built only from real counts.
+  const attention: Array<{ key: string; icon: LucideIcon; tone: Tone; text: string; href?: string; cta?: string }> = [];
+  if (counts.departments.total === 0) {
+    attention.push({
+      key: "no-depts",
+      icon: Building2,
+      tone: "amber",
+      text: "No departments yet. Create the region's directorates so staff can be placed.",
+      href: canManageDepts ? `${basePath}/departments` : undefined,
+      cta: "Add departments",
+    });
+  }
+  if (counts.users.unassigned > 0) {
+    attention.push({
+      key: "unassigned",
+      icon: UserCheck,
+      tone: "amber",
+      text: `${counts.users.unassigned} staff ${counts.users.unassigned === 1 ? "member is" : "members are"} not placed in a department.`,
+      href: canManageUsers ? `${basePath}/users` : undefined,
+      cta: "Assign staff",
+    });
+  }
+  if (inactiveUsers > 0) {
+    attention.push({
+      key: "inactive-users",
+      icon: UserX,
+      tone: "slate",
+      text: `${inactiveUsers} staff ${inactiveUsers === 1 ? "account is" : "accounts are"} inactive.`,
+      href: canManageUsers ? `${basePath}/users` : undefined,
+      cta: "Review users",
+    });
+  }
+  if (inactiveDepts > 0) {
+    attention.push({
+      key: "inactive-depts",
+      icon: Building2,
+      tone: "slate",
+      text: `${inactiveDepts} ${inactiveDepts === 1 ? "department is" : "departments are"} inactive.`,
+      href: canManageDepts ? `${basePath}/departments` : undefined,
+      cta: "Review departments",
+    });
+  }
+
+  const quickLinks: Array<{ show: boolean; href: string; label: string; hint: string; icon: LucideIcon; tone: Tone }> = [
+    { show: canManageDepts, href: `${basePath}/departments`, label: "Departments", hint: "Hierarchy & directorates", icon: Building2, tone: "primary" },
+    { show: canManageUsers, href: `${basePath}/users`, label: "Users", hint: "Staff accounts & placement", icon: Users, tone: "sky" },
+    { show: canManageRoles, href: `${basePath}/users/roles`, label: "Roles", hint: "Regional access roles", icon: Shield, tone: "violet" },
+    { show: canManageGroups, href: `${basePath}/users/permission-groups`, label: "Permission groups", hint: "Regional security groups", icon: ShieldCheck, tone: "violet" },
+    { show: canManagePermissions, href: `${basePath}/users/permissions`, label: "Permissions", hint: "Catalog of operational keys", icon: Key, tone: "slate" },
+    { show: canManageBranding, href: `${basePath}/settings`, label: "Settings & branding", hint: "Colors & region logo", icon: Paintbrush, tone: "amber" },
+  ];
+  const visibleLinks = quickLinks.filter((l) => l.show);
+
+  const tabs: Array<{ id: DashboardTab; label: string; icon: LucideIcon }> = [
+    { id: "overview", label: "Overview", icon: ListTree },
+    { id: "strategic-preview", label: "Strategic Execution", icon: Layers },
+    { id: "issues-preview", label: "Operational Issues", icon: AlertCircle },
+  ];
 
   return (
     <div className="space-y-6 animate-in fade-in-50 duration-300">
-      {/* =========================================================================
-          1. REGIONAL HERO & IDENTITY WELCOME BANNER
-          Styled with federal dashboard gradient aesthetics and regional branding
-      ========================================================================= */}
+      {/* Dashboard view switcher */}
       <div
-        className="relative overflow-hidden rounded-2xl border px-6 py-6 sm:px-8 sm:py-7 shadow-xs"
-        style={{
-          background: `linear-gradient(135deg, ${hexToRgba(primaryTone.color, 0.14)} 0%, #ffffff 50%, ${hexToRgba(accentTone.color, 0.08)} 100%)`,
-          borderColor: hexToRgba(primaryTone.color, 0.16),
-        }}
-      >
-        <div
-          className="absolute -right-8 -top-8 h-56 w-56 rounded-full blur-3xl pointer-events-none"
-          style={{ backgroundColor: hexToRgba(primaryTone.color, 0.12) }}
-        />
-        <div className="relative flex flex-col md:flex-row md:items-center justify-between gap-6">
-          <div className="flex items-start sm:items-center gap-5">
-            {logoPrimaryUrl ? (
-              <div className="relative h-20 w-20 shrink-0 overflow-hidden rounded-2xl border border-border/80 bg-white/90 p-2 shadow-xs backdrop-blur">
-                <Image
-                  src={logoPrimaryUrl}
-                  alt={`${regionName} logo`}
-                  fill
-                  className="object-contain p-1"
-                  unoptimized
-                />
-              </div>
-            ) : (
-              <div
-                className="flex h-20 w-20 shrink-0 items-center justify-center rounded-2xl border shadow-xs"
-                style={{
-                  backgroundColor: hexToRgba(primaryTone.color, 0.12),
-                  borderColor: hexToRgba(primaryTone.color, 0.25),
-                  color: primaryTone.color,
-                }}
-              >
-                <Building2 className="h-10 w-10" />
-              </div>
-            )}
-            <div className="space-y-1.5">
-              <div className="flex flex-wrap items-center gap-2.5">
-                <span
-                  className="font-mono text-xs font-semibold px-2.5 py-0.5 rounded-full border"
-                  style={{
-                    backgroundColor: hexToRgba(primaryTone.color, 0.12),
-                    borderColor: hexToRgba(primaryTone.color, 0.25),
-                    color: primaryTone.color,
-                  }}
-                >
-                  {regionCode} Regional Administration
-                </span>
-                <ActiveStatusBadge isActive={region?.is_active ?? true} />
-              </div>
-              <h1
-                className="text-2xl sm:text-3xl font-extrabold tracking-tight flex items-center gap-2"
-                style={{ color: textPrimary }}
-              >
-                <MapPin className="h-6 w-6 sm:h-7 sm:w-7 shrink-0 text-primary" />
-                {regionName}
-              </h1>
-              <p className="text-sm text-muted-foreground max-w-2xl leading-relaxed">
-                {branding.system_tagline ||
-                  "Regional Operations, Department Structure, and Governance Workspace"}
-              </p>
-            </div>
-          </div>
-
-          <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3">
-            <div className="rounded-xl border border-border/70 bg-white/80 dark:bg-card/80 p-3.5 backdrop-blur text-sm shadow-2xs">
-              <div className="text-xs text-muted-foreground font-medium">Logged in operator</div>
-              <div className="font-semibold text-foreground truncate max-w-[200px]">
-                {user?.name || "Regional Staff"}
-              </div>
-              <div className="text-xs text-muted-foreground font-mono truncate max-w-[200px]">
-                {user?.email}
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* =========================================================================
-          2. DASHBOARD VIEW SELECTOR TABS
-          Replicates the federal GlobalDashboardView tab switcher
-      ========================================================================= */}
-      <div
-        className="flex flex-wrap items-center gap-3 rounded-xl border border-border bg-white p-3 sm:p-4 shadow-xs"
+        className="inline-flex max-w-full flex-wrap items-center gap-1 rounded-2xl border border-border/70 bg-card p-1.5 shadow-2xs"
         role="tablist"
-        aria-label="Dashboard Views"
+        aria-label="Dashboard views"
       >
-        <Button
-          type="button"
-          role="tab"
-          aria-selected={activeTab === "overview"}
-          variant={activeTab === "overview" ? "default" : "outline"}
-          onClick={() => setActiveTab("overview")}
-          className={cn(
-            "h-10 rounded-xl px-4 shadow-none gap-2",
-            activeTab === "overview"
-              ? "bg-primary text-primary-foreground"
-              : "border-border text-muted-foreground hover:bg-primary/10 hover:text-primary"
-          )}
-        >
-          <ListTree className="h-4 w-4 shrink-0" />
-          <span>Overview</span>
-          <span className="text-[10px] uppercase font-bold tracking-wide ml-1.5 px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-700 dark:text-emerald-300">
-            Live
-          </span>
-        </Button>
-
-        <Button
-          type="button"
-          role="tab"
-          aria-selected={activeTab === "strategic-preview"}
-          variant={activeTab === "strategic-preview" ? "default" : "outline"}
-          onClick={() => setActiveTab("strategic-preview")}
-          className={cn(
-            "h-10 rounded-xl px-4 shadow-none gap-2",
-            activeTab === "strategic-preview"
-              ? "bg-primary text-primary-foreground"
-              : "border-border text-muted-foreground hover:bg-primary/10 hover:text-primary"
-          )}
-        >
-          <Layers className="h-4 w-4 shrink-0" />
-          <span>Strategic Execution</span>
-          <span className="text-[10px] uppercase font-bold tracking-wide ml-1.5 px-2 py-0.5 rounded-full bg-amber-500/15 text-amber-700 dark:text-amber-300">
-            Preview
-          </span>
-        </Button>
-
-        <Button
-          type="button"
-          role="tab"
-          aria-selected={activeTab === "issues-preview"}
-          variant={activeTab === "issues-preview" ? "default" : "outline"}
-          onClick={() => setActiveTab("issues-preview")}
-          className={cn(
-            "h-10 rounded-xl px-4 shadow-none gap-2",
-            activeTab === "issues-preview"
-              ? "bg-primary text-primary-foreground"
-              : "border-border text-muted-foreground hover:bg-primary/10 hover:text-primary"
-          )}
-        >
-          <AlertCircle className="h-4 w-4 shrink-0" />
-          <span>Operational Issues</span>
-          <span className="text-[10px] uppercase font-bold tracking-wide ml-1.5 px-2 py-0.5 rounded-full bg-amber-500/15 text-amber-700 dark:text-amber-300">
-            Preview
-          </span>
-        </Button>
+        {tabs.map((tab) => {
+          const Icon = tab.icon;
+          const selected = activeTab === tab.id;
+          return (
+            <button
+              key={tab.id}
+              type="button"
+              role="tab"
+              aria-selected={selected}
+              onClick={() => setActiveTab(tab.id)}
+              className={cn(
+                "inline-flex h-10 items-center gap-2 rounded-xl px-4 text-sm font-medium transition-colors",
+                "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40",
+                selected
+                  ? "bg-primary text-primary-foreground shadow-xs"
+                  : "text-muted-foreground hover:bg-muted hover:text-foreground"
+              )}
+            >
+              <Icon className="h-4 w-4 shrink-0" aria-hidden="true" />
+              {tab.label}
+            </button>
+          );
+        })}
       </div>
 
-      {/* =========================================================================
-          3. TAB CONTENT
-      ========================================================================= */}
+      {/* =============================== OVERVIEW =============================== */}
       {activeTab === "overview" && (
         <div className="space-y-6">
-          <DashboardSectionHeader
-            title="Administrative & Operational Metrics"
-            description={`Real-time organizational structure, staff allocation, and RBAC governance for ${regionName}.`}
-            badge="Live Regional Data"
-          />
-
-          {/* Primary Metric KPI Cards */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
-            <KpiCard
-              title="Total Departments"
+          {/* Key figures */}
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+            <StatCard
+              label="Departments"
               value={counts.departments.total}
-              subtitle={`${counts.departments.root} root directorates`}
+              detail={`${counts.departments.root} directorates · ${subUnits} sub-units · ${counts.departments.active} active`}
               icon={Building2}
-              variant="gradient"
-              accent="primary"
+              tone="primary"
             />
-            <KpiCard
-              title="Staff Placement"
-              value={`${placementRate}%`}
-              subtitle={`${counts.users.assigned} of ${counts.users.total} staff placed`}
-              icon={TrendingUp}
-              variant="solid"
-              accent="success"
-            />
-            <KpiCard
-              title="Active Staff Users"
-              value={counts.users.active}
-              subtitle={`${counts.users.total - counts.users.active} inactive accounts`}
+            <StatCard
+              label="Staff"
+              value={counts.users.total}
+              detail={`${counts.users.active} active · ${inactiveUsers} inactive`}
               icon={Users}
-              variant="gradient"
-              accent="accent"
+              tone="sky"
             />
-            <KpiCard
-              title="Security Roles"
-              value={rolesData.length}
-              subtitle={`${permissionGroupsData.length} permission groups`}
-              icon={ShieldCheck}
-              variant="gradient"
-              accent="warning"
-            />
-          </div>
-
-          {/* Secondary Outline KPI Cards */}
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-            <KpiCard
-              title="Root Directorates"
-              value={counts.departments.root}
-              subtitle="Level 1 structures"
-              icon={Layers}
-              variant="outline"
-              accent="primary"
-            />
-            <KpiCard
-              title="Active Units"
-              value={counts.departments.active}
-              subtitle="Operational offices"
-              icon={CheckCircle2}
-              variant="outline"
-              accent="info"
-            />
-            <KpiCard
-              title="Unassigned Staff"
-              value={counts.users.unassigned}
-              subtitle="Pending assignment"
+            <StatCard
+              label="Staff placement"
+              value={`${placementRate}%`}
+              detail={`${counts.users.assigned} of ${counts.users.total} placed in a department`}
               icon={UserCheck}
-              variant="outline"
-              accent="secondary"
+              tone={placementTone(placementRate)}
+              progress={placementRate}
             />
-            <KpiCard
-              title="Security Boundary"
-              value={`${regionCode} Domain`}
-              subtitle="Strict regional isolation"
-              icon={MapPin}
-              variant="outline"
-              accent="accent"
+            <StatCard
+              label="Roles"
+              value={rolesData.length}
+              detail={`${permissionGroupsData.length} permission ${permissionGroupsData.length === 1 ? "group" : "groups"}`}
+              icon={ShieldCheck}
+              tone="violet"
             />
           </div>
 
-          {/* Analytics Grid: Donut Breakdown Cards & Quick Navigation */}
-          <div className="grid grid-cols-1 xl:grid-cols-12 gap-4">
-            {/* Personnel Placement Mix */}
-            <div className="xl:col-span-4">
-              <DonutStatCard
-                title="Personnel Placement Mix"
-                description="Staff allocated to departments vs unassigned"
-                centerValue={counts.users.total}
-                centerLabel="Total Staff"
-                segments={[
-                  {
-                    label: "Assigned in Depts",
-                    value: counts.users.assigned,
-                    color: chartPalette[0] || primaryTone.color,
-                  },
-                  {
-                    label: "Unassigned Personnel",
-                    value: counts.users.unassigned,
-                    color: chartPalette[2] || "#94a3b8",
-                  },
-                ]}
-              />
-            </div>
-
-            {/* Department Structure Mix */}
-            <div className="xl:col-span-4">
-              <DonutStatCard
-                title="Department Hierarchy"
-                description="Root directorates vs sub-directorate divisions"
-                centerValue={counts.departments.total}
-                centerLabel="Units"
-                segments={[
-                  {
-                    label: "Root Directorates",
-                    value: counts.departments.root,
-                    color: chartPalette[1] || accentTone.color,
-                  },
-                  {
-                    label: "Sub-Directorates & Units",
-                    value: Math.max(0, counts.departments.total - counts.departments.root),
-                    color: chartPalette[3] || "#64748b",
-                  },
-                ]}
-              />
-            </div>
-
-            {/* Quick Actions Panel */}
-            <div className="xl:col-span-4">
-              <AnalyticsPanel
-                title="Regional Directory"
-                description="Quick navigation to administrative modules"
-                icon={FolderLock}
-                tone="primary"
-                className="h-full"
-              >
-                <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-1 gap-2.5">
-                  {canManageDepts && (
-                    <Link
-                      href={`${basePath}/departments`}
-                      className="group flex items-center justify-between p-3 rounded-xl border border-border/80 hover:border-primary/40 hover:bg-primary/5 transition-all"
+          {/* Needs attention (only when there is something to do) */}
+          {attention.length > 0 && (
+            <section aria-labelledby="attention-title" className={cn(CARD, "p-5")}>
+              <h3 id="attention-title" className="mb-3 text-base font-semibold text-foreground">
+                Needs attention
+              </h3>
+              <ul className="grid gap-2.5 md:grid-cols-2">
+                {attention.map((a) => {
+                  const Icon = a.icon;
+                  return (
+                    <li
+                      key={a.key}
+                      className="flex items-center gap-3 rounded-xl border border-border/60 bg-muted/30 p-3"
                     >
-                      <div className="flex items-center gap-3">
-                        <div className="h-8 w-8 rounded-lg bg-emerald-500/10 text-emerald-600 flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform">
-                          <Building2 className="h-4 w-4" />
-                        </div>
-                        <div>
-                          <div className="text-sm font-semibold text-foreground group-hover:text-primary transition-colors">
-                            Departments
-                          </div>
-                          <div className="text-xs text-muted-foreground">
-                            Hierarchy & directorates
-                          </div>
-                        </div>
-                      </div>
-                      <ArrowRight className="h-4 w-4 text-muted-foreground group-hover:text-primary group-hover:translate-x-1 transition-all" />
-                    </Link>
-                  )}
-
-                  {canManageUsers && (
-                    <Link
-                      href={`${basePath}/users`}
-                      className="group flex items-center justify-between p-3 rounded-xl border border-border/80 hover:border-primary/40 hover:bg-primary/5 transition-all"
-                    >
-                      <div className="flex items-center gap-3">
-                        <div className="h-8 w-8 rounded-lg bg-blue-500/10 text-blue-600 flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform">
-                          <Users className="h-4 w-4" />
-                        </div>
-                        <div>
-                          <div className="text-sm font-semibold text-foreground group-hover:text-primary transition-colors">
-                            Users List
-                          </div>
-                          <div className="text-xs text-muted-foreground">
-                            Staff accounts & placement
-                          </div>
-                        </div>
-                      </div>
-                      <ArrowRight className="h-4 w-4 text-muted-foreground group-hover:text-primary group-hover:translate-x-1 transition-all" />
-                    </Link>
-                  )}
-
-                  {canManageRoles && (
-                    <Link
-                      href={`${basePath}/users/roles`}
-                      className="group flex items-center justify-between p-3 rounded-xl border border-border/80 hover:border-primary/40 hover:bg-primary/5 transition-all"
-                    >
-                      <div className="flex items-center gap-3">
-                        <div className="h-8 w-8 rounded-lg bg-amber-500/10 text-amber-600 flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform">
-                          <Shield className="h-4 w-4" />
-                        </div>
-                        <div>
-                          <div className="text-sm font-semibold text-foreground group-hover:text-primary transition-colors">
-                            Role Management
-                          </div>
-                          <div className="text-xs text-muted-foreground">
-                            Regional access roles
-                          </div>
-                        </div>
-                      </div>
-                      <ArrowRight className="h-4 w-4 text-muted-foreground group-hover:text-primary group-hover:translate-x-1 transition-all" />
-                    </Link>
-                  )}
-
-                  {canManageGroups && (
-                    <Link
-                      href={`${basePath}/users/permission-groups`}
-                      className="group flex items-center justify-between p-3 rounded-xl border border-border/80 hover:border-primary/40 hover:bg-primary/5 transition-all"
-                    >
-                      <div className="flex items-center gap-3">
-                        <div className="h-8 w-8 rounded-lg bg-purple-500/10 text-purple-600 flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform">
-                          <ShieldCheck className="h-4 w-4" />
-                        </div>
-                        <div>
-                          <div className="text-sm font-semibold text-foreground group-hover:text-primary transition-colors">
-                            Permission Groups
-                          </div>
-                          <div className="text-xs text-muted-foreground">
-                            Regional security groups
-                          </div>
-                        </div>
-                      </div>
-                      <ArrowRight className="h-4 w-4 text-muted-foreground group-hover:text-primary group-hover:translate-x-1 transition-all" />
-                    </Link>
-                  )}
-
-                  {canManagePermissions && (
-                    <Link
-                      href={`${basePath}/users/permissions`}
-                      className="group flex items-center justify-between p-3 rounded-xl border border-border/80 hover:border-primary/40 hover:bg-primary/5 transition-all"
-                    >
-                      <div className="flex items-center gap-3">
-                        <div className="h-8 w-8 rounded-lg bg-indigo-500/10 text-indigo-600 flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform">
-                          <Key className="h-4 w-4" />
-                        </div>
-                        <div>
-                          <div className="text-sm font-semibold text-foreground group-hover:text-primary transition-colors">
-                            Regional Permissions
-                          </div>
-                          <div className="text-xs text-muted-foreground">
-                            Catalog of operational keys
-                          </div>
-                        </div>
-                      </div>
-                      <ArrowRight className="h-4 w-4 text-muted-foreground group-hover:text-primary group-hover:translate-x-1 transition-all" />
-                    </Link>
-                  )}
-
-                  {canManageBranding && (
-                    <Link
-                      href={`${basePath}/settings`}
-                      className="group flex items-center justify-between p-3 rounded-xl border border-border/80 hover:border-primary/40 hover:bg-primary/5 transition-all"
-                    >
-                      <div className="flex items-center gap-3">
-                        <div className="h-8 w-8 rounded-lg bg-pink-500/10 text-pink-600 flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform">
-                          <Paintbrush className="h-4 w-4" />
-                        </div>
-                        <div>
-                          <div className="text-sm font-semibold text-foreground group-hover:text-primary transition-colors">
-                            Settings & Branding
-                          </div>
-                          <div className="text-xs text-muted-foreground">
-                            Custom colors & region logo
-                          </div>
-                        </div>
-                      </div>
-                      <ArrowRight className="h-4 w-4 text-muted-foreground group-hover:text-primary group-hover:translate-x-1 transition-all" />
-                    </Link>
-                  )}
-                </div>
-              </AnalyticsPanel>
-            </div>
-          </div>
-
-          {/* Two Column Layout: Recent Departments & Recent Staff Users */}
-          <div className="grid gap-6 lg:grid-cols-2">
-            {/* Recent Departments Preview Card */}
-            <div className="rounded-xl border border-border/80 bg-white dark:bg-card p-5 shadow-xs">
-              <div className="flex items-center justify-between pb-4 border-b border-border/70">
-                <div className="flex items-center gap-2.5">
-                  <div className="h-9 w-9 rounded-xl bg-primary/10 text-primary flex items-center justify-center shrink-0">
-                    <Building2 className="h-5 w-5" />
-                  </div>
-                  <div>
-                    <h3 className="font-semibold text-foreground">Recent Departments</h3>
-                    <p className="text-xs text-muted-foreground">
-                      Organizational hierarchy divisions
-                    </p>
-                  </div>
-                </div>
-                {canManageDepts && (
-                  <Button asChild variant="outline" size="sm" className="h-8 text-xs">
-                    <Link href={`${basePath}/departments`}>View All</Link>
-                  </Button>
-                )}
-              </div>
-
-              <div className="pt-4">
-                {recent_departments.length === 0 ? (
-                  <div className="py-12 text-center text-sm text-muted-foreground border border-dashed rounded-xl">
-                    No departments created yet for this region.
-                  </div>
-                ) : (
-                  <div className="divide-y divide-border/60 rounded-xl border border-border/60 overflow-hidden">
-                    {recent_departments.map((dept) => (
-                      <div
-                        key={dept.regional_structure_id}
-                        className="flex items-center justify-between p-3.5 hover:bg-muted/30 transition-colors"
-                      >
-                        <div className="flex items-center gap-3 min-w-0">
-                          <div className="h-8 w-8 rounded-lg bg-primary/10 flex items-center justify-center text-primary font-bold text-xs shrink-0">
-                            L{dept.level}
-                          </div>
-                          <div className="truncate">
-                            <div className="text-sm font-medium text-foreground truncate">
-                              {dept.name}
-                            </div>
-                            <div className="text-xs text-muted-foreground">
-                              Level {dept.level} Directorate
-                            </div>
-                          </div>
-                        </div>
-                        <ActiveStatusBadge isActive={dept.is_active} />
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-            </div>
-
-            {/* Recent Staff Members Preview Card */}
-            <div className="rounded-xl border border-border/80 bg-white dark:bg-card p-5 shadow-xs">
-              <div className="flex items-center justify-between pb-4 border-b border-border/70">
-                <div className="flex items-center gap-2.5">
-                  <div className="h-9 w-9 rounded-xl bg-blue-500/10 text-blue-600 flex items-center justify-center shrink-0">
-                    <Users className="h-5 w-5" />
-                  </div>
-                  <div>
-                    <h3 className="font-semibold text-foreground">Regional Staff</h3>
-                    <p className="text-xs text-muted-foreground">
-                      Recently registered personnel
-                    </p>
-                  </div>
-                </div>
-                {canManageUsers && (
-                  <Button asChild variant="outline" size="sm" className="h-8 text-xs">
-                    <Link href={`${basePath}/users`}>View All</Link>
-                  </Button>
-                )}
-              </div>
-
-              <div className="pt-4">
-                {recent_users.length === 0 ? (
-                  <div className="py-12 text-center text-sm text-muted-foreground border border-dashed rounded-xl">
-                    No users registered yet in this region.
-                  </div>
-                ) : (
-                  <div className="divide-y divide-border/60 rounded-xl border border-border/60 overflow-hidden">
-                    {recent_users.map((u) => {
-                      const roleName = u.roles?.[0]?.name || "Regional Member";
-                      const deptName =
-                        u.regional_structure?.name ||
-                        u.regionalStructure?.name ||
-                        "Unassigned";
-
-                      return (
-                        <div
-                          key={u.user_id}
-                          className="flex items-center justify-between p-3.5 hover:bg-muted/30 transition-colors"
+                      <span className={cn("flex h-9 w-9 shrink-0 items-center justify-center rounded-lg", TONE_CHIP[a.tone])}>
+                        <Icon className="h-4 w-4" aria-hidden="true" />
+                      </span>
+                      <span className="min-w-0 flex-1 text-sm text-foreground">{a.text}</span>
+                      {a.href && a.cta && (
+                        <Link
+                          href={a.href}
+                          className="shrink-0 rounded-lg px-2.5 py-1.5 text-sm font-semibold text-primary hover:bg-primary/10"
                         >
-                          <div className="flex items-center gap-3 min-w-0">
-                            <div className="h-8 w-8 rounded-full bg-blue-500/10 text-blue-600 font-semibold text-xs flex items-center justify-center shrink-0">
-                              {u.full_name?.charAt(0) || "U"}
-                            </div>
-                            <div className="truncate">
-                              <div className="text-sm font-medium text-foreground truncate">
-                                {u.full_name}
-                              </div>
-                              <div className="text-xs text-muted-foreground truncate">
-                                {roleName} • {deptName}
-                              </div>
+                          {a.cta}
+                        </Link>
+                      )}
+                    </li>
+                  );
+                })}
+              </ul>
+            </section>
+          )}
+
+          {/* Organization at a glance + quick links */}
+          <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
+            <SectionCard
+              title="Organization at a glance"
+              description={`How ${regionName} is structured and staffed`}
+            >
+              <div className="space-y-6">
+                <SplitBar
+                  title="Staff placement"
+                  total={counts.users.total}
+                  parts={[
+                    { label: "Placed in a department", value: counts.users.assigned, tone: "emerald" },
+                    { label: "Not placed", value: counts.users.unassigned, tone: "amber" },
+                  ]}
+                />
+                <SplitBar
+                  title="Department structure"
+                  total={counts.departments.total}
+                  parts={[
+                    { label: "Directorates", value: counts.departments.root, tone: "primary" },
+                    { label: "Sub-units", value: subUnits, tone: "sky" },
+                  ]}
+                />
+                <SplitBar
+                  title="Account status"
+                  total={counts.users.total}
+                  parts={[
+                    { label: "Active", value: counts.users.active, tone: "emerald" },
+                    { label: "Inactive", value: inactiveUsers, tone: "slate" },
+                  ]}
+                />
+              </div>
+            </SectionCard>
+
+            <SectionCard title="Quick links" description="Manage your region">
+              {visibleLinks.length === 0 ? (
+                <EmptyState>You don&apos;t have access to any management pages.</EmptyState>
+              ) : (
+                <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                  {visibleLinks.map((l) => {
+                    const Icon = l.icon;
+                    return (
+                      <Link
+                        key={l.href}
+                        href={l.href}
+                        className="group flex items-center gap-3 rounded-xl border border-border/60 p-3 transition-colors hover:border-primary/40 hover:bg-primary/5"
+                      >
+                        <span className={cn("flex h-9 w-9 shrink-0 items-center justify-center rounded-lg", TONE_CHIP[l.tone])}>
+                          <Icon className="h-4 w-4" aria-hidden="true" />
+                        </span>
+                        <span className="min-w-0 flex-1">
+                          <span className="block truncate text-sm font-semibold text-foreground group-hover:text-primary">
+                            {l.label}
+                          </span>
+                          <span className="block truncate text-xs text-muted-foreground">{l.hint}</span>
+                        </span>
+                        <ArrowRight
+                          className="h-4 w-4 shrink-0 text-muted-foreground transition-transform group-hover:translate-x-0.5 group-hover:text-primary motion-reduce:transition-none"
+                          aria-hidden="true"
+                        />
+                      </Link>
+                    );
+                  })}
+                </div>
+              )}
+            </SectionCard>
+          </div>
+
+          {/* Recent departments & staff */}
+          <div className="grid gap-4 lg:grid-cols-2">
+            <SectionCard
+              title="Recent departments"
+              description="Latest additions to the structure"
+              action={
+                canManageDepts ? (
+                  <Button asChild variant="ghost" size="sm" className="h-8 gap-1 text-primary hover:bg-primary/10 hover:text-primary">
+                    <Link href={`${basePath}/departments`}>
+                      View all <ArrowRight className="h-3.5 w-3.5" aria-hidden="true" />
+                    </Link>
+                  </Button>
+                ) : undefined
+              }
+            >
+              {recent_departments.length === 0 ? (
+                <EmptyState>No departments created yet for this region.</EmptyState>
+              ) : (
+                <ul className="divide-y divide-border/60">
+                  {recent_departments.map((dept) => (
+                    <li key={dept.regional_structure_id} className="flex items-center justify-between gap-3 py-3 first:pt-0 last:pb-0">
+                      <div className="flex min-w-0 items-center gap-3">
+                        <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-xs font-bold text-primary">
+                          L{dept.level}
+                        </span>
+                        <div className="min-w-0">
+                          <div className="truncate text-sm font-medium text-foreground">{dept.name}</div>
+                          <div className="text-xs text-muted-foreground">
+                            {dept.level === 1 ? "Directorate" : `Level ${dept.level} unit`}
+                          </div>
+                        </div>
+                      </div>
+                      <ActiveStatusBadge isActive={dept.is_active} />
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </SectionCard>
+
+            <SectionCard
+              title="Regional staff"
+              description="Recently registered personnel"
+              action={
+                canManageUsers ? (
+                  <Button asChild variant="ghost" size="sm" className="h-8 gap-1 text-primary hover:bg-primary/10 hover:text-primary">
+                    <Link href={`${basePath}/users`}>
+                      View all <ArrowRight className="h-3.5 w-3.5" aria-hidden="true" />
+                    </Link>
+                  </Button>
+                ) : undefined
+              }
+            >
+              {recent_users.length === 0 ? (
+                <EmptyState>No users registered yet in this region.</EmptyState>
+              ) : (
+                <ul className="divide-y divide-border/60">
+                  {recent_users.map((u) => {
+                    const roleName = u.roles?.[0]?.name || "Regional member";
+                    const deptName =
+                      u.regional_structure?.name ||
+                      u.regionalStructure?.name ||
+                      null;
+                    const initials =
+                      (u.full_name || "U")
+                        .split(" ")
+                        .filter(Boolean)
+                        .slice(0, 2)
+                        .map((w: string) => w.charAt(0).toUpperCase())
+                        .join("") || "U";
+
+                    return (
+                      <li key={u.user_id} className="flex items-center justify-between gap-3 py-3 first:pt-0 last:pb-0">
+                        <div className="flex min-w-0 items-center gap-3">
+                          <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-sky-500/10 text-xs font-semibold text-sky-700 dark:text-sky-300">
+                            {initials}
+                          </span>
+                          <div className="min-w-0">
+                            <div className="truncate text-sm font-medium text-foreground">{u.full_name}</div>
+                            <div className="truncate text-xs text-muted-foreground">
+                              {roleName} ·{" "}
+                              {deptName ? (
+                                deptName
+                              ) : (
+                                <span className="font-medium text-amber-700 dark:text-amber-300">Not placed</span>
+                              )}
                             </div>
                           </div>
-                          <ActiveStatusBadge isActive={u.is_active} />
                         </div>
-                      );
-                    })}
-                  </div>
-                )}
-              </div>
-            </div>
+                        <ActiveStatusBadge isActive={u.is_active} />
+                      </li>
+                    );
+                  })}
+                </ul>
+              )}
+            </SectionCard>
           </div>
         </div>
       )}
 
-      {/* =========================================================================
-          4. STRATEGIC PLANNING TAB
-          Live Regional Planning Summary & Performance Analytics
-      ========================================================================= */}
+      {/* =============================== STRATEGIC EXECUTION =============================== */}
       {activeTab === "strategic-preview" && (
         <div className="space-y-6">
           <RegionalPlanDashboardView
@@ -758,74 +665,37 @@ export function RegionalDashboardView({
         </div>
       )}
 
-      {/* =========================================================================
-          5. OPERATIONAL ISSUES TAB (CLEARLY LABELED PREVIEW PLACEHOLDER)
-          Replicates the federal IssueDashboardOverview layout without fake data
-      ========================================================================= */}
+      {/* =============================== OPERATIONAL ISSUES (placeholder) =============================== */}
       {activeTab === "issues-preview" && (
         <div className="space-y-6">
-          <div className="flex items-start gap-3.5 rounded-xl border border-blue-200 bg-blue-50/80 dark:bg-blue-950/30 dark:border-blue-900/50 p-4 text-xs text-blue-900 dark:text-blue-200 shadow-2xs">
-            <AlertCircle className="h-5 w-5 shrink-0 text-blue-600 dark:text-blue-400 mt-0.5" />
+          <div className="flex items-start gap-3.5 rounded-2xl border border-sky-200 bg-sky-50/80 p-4 dark:border-sky-900/50 dark:bg-sky-950/30">
+            <AlertCircle className="mt-0.5 h-5 w-5 shrink-0 text-sky-600 dark:text-sky-400" aria-hidden="true" />
             <div className="space-y-1">
-              <p className="font-semibold text-sm text-blue-950 dark:text-blue-100 flex items-center gap-2">
-                <span>Regional Issue & Bottleneck Tracking (Preview Mode)</span>
-                <span className="text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded-full bg-blue-500/20 text-blue-800 dark:text-blue-300">
-                  Coming Soon
+              <p className="flex flex-wrap items-center gap-2 text-sm font-semibold text-sky-950 dark:text-sky-100">
+                Regional issue tracking
+                <span className="rounded-full bg-sky-500/15 px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wide text-sky-800 dark:text-sky-300">
+                  Coming soon
                 </span>
               </p>
-              <p className="text-blue-800/90 dark:text-blue-300/80 leading-relaxed">
-                Regional issue management will allow departmental staff and project managers to report
-                operational obstacles, escalate workflow bottlenecks, and track corrective action plans.
+              <p className="text-sm leading-relaxed text-sky-900/80 dark:text-sky-200/80">
+                Departmental staff will be able to report operational obstacles, escalate bottlenecks
+                and track corrective actions here.
               </p>
             </div>
           </div>
 
-          <DashboardSectionHeader
-            title="Operational Issues & Escalations"
-            description="Preview of incident categories and resolution metrics."
-            badge="Preview Layout"
-          />
-
-          <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
-            <KpiCard
-              title="Open Issues"
-              value="—"
-              subtitle="No active escalations"
-              icon={AlertCircle}
-              variant="gradient"
-              accent="error"
-            />
-            <KpiCard
-              title="In Resolution"
-              value="—"
-              subtitle="Pending review"
-              icon={Clock}
-              variant="solid"
-              accent="warning"
-            />
-            <KpiCard
-              title="Resolved"
-              value="—"
-              subtitle="0 historical records"
-              icon={CheckCircle2}
-              variant="gradient"
-              accent="success"
-            />
-            <KpiCard
-              title="Active Categories"
-              value="—"
-              subtitle="Regional issue flows"
-              icon={Layers}
-              variant="outline"
-              accent="info"
-            />
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+            <StatCard label="Open issues" value="—" detail="No data yet" icon={AlertCircle} tone="rose" />
+            <StatCard label="In resolution" value="—" detail="No data yet" icon={Clock} tone="amber" />
+            <StatCard label="Resolved" value="—" detail="No data yet" icon={CheckCircle2} tone="emerald" />
+            <StatCard label="Categories" value="—" detail="No data yet" icon={Layers} tone="slate" />
           </div>
 
-          <div className="rounded-xl border border-dashed border-border/80 bg-white/50 p-12 text-center text-sm text-muted-foreground space-y-2">
-            <AlertCircle className="h-8 w-8 text-muted-foreground/50 mx-auto" />
-            <p className="font-medium text-foreground">Issue Tracking Module Offline</p>
-            <p className="max-w-md mx-auto text-xs">
-              Issue intake forms and escalation workflows for {regionName} will be enabled in the upcoming operational release.
+          <div className={cn(CARD, "flex flex-col items-center gap-2 p-12 text-center")}>
+            <AlertCircle className="h-8 w-8 text-muted-foreground/50" aria-hidden="true" />
+            <p className="font-medium text-foreground">Issue tracking is not enabled yet</p>
+            <p className="max-w-md text-sm text-muted-foreground">
+              Issue intake and escalation for {regionName} will be enabled in an upcoming release.
             </p>
           </div>
         </div>
