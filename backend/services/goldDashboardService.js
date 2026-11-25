@@ -406,15 +406,24 @@ async function getFederalOversightDashboard(query = {}) {
     Boolean(businessDate) && businessDate >= rangeFrom && businessDate <= rangeTo;
   const today = rangeFrom;
 
-  // 1. Purchasing centers count
+  // 1. Purchasing centers count (optionally scoped to a single purchasing center)
+  const centerCountWhere = {};
+  if (query.purchasing_center_id && query.purchasing_center_id !== "all") {
+    centerCountWhere.purchasing_center_id = query.purchasing_center_id;
+  }
   const [totalCenters, activeCenters] = await Promise.all([
-    PurchasingCenter.count(),
-    PurchasingCenter.count({ where: { is_active: true } }),
+    PurchasingCenter.count({ where: centerCountWhere }),
+    PurchasingCenter.count({ where: { ...centerCountWhere, is_active: true } }),
   ]);
 
-  // 2. All-time completed purchases aggregates
+  // 2. All-time completed purchases aggregates (optionally scoped to a single purchasing center)
+  const purchaseWhere = { status: "completed" };
+  if (query.purchasing_center_id && query.purchasing_center_id !== "all") {
+    purchaseWhere.purchasing_center_id = query.purchasing_center_id;
+  }
+
   const allPurchases = await GoldPurchase.findAll({
-    where: { status: "completed" },
+    where: purchaseWhere,
     attributes: [
       "purchasing_center_id",
       "quantity_in_canonical_unit",
@@ -504,9 +513,13 @@ async function getFederalOversightDashboard(query = {}) {
     }
   }
 
-  // 3. Daily reports across centers for the selected window
+  // 3. Daily reports across centers for the selected window (optionally scoped)
+  const reportWhere = { business_date: { [Op.between]: [rangeFrom, rangeTo] } };
+  if (query.purchasing_center_id && query.purchasing_center_id !== "all") {
+    reportWhere.purchasing_center_id = query.purchasing_center_id;
+  }
   const reportsInRange = await GoldDailyReport.findAll({
-    where: { business_date: { [Op.between]: [rangeFrom, rangeTo] } },
+    where: reportWhere,
     attributes: ["purchasing_center_id", "business_date", "status", "submitted_at"],
   });
   const isSubmittedStatus = (status) => status === "submitted" || status === "reviewed";
@@ -516,8 +529,9 @@ async function getFederalOversightDashboard(query = {}) {
     reportsByCenter.get(r.purchasing_center_id).push(r);
   }
 
-  // 4. Center list with enriched statistics
+  // 4. Center list with enriched statistics (optionally scoped)
   const centers = await PurchasingCenter.findAll({
+    where: centerCountWhere,
     attributes: ["purchasing_center_id", "name", "code", "description", "is_active"],
     order: [["name", "ASC"]],
   });

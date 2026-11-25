@@ -101,6 +101,9 @@ export interface GoldPurchase {
   conversion_factor_snapshot: number | string;
   quantity_in_canonical_unit: number | string;
   unit_price: number | string;
+  amount_before_premium?: number | string | null;
+  premium_percentage?: number | string | null;
+  premium_amount?: number | string | null;
   total_amount: number | string;
   currency: string;
   gold_type?: string | null;
@@ -391,6 +394,10 @@ export interface CreateGoldPurchasePayload {
   quantity: number | string;
   measurement_unit_id: string;
   unit_price: number | string;
+  amount_before_premium?: number | string;
+  premium_percentage?: number | string;
+  premium_amount?: number | string;
+  total_amount?: number | string;
   gold_type?: string;
   karat?: string;
   quality_grade?: string;
@@ -478,6 +485,9 @@ export interface QualityGradeItem {
 
 export interface GoldParametersSettingsData {
   is_specs_module_enabled: boolean;
+  is_purchasing_premium_enabled?: boolean;
+  purchasing_premium_rate?: number;
+  purchasing_premium_name?: string;
   gold_types: GoldTypeItem[];
   karat_grades: KaratGradeItem[];
   quality_grades: QualityGradeItem[];
@@ -486,6 +496,9 @@ export interface GoldParametersSettingsData {
 
 export interface UpdateGoldParametersSettingsPayload {
   is_specs_module_enabled?: boolean;
+  is_purchasing_premium_enabled?: boolean;
+  purchasing_premium_rate?: number;
+  purchasing_premium_name?: string;
   gold_types?: GoldTypeItem[];
   karat_grades?: KaratGradeItem[];
   quality_grades?: QualityGradeItem[];

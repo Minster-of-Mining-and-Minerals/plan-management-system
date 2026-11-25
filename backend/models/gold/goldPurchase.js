@@ -139,6 +139,21 @@ module.exports = (sequelize, DataTypes) => {
           min: 0,
         },
       },
+      amount_before_premium: {
+        type: DataTypes.DECIMAL(18, 2),
+        allowNull: true,
+        defaultValue: 0.0,
+      },
+      premium_percentage: {
+        type: DataTypes.DECIMAL(6, 2),
+        allowNull: true,
+        defaultValue: 0.0,
+      },
+      premium_amount: {
+        type: DataTypes.DECIMAL(18, 2),
+        allowNull: true,
+        defaultValue: 0.0,
+      },
       total_amount: {
         type: DataTypes.DECIMAL(18, 2),
         allowNull: false,

@@ -66,7 +66,48 @@ const STORAGE_KEYS = {
   KARATS: "prms_karats_config_v1",
   QUALITY_GRADES: "prms_quality_grades_config_v1",
   SPECS_MODULE_ENABLED: "prms_gold_specs_module_enabled_v1",
+  PREMIUM_ENABLED: "prms_gold_premium_enabled_v1",
+  PREMIUM_RATE: "prms_gold_premium_rate_v1",
 };
+
+export function loadStoredPremiumEnabled(): boolean {
+  if (typeof window === "undefined") return true;
+  try {
+    const raw = localStorage.getItem(STORAGE_KEYS.PREMIUM_ENABLED);
+    if (raw === null) return true;
+    return raw === "true";
+  } catch {
+    return true;
+  }
+}
+
+export function saveStoredPremiumEnabled(enabled: boolean) {
+  if (typeof window === "undefined") return;
+  try {
+    localStorage.setItem(STORAGE_KEYS.PREMIUM_ENABLED, String(enabled));
+    window.dispatchEvent(new Event("gold_parameters_updated"));
+  } catch {}
+}
+
+export function loadStoredPremiumRate(): number {
+  if (typeof window === "undefined") return 15.0;
+  try {
+    const raw = localStorage.getItem(STORAGE_KEYS.PREMIUM_RATE);
+    if (!raw) return 15.0;
+    const num = parseFloat(raw);
+    return isNaN(num) ? 15.0 : num;
+  } catch {
+    return 15.0;
+  }
+}
+
+export function saveStoredPremiumRate(rate: number) {
+  if (typeof window === "undefined") return;
+  try {
+    localStorage.setItem(STORAGE_KEYS.PREMIUM_RATE, String(rate));
+    window.dispatchEvent(new Event("gold_parameters_updated"));
+  } catch {}
+}
 
 export function loadStoredSpecsModuleEnabled(): boolean {
   if (typeof window === "undefined") return true;
@@ -149,6 +190,8 @@ export function useGoldParameters() {
   const [updateServerSettingsMutation] = useUpdateGoldParameterSettingsMutation();
 
   const [localSpecsEnabled, setLocalSpecsEnabled] = useState<boolean>(() => loadStoredSpecsModuleEnabled());
+  const [localPremiumEnabled, setLocalPremiumEnabled] = useState<boolean>(() => loadStoredPremiumEnabled());
+  const [localPremiumRate, setLocalPremiumRate] = useState<number>(() => loadStoredPremiumRate());
   const [goldTypes, setGoldTypes] = useState<GoldTypeConfig[]>(DEFAULT_GOLD_TYPES);
   const [karatGrades, setKaratGrades] = useState<KaratGradeConfig[]>(DEFAULT_KARAT_GRADES);
   const [qualityGrades, setQualityGrades] = useState<QualityGradeConfig[]>(DEFAULT_QUALITY_GRADES);
@@ -156,6 +199,8 @@ export function useGoldParameters() {
 
   const refresh = useCallback(() => {
     setLocalSpecsEnabled(loadStoredSpecsModuleEnabled());
+    setLocalPremiumEnabled(loadStoredPremiumEnabled());
+    setLocalPremiumRate(loadStoredPremiumRate());
     setGoldTypes(loadStoredGoldTypes());
     setKaratGrades(loadStoredKaratGrades());
     setQualityGrades(loadStoredQualityGrades());
@@ -180,6 +225,14 @@ export function useGoldParameters() {
         setLocalSpecsEnabled(serverSettings.is_specs_module_enabled);
         saveStoredSpecsModuleEnabled(serverSettings.is_specs_module_enabled);
       }
+      if (typeof serverSettings.is_purchasing_premium_enabled === "boolean") {
+        setLocalPremiumEnabled(serverSettings.is_purchasing_premium_enabled);
+        saveStoredPremiumEnabled(serverSettings.is_purchasing_premium_enabled);
+      }
+      if (typeof serverSettings.purchasing_premium_rate === "number") {
+        setLocalPremiumRate(serverSettings.purchasing_premium_rate);
+        saveStoredPremiumRate(serverSettings.purchasing_premium_rate);
+      }
       if (serverSettings.gold_types?.length) {
         setGoldTypes(serverSettings.gold_types);
         saveStoredGoldTypes(serverSettings.gold_types);
@@ -201,6 +254,14 @@ export function useGoldParameters() {
     ? serverSettings.is_specs_module_enabled
     : localSpecsEnabled;
 
+  const isPurchasingPremiumEnabled = serverSettings !== undefined && typeof serverSettings.is_purchasing_premium_enabled === "boolean"
+    ? serverSettings.is_purchasing_premium_enabled
+    : localPremiumEnabled;
+
+  const purchasingPremiumRate = serverSettings !== undefined && typeof serverSettings.purchasing_premium_rate === "number"
+    ? serverSettings.purchasing_premium_rate
+    : localPremiumRate;
+
   const toggleSpecsModule = async (overrideEnabled?: boolean) => {
     const nextVal = typeof overrideEnabled === "boolean" ? overrideEnabled : !isSpecsModuleEnabled;
     setLocalSpecsEnabled(nextVal);
@@ -219,6 +280,38 @@ export function useGoldParameters() {
       await updateServerSettingsMutation({ is_specs_module_enabled: enabled }).unwrap();
     } catch (err) {
       console.warn("Could not sync specs module setting to server:", err);
+    }
+  };
+
+  const togglePurchasingPremium = async (overrideEnabled?: boolean) => {
+    const nextVal = typeof overrideEnabled === "boolean" ? overrideEnabled : !isPurchasingPremiumEnabled;
+    setLocalPremiumEnabled(nextVal);
+    saveStoredPremiumEnabled(nextVal);
+    try {
+      await updateServerSettingsMutation({ is_purchasing_premium_enabled: nextVal }).unwrap();
+    } catch (err) {
+      console.warn("Could not sync premium setting to server:", err);
+    }
+  };
+
+  const setPurchasingPremiumEnabled = async (enabled: boolean) => {
+    setLocalPremiumEnabled(enabled);
+    saveStoredPremiumEnabled(enabled);
+    try {
+      await updateServerSettingsMutation({ is_purchasing_premium_enabled: enabled }).unwrap();
+    } catch (err) {
+      console.warn("Could not sync premium setting to server:", err);
+    }
+  };
+
+  const setPurchasingPremiumRate = async (rate: number) => {
+    const validRate = isNaN(rate) || rate < 0 ? 0 : rate;
+    setLocalPremiumRate(validRate);
+    saveStoredPremiumRate(validRate);
+    try {
+      await updateServerSettingsMutation({ purchasing_premium_rate: validRate }).unwrap();
+    } catch (err) {
+      console.warn("Could not sync premium rate to server:", err);
     }
   };
 
@@ -330,6 +423,11 @@ export function useGoldParameters() {
     isSpecsModuleEnabled,
     toggleSpecsModule,
     setSpecsModuleEnabled,
+    isPurchasingPremiumEnabled,
+    purchasingPremiumRate,
+    togglePurchasingPremium,
+    setPurchasingPremiumEnabled,
+    setPurchasingPremiumRate,
     goldTypes,
     karatGrades,
     qualityGrades,

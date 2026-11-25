@@ -142,7 +142,7 @@ async function recordPurchase(data, actor) {
   const conversionFactor = parseFloat(unit.conversion_factor) || 1.0;
   const canonicalQuantity = parseFloat((qty * conversionFactor).toFixed(4));
 
-  // 5. Validate unit price and compute authoritative total
+  // 5. Validate unit price and compute authoritative totals (base and percentage-augmented)
   const price = unit_price !== undefined && unit_price !== null && unit_price !== ""
     ? parseFloat(unit_price)
     : 0.0;
@@ -151,7 +151,22 @@ async function recordPurchase(data, actor) {
     error.status = 400;
     throw error;
   }
-  const computedTotal = parseFloat((qty * price).toFixed(2));
+  const baseComputed = parseFloat((qty * price).toFixed(2));
+  const baseTotal = data.amount_before_premium !== undefined && data.amount_before_premium !== null
+    ? parseFloat(data.amount_before_premium)
+    : baseComputed;
+
+  const pct = data.premium_percentage !== undefined && data.premium_percentage !== null
+    ? parseFloat(data.premium_percentage)
+    : 0.0;
+
+  const premAmount = data.premium_amount !== undefined && data.premium_amount !== null
+    ? parseFloat(data.premium_amount)
+    : (pct > 0 ? parseFloat(((baseTotal * pct) / 100).toFixed(2)) : 0.0);
+
+  const finalTotal = data.total_amount !== undefined && data.total_amount !== null
+    ? parseFloat(data.total_amount)
+    : parseFloat((baseTotal + premAmount).toFixed(2));
 
   // 6. Validate seller type and referential integrity
   if (!seller_type || !["company", "asm"].includes(seller_type)) {
@@ -227,7 +242,10 @@ async function recordPurchase(data, actor) {
     conversion_factor_snapshot: conversionFactor,
     quantity_in_canonical_unit: canonicalQuantity,
     unit_price: price,
-    total_amount: computedTotal,
+    amount_before_premium: baseTotal,
+    premium_percentage: pct,
+    premium_amount: premAmount,
+    total_amount: finalTotal,
     currency: "ETB",
     gold_type: gold_type?.trim() || null,
     karat: karat?.trim() || null,
@@ -247,7 +265,7 @@ async function recordPurchase(data, actor) {
       action: "CREATE",
       entity_id: purchase.purchase_id,
       entity_label: purchase.purchase_reference,
-      summary: `Recorded purchase ${purchase.purchase_reference}: ${qty} ${unit.symbol} (${canonicalQuantity}g base) from ${sellerNameSnapshot} for ${computedTotal} ETB`,
+      summary: `Recorded purchase ${purchase.purchase_reference}: ${qty} ${unit.symbol} (${canonicalQuantity}g base) from ${sellerNameSnapshot} for ${finalTotal} ETB (Base: ${baseTotal} ETB, Premium: +${pct}%)`,
       new_values: purchase.toJSON(),
       changed_by: actor.user_id,
     }).catch((err) => console.error("Audit log error:", err.message));

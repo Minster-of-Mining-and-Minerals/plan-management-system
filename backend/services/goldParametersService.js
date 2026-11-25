@@ -9,6 +9,9 @@ const BACKUP_FILE_PATH = path.join(__dirname, "../../uploads/gold_parameters_con
 
 const DEFAULT_SETTINGS = {
   is_specs_module_enabled: true,
+  is_purchasing_premium_enabled: true,
+  purchasing_premium_rate: 15.0,
+  purchasing_premium_name: "Artisan & Central Bank Incentive Premium",
   gold_types: [
     { id: "gt-1", name: "Raw/Placer Gold", description: "Unrefined alluvial placer gold from riverbeds or shallow pits", is_available: true, is_system: true },
     { id: "gt-2", name: "Smelted Bar", description: "Locally melted and cast crude bullion bar", is_available: true, is_system: true },

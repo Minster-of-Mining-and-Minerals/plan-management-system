@@ -40,10 +40,15 @@ import {
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
-import { ActiveStatusBadge } from "@/components/ui/active-status-badge";
-import { DataTable } from "@/features/template/component/tableList/DataTable";
-import { ColumnDef } from "@tanstack/react-table";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { useGetFederalGoldOversightQuery } from "@/redux/api/goldApi";
+import { useGetPurchasingCentersQuery } from "@/redux/api/purchasingCenterApi";
 import Loading01 from "@/features/template/component/Loading/Loading01";
 import { KpiCard } from "@/features/plan-management/dashboard/components/KpiCard";
 import { AnalyticsPanel } from "@/features/plan-management/dashboard/components/AnalyticsPanel";
@@ -77,14 +82,23 @@ const RANGE_PRESETS: { key: string; label: string; range: () => [string, string]
 export function FederalOversightView() {
   const [dateFrom, setDateFrom] = useState(() => addisDate());
   const [dateTo, setDateTo] = useState(() => addisDate());
+  const [selectedCenterId, setSelectedCenterId] = useState<string>("all");
   const [activeMetric, setActiveMetric] = useState<"volume" | "amount" | "purchases" | "avg_ticket">("volume");
   const [sourcingMode, setSourcingMode] = useState<"period" | "all_time">("period");
   const [overviewDisplayMode, setOverviewDisplayMode] = useState<"period" | "cumulative">("period");
 
+  const { data: allCenters = [] } = useGetPurchasingCentersQuery();
+
   const { data, isLoading, isFetching, refetch } = useGetFederalGoldOversightQuery({
     date_from: dateFrom || undefined,
     date_to: dateTo || dateFrom || undefined,
+    purchasing_center_id: selectedCenterId !== "all" ? selectedCenterId : undefined,
   });
+
+  const selectedCenter = useMemo(
+    () => allCenters.find((c) => c.purchasing_center_id === selectedCenterId),
+    [allCenters, selectedCenterId]
+  );
 
   const overview = data?.overview;
   const today = data?.today;
@@ -198,141 +212,47 @@ export function FederalOversightView() {
     };
   }, [today, centers, sourcingMode, periodSellerDistribution, sellerDistribution]);
 
-  const centerColumns: ColumnDef<any>[] = [
-    {
-      accessorKey: "name",
-      header: "Center Name & Code",
-      cell: ({ row }) => (
-        <div>
-          <div className="font-semibold text-foreground text-xs">{row.original.name}</div>
-          <div className="text-[11px] font-mono text-muted-foreground">{row.original.code}</div>
-        </div>
-      ),
-    },
-    {
-      accessorKey: "is_active",
-      header: "Status",
-      cell: ({ row }) => <ActiveStatusBadge isActive={row.original.is_active} />,
-    },
-    {
-      accessorKey: "today_purchases",
-      header: `${periodPrefix} Purchases`,
-      cell: ({ row }) => (
-        <span className="font-mono font-medium text-xs text-foreground">
-          {row.original.today_purchases}
-        </span>
-      ),
-    },
-    {
-      id: "today_quantity_canonical",
-      header: `${periodPrefix} Gold (g)`,
-      cell: ({ row }) => (
-        <span className="font-mono font-bold text-amber-600 dark:text-amber-400 text-xs">
-          {parseFloat(String(row.original.today_quantity_canonical)).toLocaleString(undefined, {
-            minimumFractionDigits: 2,
-            maximumFractionDigits: 4,
-          })}{" "}
-          g
-        </span>
-      ),
-    },
-    {
-      id: "today_amount",
-      header: `${periodPrefix} Amount`,
-      cell: ({ row }) => (
-        <span className="font-mono text-foreground font-semibold text-xs">
-          {parseFloat(String(row.original.today_amount)).toLocaleString()} ETB
-        </span>
-      ),
-    },
-    {
-      id: "today_report",
-      header: isSingleDay ? "Daily Report" : "Reports (submitted / active days)",
-      cell: ({ row }) => {
-        const c = row.original;
-        const status = c.today_report_status;
-        const isDone = status === "submitted" || status === "reviewed";
-        const isPartial = status === "partial";
-        const isPending = status === "unsubmitted";
-        const dayCounts =
-          !isSingleDay && (c.active_days ?? 0) > 0
-            ? ` ${c.submitted_days ?? 0}/${c.active_days}`
-            : "";
-        return (
-          <Badge
-            variant={isDone ? "default" : isPending || isPartial ? "outline" : "secondary"}
-            className={
-              isDone
-                ? "bg-emerald-600 text-white text-[10px] gap-1"
-                : isPartial
-                ? "border-sky-500 text-sky-700 dark:text-sky-300 text-[10px] gap-1"
-                : isPending
-                ? "border-amber-500 text-amber-700 dark:text-amber-300 text-[10px] gap-1"
-                : "text-[10px] gap-1"
-            }
-          >
-            {isDone ? (
-              <>
-                <CheckCircle2 className="h-3 w-3" />
-                {status === "reviewed" ? "Reviewed" : "Submitted"}
-                {dayCounts}
-              </>
-            ) : isPartial ? (
-              <>
-                <AlertCircle className="h-3 w-3" /> Partial{dayCounts}
-              </>
-            ) : isPending ? (
-              <>
-                <AlertCircle className="h-3 w-3" /> Pending{dayCounts}
-              </>
-            ) : (
-              <>
-                <Clock className="h-3 w-3" /> No activity
-              </>
-            )}
-          </Badge>
-        );
-      },
-    },
-    {
-      id: "total_quantity_canonical",
-      header: "Total Gold (g)",
-      cell: ({ row }) => (
-        <span className="font-mono text-muted-foreground text-xs">
-          {parseFloat(String(row.original.total_quantity_canonical)).toLocaleString()} g
-        </span>
-      ),
-    },
-    {
-      id: "actions",
-      header: "Drilldown",
-      cell: ({ row }) => (
-        <div className="text-right">
-          <Button asChild variant="ghost" size="sm" className="h-8 px-2 text-xs">
-            <Link href={`/purchasing-centers/${row.original.purchasing_center_id}`}>
-              Center View <ChevronRight className="h-3.5 w-3.5 ml-1" />
-            </Link>
-          </Button>
-        </div>
-      ),
-    },
-  ];
-
   return (
     <div className="space-y-6">
       {/* ----------------- TOP HEADER ----------------- */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-foreground flex items-center gap-2.5">
-            <Coins className="h-7 w-7 text-amber-500" />
-            Federal Gold Purchasing Oversight
-          </h1>
+          <div className="flex items-center gap-2">
+            <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-foreground flex items-center gap-2.5">
+              <Coins className="h-7 w-7 text-amber-500" />
+              Federal Gold Purchasing Oversight
+            </h1>
+            {selectedCenter && (
+              <Badge variant="outline" className="border-amber-500/40 text-amber-700 dark:text-amber-300 bg-amber-500/10 text-xs py-0.5 px-2">
+                {selectedCenter.name}
+              </Badge>
+            )}
+          </div>
           <p className="text-sm text-muted-foreground mt-1">
-            Centralized monitoring of purchasing center operations, canonical volume rollups, and daily report completion.
+            {selectedCenter
+              ? `Filtered view for ${selectedCenter.name} (${selectedCenter.code}) — monitoring scoped transactions and analytics.`
+              : "Centralized monitoring of purchasing center operations, canonical volume rollups, and daily report completion."}
           </p>
         </div>
 
         <div className="flex items-center gap-2.5 flex-wrap">
+          {/* Global Center Selector Filter */}
+          <div className="flex items-center gap-1.5 bg-card border border-border rounded-xl px-2.5 py-1 shadow-xs">
+            <Store className="h-4 w-4 text-amber-500 shrink-0" />
+            <Select value={selectedCenterId} onValueChange={setSelectedCenterId}>
+              <SelectTrigger className="h-8 border-none p-0 text-xs shadow-none focus:ring-0 focus-visible:ring-0 w-[180px] sm:w-[210px]">
+                <SelectValue placeholder="All Purchasing Centers" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Purchasing Centers</SelectItem>
+                {allCenters.map((c) => (
+                  <SelectItem key={c.purchasing_center_id} value={c.purchasing_center_id}>
+                    {c.name} ({c.code})
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
           <div className="flex items-center gap-1 bg-card border border-border rounded-xl p-1 shadow-xs flex-wrap">
             {RANGE_PRESETS.map((preset) => (
               <Button
@@ -879,19 +799,6 @@ export function FederalOversightView() {
             </Link>
           </Button>
         </div>
-      </AnalyticsPanel>
-
-      {/* ----------------- PURCHASING CENTERS COMPARISON TABLE ----------------- */}
-      <AnalyticsPanel
-        title="Purchasing Centers Activity & Daily Reporting Matrix"
-        description={`Purchasing totals and daily reporting submission status for ${periodLabel}`}
-      >
-        <DataTable
-          columns={centerColumns}
-          data={centers}
-          isLoading={isLoading}
-          onRetry={refetch}
-        />
       </AnalyticsPanel>
     </div>
   );

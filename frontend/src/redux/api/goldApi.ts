@@ -416,7 +416,7 @@ export const goldApi = baseApi.injectEndpoints({
 
     getFederalGoldOversight: builder.query<
       FederalOversightDashboardData,
-      { business_date?: string; date_from?: string; date_to?: string } | void
+      { business_date?: string; date_from?: string; date_to?: string; purchasing_center_id?: string } | void
     >({
       query: (params) => ({
         url: "/gold/oversight-dashboard",

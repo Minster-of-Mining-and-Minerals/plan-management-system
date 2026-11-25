@@ -15,6 +15,7 @@ import {
   User,
   ShieldAlert,
   Printer,
+  DollarSign,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -332,7 +333,7 @@ export function PurchaseDetailView({
           Measured Weight & Financial Settlement
         </h3>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
           <div className="p-4 rounded-2xl bg-muted/50 border border-border">
             <p className="text-xs text-muted-foreground">Recorded Quantity</p>
             <p className="text-2xl font-bold font-mono text-foreground mt-1">
@@ -365,15 +366,77 @@ export function PurchaseDetailView({
               ETB per {purchase.unit_code_snapshot}
             </p>
           </div>
+        </div>
 
-          <div className="p-4 rounded-2xl bg-emerald-500/10 border border-emerald-500/20">
-            <p className="text-xs font-medium text-emerald-800 dark:text-emerald-300">Total Purchase Value</p>
-            <p className="text-2xl font-bold font-mono text-emerald-600 dark:text-emerald-400 mt-1">
-              {parseFloat(String(purchase.total_amount)).toLocaleString()} ETB
-            </p>
-            <p className="text-[11px] text-emerald-700/80 dark:text-emerald-300/80 mt-1">
-              Server-verified disbursement
-            </p>
+        {/* TWO TOTALS FINANCIAL SETTLEMENT BREAKDOWN */}
+        <div className="p-5 rounded-2xl bg-gradient-to-br from-amber-500/10 via-card to-emerald-500/10 border border-border space-y-4">
+          <div className="flex items-center justify-between border-b border-border/80 pb-3">
+            <div>
+              <p className="text-xs font-bold text-foreground flex items-center gap-2">
+                <DollarSign className="h-4 w-4 text-emerald-500" />
+                Financial Valuation & Disbursement Breakdown
+              </p>
+              <p className="text-[11px] text-muted-foreground">
+                Canonical intake calculation before and after additional purchasing center incentive percentage.
+              </p>
+            </div>
+            {purchase.premium_percentage && parseFloat(String(purchase.premium_percentage)) > 0 ? (
+              <Badge className="bg-emerald-600 text-white font-mono text-xs">
+                +{parseFloat(String(purchase.premium_percentage))}% Incentive Applied
+              </Badge>
+            ) : null}
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            {/* 1. Base Total Before % */}
+            <div className="p-4 rounded-xl bg-background border border-border">
+              <span className="text-[11px] font-semibold text-muted-foreground uppercase">
+                1. Base Valuation (Before %)
+              </span>
+              <p className="text-xl font-bold font-mono text-foreground mt-1">
+                {(
+                  purchase.amount_before_premium !== null && purchase.amount_before_premium !== undefined
+                    ? parseFloat(String(purchase.amount_before_premium))
+                    : parseFloat(String(purchase.quantity)) * parseFloat(String(purchase.unit_price))
+                ).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}{" "}
+                <span className="text-xs font-normal text-muted-foreground">ETB</span>
+              </p>
+              <p className="text-[11px] text-muted-foreground mt-1">
+                Net gold price without percentage
+              </p>
+            </div>
+
+            {/* Additional Incentive % */}
+            <div className="p-4 rounded-xl bg-emerald-500/10 border border-emerald-500/20">
+              <span className="text-[11px] font-semibold text-emerald-700 dark:text-emerald-300 uppercase">
+                Incentive Percentage ({parseFloat(String(purchase.premium_percentage || 0)) > 0 ? `+${purchase.premium_percentage}%` : "0%"})
+              </span>
+              <p className="text-xl font-bold font-mono text-emerald-600 dark:text-emerald-400 mt-1">
+                +{(
+                  purchase.premium_amount !== null && purchase.premium_amount !== undefined
+                    ? parseFloat(String(purchase.premium_amount))
+                    : 0
+                ).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}{" "}
+                <span className="text-xs font-normal text-muted-foreground">ETB</span>
+              </p>
+              <p className="text-[11px] text-emerald-700/80 dark:text-emerald-300/80 mt-1">
+                Additional incentive payout
+              </p>
+            </div>
+
+            {/* 2. Final Total With % */}
+            <div className="p-4 rounded-xl bg-emerald-600/15 border border-emerald-600/30">
+              <span className="text-[11px] font-bold text-emerald-800 dark:text-emerald-200 uppercase">
+                2. Final Net Payout (With %)
+              </span>
+              <p className="text-2xl font-extrabold font-mono text-emerald-600 dark:text-emerald-400 mt-1">
+                {parseFloat(String(purchase.total_amount)).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}{" "}
+                <span className="text-xs font-normal text-muted-foreground">ETB</span>
+              </p>
+              <p className="text-[11px] text-muted-foreground mt-1">
+                Total disbursement to seller
+              </p>
+            </div>
           </div>
         </div>
 
@@ -383,6 +446,61 @@ export function PurchaseDetailView({
             <p className="text-sm text-muted-foreground leading-relaxed">{purchase.notes}</p>
           </div>
         )}
+      </div>
+
+      {/* PRINT-ONLY OFFICIAL RECEIPT VOUCHER */}
+      <div className="hidden print:block border-2 border-black p-6 rounded-lg space-y-4 text-black bg-white mt-8">
+        <div className="text-center border-b pb-3">
+          <h2 className="text-xl font-bold uppercase tracking-wider">Official Gold Purchase Receipt</h2>
+          <p className="text-xs font-mono">{purchase.purchasingCenter?.name} ({purchase.purchasingCenter?.code})</p>
+          <p className="text-xs font-mono">Reference: {purchase.purchase_reference}</p>
+        </div>
+
+        <div className="grid grid-cols-2 gap-4 text-xs">
+          <div>
+            <p><strong>Date:</strong> {purchase.business_date}</p>
+            <p><strong>Seller:</strong> {purchase.seller_name_snapshot} ({purchase.seller_type?.toUpperCase()})</p>
+            <p><strong>Seller ID:</strong> {purchase.seller_identifier_snapshot || "N/A"}</p>
+          </div>
+          <div className="text-right">
+            <p><strong>Quantity:</strong> {purchase.quantity} {purchase.unit_code_snapshot}</p>
+            <p><strong>Canonical Weight:</strong> {purchase.quantity_in_canonical_unit} g</p>
+            <p><strong>Unit Price:</strong> {purchase.unit_price} ETB / {purchase.unit_code_snapshot}</p>
+          </div>
+        </div>
+
+        <div className="border-t border-b py-2 space-y-1 text-xs">
+          <div className="flex justify-between">
+            <span>1. Base Total (Before Percentage):</span>
+            <span className="font-mono font-bold">
+              {(purchase.amount_before_premium !== null && purchase.amount_before_premium !== undefined
+                ? parseFloat(String(purchase.amount_before_premium))
+                : parseFloat(String(purchase.quantity)) * parseFloat(String(purchase.unit_price))
+              ).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ETB
+            </span>
+          </div>
+          <div className="flex justify-between">
+            <span>Incentive Percentage ({purchase.premium_percentage || 0}%):</span>
+            <span className="font-mono">
+              +{(parseFloat(String(purchase.premium_amount || 0))).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ETB
+            </span>
+          </div>
+          <div className="flex justify-between font-bold text-sm pt-1 border-t">
+            <span>2. Final Net Payout (Including Percentage):</span>
+            <span className="font-mono">
+              {(parseFloat(String(purchase.total_amount))).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ETB
+            </span>
+          </div>
+        </div>
+
+        <div className="flex justify-between text-xs pt-8">
+          <div className="text-center w-40 border-t border-black pt-1">
+            <p>Seller Signature</p>
+          </div>
+          <div className="text-center w-40 border-t border-black pt-1">
+            <p>Authorized Cashier / Assayer</p>
+          </div>
+        </div>
       </div>
 
       {/* ----------------- CANCELLATION MODAL ----------------- */}
