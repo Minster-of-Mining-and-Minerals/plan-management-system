@@ -218,12 +218,13 @@ export function GoldParameterConfigurationView() {
               type="button"
               variant={isSpecsModuleEnabled ? "outline" : "default"}
               size="default"
-              onClick={() => {
-                toggleSpecsModule();
+              onClick={async () => {
+                const nextState = !isSpecsModuleEnabled;
+                await toggleSpecsModule();
                 toast.success(
-                  isSpecsModuleEnabled
-                    ? "Gold Quality & Karat Specifications module turned OFF globally. Purchasing side validation will bypass specifications."
-                    : "Gold Quality & Karat Specifications module turned ON globally. Specifications will be required in purchasing centers."
+                  !nextState
+                    ? "Gold Quality & Karat Specifications module turned OFF globally and synchronized with server. Purchasing side validation will bypass specifications."
+                    : "Gold Quality & Karat Specifications module turned ON globally and synchronized with server. Specifications will be required in purchasing centers."
                 );
               }}
               className={`gap-2 font-bold h-11 px-5 rounded-2xl ${

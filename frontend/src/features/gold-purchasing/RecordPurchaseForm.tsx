@@ -142,9 +142,9 @@ export function RecordPurchaseForm() {
   });
 
   const { data: activePriceConfig, isFetching: isPriceConfigLoading } = useGetActiveGoldPriceQuery({
-    gold_type: goldType,
-    karat: karat,
-    quality_grade: qualityGrade,
+    gold_type: isSpecsModuleEnabled ? goldType : undefined,
+    karat: isSpecsModuleEnabled ? karat : undefined,
+    quality_grade: isSpecsModuleEnabled ? qualityGrade : undefined,
     measurement_unit_id: measurementUnitId || undefined,
   });
 

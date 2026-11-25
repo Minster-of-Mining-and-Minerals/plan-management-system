@@ -447,3 +447,46 @@ export interface GoldMarketBenchmarksData {
     mode: string;
   };
 }
+
+export interface GoldTypeItem {
+  id: string;
+  name: string;
+  description: string;
+  is_available: boolean;
+  is_system?: boolean;
+}
+
+export interface KaratGradeItem {
+  id: string;
+  karat: string;
+  label: string;
+  default_purity_percentage: number;
+  min_purity?: number;
+  max_purity?: number;
+  is_available: boolean;
+  is_system?: boolean;
+}
+
+export interface QualityGradeItem {
+  id: string;
+  grade: string;
+  label: string;
+  description: string;
+  is_available: boolean;
+  is_system?: boolean;
+}
+
+export interface GoldParametersSettingsData {
+  is_specs_module_enabled: boolean;
+  gold_types: GoldTypeItem[];
+  karat_grades: KaratGradeItem[];
+  quality_grades: QualityGradeItem[];
+  updated_at?: string;
+}
+
+export interface UpdateGoldParametersSettingsPayload {
+  is_specs_module_enabled?: boolean;
+  gold_types?: GoldTypeItem[];
+  karat_grades?: KaratGradeItem[];
+  quality_grades?: QualityGradeItem[];
+}

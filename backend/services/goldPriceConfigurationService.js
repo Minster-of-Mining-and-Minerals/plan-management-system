@@ -118,6 +118,21 @@ async function getActivePriceConfiguration(params = {}) {
     });
   }
 
+  // Fallback: match general active price configuration if specs are bypassed/disabled
+  if (!match) {
+    match = await GoldPriceConfiguration.findOne({
+      where: { is_active: true },
+      include: [
+        {
+          model: GoldMeasurementUnit,
+          as: "measurementUnit",
+          attributes: ["unit_id", "name", "code", "symbol", "conversion_factor"],
+        },
+      ],
+      order: [["effective_date", "DESC"], ["created_at", "DESC"]],
+    });
+  }
+
   return match;
 }
 

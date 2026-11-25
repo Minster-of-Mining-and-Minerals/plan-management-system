@@ -9,6 +9,8 @@ import type {
   PurchasingCenterDashboardData,
   FederalOversightDashboardData,
   GoldMarketBenchmarksData,
+  GoldParametersSettingsData,
+  UpdateGoldParametersSettingsPayload,
   CreateGoldPurchasePayload,
   RegisterAsmMinerPayload,
   CreateMeasurementUnitPayload,
@@ -431,6 +433,27 @@ export const goldApi = baseApi.injectEndpoints({
       transformResponse: (res: { data: GoldMarketBenchmarksData }) => res.data,
       providesTags: [{ type: "GoldOversight", id: "MARKET_BENCHMARKS" }],
     }),
+
+    getGoldParameterSettings: builder.query<GoldParametersSettingsData, void>({
+      query: () => ({
+        url: "/gold/parameters/settings",
+      }),
+      transformResponse: (res: { data: GoldParametersSettingsData }) => res.data,
+      providesTags: [{ type: "GoldPrices", id: "PARAMETERS" }],
+    }),
+
+    updateGoldParameterSettings: builder.mutation<GoldParametersSettingsData, UpdateGoldParametersSettingsPayload>({
+      query: (body) => ({
+        url: "/gold/parameters/settings",
+        method: "PUT",
+        body,
+      }),
+      transformResponse: (res: { data: GoldParametersSettingsData }) => res.data,
+      invalidatesTags: [
+        { type: "GoldPrices", id: "PARAMETERS" },
+        { type: "GoldPrices", id: "ACTIVE" },
+      ],
+    }),
   }),
 });
 
@@ -457,6 +480,8 @@ export const {
   useGetGoldCenterDashboardQuery,
   useGetFederalGoldOversightQuery,
   useGetGoldMarketBenchmarksQuery,
+  useGetGoldParameterSettingsQuery,
+  useUpdateGoldParameterSettingsMutation,
   useGetGoldPricesQuery,
   useGetActiveGoldPriceQuery,
   useLazyGetActiveGoldPriceQuery,

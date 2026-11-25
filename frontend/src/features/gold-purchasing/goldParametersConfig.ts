@@ -1,6 +1,10 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
+import {
+  useGetGoldParameterSettingsQuery,
+  useUpdateGoldParameterSettingsMutation,
+} from "@/redux/api/goldApi";
 
 export interface GoldTypeConfig {
   id: string;
@@ -141,14 +145,17 @@ export function saveStoredQualityGrades(data: QualityGradeConfig[]) {
 }
 
 export function useGoldParameters() {
-  const [isSpecsModuleEnabled, setIsSpecsModuleEnabled] = useState<boolean>(true);
+  const { data: serverSettings } = useGetGoldParameterSettingsQuery();
+  const [updateServerSettingsMutation] = useUpdateGoldParameterSettingsMutation();
+
+  const [localSpecsEnabled, setLocalSpecsEnabled] = useState<boolean>(() => loadStoredSpecsModuleEnabled());
   const [goldTypes, setGoldTypes] = useState<GoldTypeConfig[]>(DEFAULT_GOLD_TYPES);
   const [karatGrades, setKaratGrades] = useState<KaratGradeConfig[]>(DEFAULT_KARAT_GRADES);
   const [qualityGrades, setQualityGrades] = useState<QualityGradeConfig[]>(DEFAULT_QUALITY_GRADES);
   const [isReady, setIsReady] = useState(false);
 
   const refresh = useCallback(() => {
-    setIsSpecsModuleEnabled(loadStoredSpecsModuleEnabled());
+    setLocalSpecsEnabled(loadStoredSpecsModuleEnabled());
     setGoldTypes(loadStoredGoldTypes());
     setKaratGrades(loadStoredKaratGrades());
     setQualityGrades(loadStoredQualityGrades());
@@ -166,15 +173,53 @@ export function useGoldParameters() {
     };
   }, [refresh]);
 
-  const toggleSpecsModule = (overrideEnabled?: boolean) => {
+  // Sync whenever serverSettings arrives from backend
+  useEffect(() => {
+    if (serverSettings) {
+      if (typeof serverSettings.is_specs_module_enabled === "boolean") {
+        setLocalSpecsEnabled(serverSettings.is_specs_module_enabled);
+        saveStoredSpecsModuleEnabled(serverSettings.is_specs_module_enabled);
+      }
+      if (serverSettings.gold_types?.length) {
+        setGoldTypes(serverSettings.gold_types);
+        saveStoredGoldTypes(serverSettings.gold_types);
+      }
+      if (serverSettings.karat_grades?.length) {
+        setKaratGrades(serverSettings.karat_grades);
+        saveStoredKaratGrades(serverSettings.karat_grades);
+      }
+      if (serverSettings.quality_grades?.length) {
+        setQualityGrades(serverSettings.quality_grades);
+        saveStoredQualityGrades(serverSettings.quality_grades);
+      }
+      setIsReady(true);
+    }
+  }, [serverSettings]);
+
+  // Server setting is authoritative when present
+  const isSpecsModuleEnabled = serverSettings !== undefined && typeof serverSettings.is_specs_module_enabled === "boolean"
+    ? serverSettings.is_specs_module_enabled
+    : localSpecsEnabled;
+
+  const toggleSpecsModule = async (overrideEnabled?: boolean) => {
     const nextVal = typeof overrideEnabled === "boolean" ? overrideEnabled : !isSpecsModuleEnabled;
-    setIsSpecsModuleEnabled(nextVal);
+    setLocalSpecsEnabled(nextVal);
     saveStoredSpecsModuleEnabled(nextVal);
+    try {
+      await updateServerSettingsMutation({ is_specs_module_enabled: nextVal }).unwrap();
+    } catch (err) {
+      console.warn("Could not sync specs module setting to server:", err);
+    }
   };
 
-  const setSpecsModuleEnabled = (enabled: boolean) => {
-    setIsSpecsModuleEnabled(enabled);
+  const setSpecsModuleEnabled = async (enabled: boolean) => {
+    setLocalSpecsEnabled(enabled);
     saveStoredSpecsModuleEnabled(enabled);
+    try {
+      await updateServerSettingsMutation({ is_specs_module_enabled: enabled }).unwrap();
+    } catch (err) {
+      console.warn("Could not sync specs module setting to server:", err);
+    }
   };
 
   // Filtered active choices for purchase recording and benchmarking
@@ -182,25 +227,34 @@ export function useGoldParameters() {
   const availableKaratGrades = karatGrades.filter((k) => k.is_available);
   const availableQualityGrades = qualityGrades.filter((q) => q.is_available);
 
-  const toggleGoldTypeAvailability = (id: string) => {
+  const toggleGoldTypeAvailability = async (id: string) => {
     const updated = goldTypes.map((g) => (g.id === id ? { ...g, is_available: !g.is_available } : g));
     setGoldTypes(updated);
     saveStoredGoldTypes(updated);
+    try {
+      await updateServerSettingsMutation({ gold_types: updated }).unwrap();
+    } catch {}
   };
 
-  const toggleKaratAvailability = (id: string) => {
+  const toggleKaratAvailability = async (id: string) => {
     const updated = karatGrades.map((k) => (k.id === id ? { ...k, is_available: !k.is_available } : k));
     setKaratGrades(updated);
     saveStoredKaratGrades(updated);
+    try {
+      await updateServerSettingsMutation({ karat_grades: updated }).unwrap();
+    } catch {}
   };
 
-  const toggleQualityAvailability = (id: string) => {
+  const toggleQualityAvailability = async (id: string) => {
     const updated = qualityGrades.map((q) => (q.id === id ? { ...q, is_available: !q.is_available } : q));
     setQualityGrades(updated);
     saveStoredQualityGrades(updated);
+    try {
+      await updateServerSettingsMutation({ quality_grades: updated }).unwrap();
+    } catch {}
   };
 
-  const addGoldType = (name: string, description: string) => {
+  const addGoldType = async (name: string, description: string) => {
     const newItem: GoldTypeConfig = {
       id: `gt-custom-${Date.now()}`,
       name: name.trim(),
@@ -211,9 +265,12 @@ export function useGoldParameters() {
     const updated = [...goldTypes, newItem];
     setGoldTypes(updated);
     saveStoredGoldTypes(updated);
+    try {
+      await updateServerSettingsMutation({ gold_types: updated }).unwrap();
+    } catch {}
   };
 
-  const addKaratGrade = (karat: string, purity: number, minPurity?: number, maxPurity?: number) => {
+  const addKaratGrade = async (karat: string, purity: number, minPurity?: number, maxPurity?: number) => {
     const newItem: KaratGradeConfig = {
       id: `kg-custom-${Date.now()}`,
       karat: karat.trim(),
@@ -227,9 +284,12 @@ export function useGoldParameters() {
     const updated = [...karatGrades, newItem];
     setKaratGrades(updated);
     saveStoredKaratGrades(updated);
+    try {
+      await updateServerSettingsMutation({ karat_grades: updated }).unwrap();
+    } catch {}
   };
 
-  const addQualityGrade = (grade: string, description: string) => {
+  const addQualityGrade = async (grade: string, description: string) => {
     const newItem: QualityGradeConfig = {
       id: `qg-custom-${Date.now()}`,
       grade: grade.trim(),
@@ -241,15 +301,28 @@ export function useGoldParameters() {
     const updated = [...qualityGrades, newItem];
     setQualityGrades(updated);
     saveStoredQualityGrades(updated);
+    try {
+      await updateServerSettingsMutation({ quality_grades: updated }).unwrap();
+    } catch {}
   };
 
-  const resetToDefaults = () => {
+  const resetToDefaults = async () => {
     setGoldTypes(DEFAULT_GOLD_TYPES);
     setKaratGrades(DEFAULT_KARAT_GRADES);
     setQualityGrades(DEFAULT_QUALITY_GRADES);
+    setLocalSpecsEnabled(true);
+    saveStoredSpecsModuleEnabled(true);
     saveStoredGoldTypes(DEFAULT_GOLD_TYPES);
     saveStoredKaratGrades(DEFAULT_KARAT_GRADES);
     saveStoredQualityGrades(DEFAULT_QUALITY_GRADES);
+    try {
+      await updateServerSettingsMutation({
+        is_specs_module_enabled: true,
+        gold_types: DEFAULT_GOLD_TYPES,
+        karat_grades: DEFAULT_KARAT_GRADES,
+        quality_grades: DEFAULT_QUALITY_GRADES,
+      }).unwrap();
+    } catch {}
   };
 
   return {
