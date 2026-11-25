@@ -69,7 +69,7 @@ async function getPurchasingCenterDashboard(centerId, query = {}, actor) {
   }
 
   // 1. Fetch all completed purchases in the selected period for aggregate metrics & breakdowns
-  const [periodPurchases, todayPurchases, todayReport, recentPurchases] = await Promise.all([
+  const [periodPurchases, todayPurchases, todayReport, recentPurchases, allUnits] = await Promise.all([
     GoldPurchase.findAll({
       where: periodWhere,
       attributes: [
@@ -150,6 +150,12 @@ async function getPurchasingCenterDashboard(centerId, query = {}, actor) {
       ],
       order: [["created_at", "DESC"]],
       limit: 10,
+    }),
+
+    // Active measurement units
+    GoldMeasurementUnit.findAll({
+      where: { is_active: true },
+      order: [["is_canonical_base", "DESC"], ["name", "ASC"]],
     }),
   ]);
 
@@ -310,6 +316,14 @@ async function getPurchasingCenterDashboard(centerId, query = {}, actor) {
   return {
     purchasing_center: center,
     time_range: selectedTimeRange,
+    configured_units: (allUnits || []).map((u) => ({
+      unit_id: u.unit_id,
+      name: u.name,
+      code: u.code,
+      symbol: u.symbol,
+      conversion_factor: parseFloat(u.conversion_factor) || 1.0,
+      is_canonical_base: u.is_canonical_base,
+    })),
     today: {
       business_date: today,
       purchases_count: todayPurchases.length,
@@ -411,9 +425,13 @@ async function getFederalOversightDashboard(query = {}) {
   if (query.purchasing_center_id && query.purchasing_center_id !== "all") {
     centerCountWhere.purchasing_center_id = query.purchasing_center_id;
   }
-  const [totalCenters, activeCenters] = await Promise.all([
+  const [totalCenters, activeCenters, allUnits] = await Promise.all([
     PurchasingCenter.count({ where: centerCountWhere }),
     PurchasingCenter.count({ where: { ...centerCountWhere, is_active: true } }),
+    GoldMeasurementUnit.findAll({
+      where: { is_active: true },
+      order: [["is_canonical_base", "DESC"], ["name", "ASC"]],
+    }),
   ]);
 
   // 2. All-time completed purchases aggregates (optionally scoped to a single purchasing center)
@@ -426,10 +444,20 @@ async function getFederalOversightDashboard(query = {}) {
     where: purchaseWhere,
     attributes: [
       "purchasing_center_id",
+      "quantity",
       "quantity_in_canonical_unit",
+      "unit_code_snapshot",
+      "measurement_unit_id",
       "total_amount",
       "seller_type",
       "business_date",
+    ],
+    include: [
+      {
+        model: GoldMeasurementUnit,
+        as: "measurementUnit",
+        attributes: ["name", "symbol", "code"],
+      },
     ],
   });
 
@@ -454,10 +482,12 @@ async function getFederalOversightDashboard(query = {}) {
 
   // Center-level aggregates map
   const centerAggMap = new Map();
+  const unitBreakdownMap = new Map();
 
   for (const p of allPurchases) {
     const canonical = parseFloat(p.quantity_in_canonical_unit) || 0;
     const amt = parseFloat(p.total_amount) || 0;
+    const rawQty = parseFloat(p.quantity) || 0;
 
     totalCanonicalQuantity += canonical;
     totalAmount += amt;
@@ -486,6 +516,23 @@ async function getFederalOversightDashboard(query = {}) {
         todayAsmQuantity += canonical;
         todayAsmAmount += amt;
       }
+
+      // Unit breakdown for the selected period
+      const uCode = p.unit_code_snapshot || p.measurementUnit?.code || "unknown";
+      if (!unitBreakdownMap.has(uCode)) {
+        unitBreakdownMap.set(uCode, {
+          code: uCode,
+          name: p.measurementUnit?.name || uCode,
+          symbol: p.measurementUnit?.symbol || uCode,
+          total_quantity: 0,
+          canonical_quantity: 0,
+          purchase_count: 0,
+        });
+      }
+      const uEntry = unitBreakdownMap.get(uCode);
+      uEntry.total_quantity = parseFloat((uEntry.total_quantity + rawQty).toFixed(4));
+      uEntry.canonical_quantity = parseFloat((uEntry.canonical_quantity + canonical).toFixed(4));
+      uEntry.purchase_count += 1;
     }
 
     const pcId = p.purchasing_center_id;
@@ -665,6 +712,15 @@ async function getFederalOversightDashboard(query = {}) {
       },
     },
     centers: centerSummaries,
+    unit_breakdown: Array.from(unitBreakdownMap.values()),
+    configured_units: (allUnits || []).map((u) => ({
+      unit_id: u.unit_id,
+      name: u.name,
+      code: u.code,
+      symbol: u.symbol,
+      conversion_factor: parseFloat(u.conversion_factor) || 1.0,
+      is_canonical_base: u.is_canonical_base,
+    })),
     recent_purchases: recentPurchases,
   };
 }

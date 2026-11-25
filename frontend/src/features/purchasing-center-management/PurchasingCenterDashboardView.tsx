@@ -49,10 +49,20 @@ import {
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { ActiveStatusBadge } from "@/components/ui/active-status-badge";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { useBranding } from "@/providers/BrandingProvider";
 import { usePermissions } from "@/hooks/usePermissions";
 import { useGetPurchasingCenterDashboardQuery } from "@/redux/api/purchasingCenterApi";
-import { useGetGoldCenterDashboardQuery } from "@/redux/api/goldApi";
+import {
+  useGetGoldCenterDashboardQuery,
+  useGetGoldUnitsQuery,
+} from "@/redux/api/goldApi";
 import { DataTable } from "@/features/template/component/tableList/DataTable";
 import { ColumnDef } from "@tanstack/react-table";
 import Loading01 from "@/features/template/component/Loading/Loading01";
@@ -62,6 +72,11 @@ import {
   DashboardSectionHeader,
 } from "@/features/plan-management/dashboard/components/AnalyticsPanel";
 import { useDashboardAppearance } from "@/features/plan-management/dashboard/hooks/useDashboardAppearance";
+import {
+  GoldUnitReportingMatrix,
+  resolveConfiguredUnits,
+  formatUnitVolume,
+} from "@/features/gold-purchasing/GoldUnitReportingMatrix";
 
 export interface PurchasingCenterDashboardViewProps {
   overrideCenterId?: string;
@@ -97,6 +112,7 @@ export function PurchasingCenterDashboardView({
     : "/purchasing-center";
 
   const [timeRange, setTimeRange] = useState<string>("30d");
+  const [selectedUnitCode, setSelectedUnitCode] = useState<string>("GRAM");
 
   // 1. Fetch purchasing center base metadata & user counts
   const {
@@ -121,6 +137,27 @@ export function PurchasingCenterDashboardView({
       : { time_range: timeRange }
   );
 
+  const { data: dbUnits = [] } = useGetGoldUnitsQuery();
+
+  const configuredUnits = useMemo(
+    () => resolveConfiguredUnits(goldData?.configured_units || dbUnits),
+    [goldData?.configured_units, dbUnits]
+  );
+
+  const currentUnit = useMemo(() => {
+    if (selectedUnitCode === "all") {
+      return configuredUnits.find((u) => u.is_canonical_base) || configuredUnits[0];
+    }
+    return (
+      configuredUnits.find((u) => u.code.toUpperCase() === selectedUnitCode.toUpperCase()) ||
+      configuredUnits[0]
+    );
+  }, [configuredUnits, selectedUnitCode]);
+
+  const unitFactor = currentUnit?.conversion_factor || 1.0;
+  const unitSymbol = currentUnit?.symbol || "g";
+  const unitName = currentUnit?.name || "Gram";
+
   const centerInfo = baseData?.purchasing_center || goldData?.purchasing_center;
   const userCounts = baseData?.counts?.users;
   const today = goldData?.today;
@@ -128,52 +165,55 @@ export function PurchasingCenterDashboardView({
   const recentPurchases = goldData?.recent_purchases || [];
   const dailyTrends = goldData?.daily_trends || [];
 
-  // Formatted chart data for Recharts daily trajectory
+  // Formatted chart data for Recharts daily trajectory (scaled by active unit)
   const dailyChartData = useMemo(() => {
-    return (dailyTrends || []).map((t) => ({
-      date: t.date,
-      volume: parseFloat(parseFloat(String(t.canonical_quantity || 0)).toFixed(2)),
-      payout: parseFloat(parseFloat(String(t.amount || 0)).toFixed(2)),
-      purchases: t.count || 0,
-    }));
-  }, [dailyTrends]);
+    return (dailyTrends || []).map((t) => {
+      const canonicalGrams = parseFloat(String(t.canonical_quantity || 0));
+      return {
+        date: t.date,
+        volume: parseFloat((canonicalGrams / unitFactor).toFixed(unitFactor >= 1000 ? 3 : 2)),
+        payout: parseFloat(parseFloat(String(t.amount || 0)).toFixed(2)),
+        purchases: t.count || 0,
+      };
+    });
+  }, [dailyTrends, unitFactor]);
 
-  // Karat breakdown for Recharts Donut
+  // Karat breakdown for Recharts Donut (scaled by active unit)
   const karatChartData = useMemo(() => {
     return (period?.karat_breakdown || []).map((k, idx) => ({
       name: k.karat,
-      value: parseFloat(parseFloat(String(k.canonical_quantity || 0)).toFixed(2)),
+      value: parseFloat((parseFloat(String(k.canonical_quantity || 0)) / unitFactor).toFixed(unitFactor >= 1000 ? 3 : 2)),
       count: k.count || 0,
       color: KARAT_PALETTE[idx % KARAT_PALETTE.length],
     }));
-  }, [period]);
+  }, [period, unitFactor]);
 
-  // Quality grade breakdown for Recharts Bar Chart
+  // Quality grade breakdown for Recharts Bar Chart (scaled by active unit)
   const qualityChartData = useMemo(() => {
     return (period?.quality_breakdown || []).map((q, idx) => ({
       name: q.quality_grade,
-      value: parseFloat(parseFloat(String(q.canonical_quantity || 0)).toFixed(2)),
+      value: parseFloat((parseFloat(String(q.canonical_quantity || 0)) / unitFactor).toFixed(unitFactor >= 1000 ? 3 : 2)),
       count: q.count || 0,
       color: QUALITY_PALETTE[idx % QUALITY_PALETTE.length],
     }));
-  }, [period]);
+  }, [period, unitFactor]);
 
-  // Sourcing Split: Company vs ASM
+  // Sourcing Split: Company vs ASM (scaled by active unit)
   const sourcingSplitData = useMemo(() => {
     const companyVol = (period?.company_breakdown || []).reduce(
       (acc, c) => acc + (parseFloat(String(c.canonical_quantity)) || 0),
       0
-    );
+    ) / unitFactor;
     const asmVol = (period?.asm_breakdown || []).reduce(
       (acc, a) => acc + (parseFloat(String(a.canonical_quantity)) || 0),
       0
-    );
+    ) / unitFactor;
 
     return [
-      { name: "Companies", value: parseFloat(companyVol.toFixed(2)), color: "#0284c7" },
-      { name: "ASM Miners", value: parseFloat(asmVol.toFixed(2)), color: "#f59e0b" },
+      { name: "Companies", value: parseFloat(companyVol.toFixed(unitFactor >= 1000 ? 3 : 2)), color: "#0284c7" },
+      { name: "ASM Miners", value: parseFloat(asmVol.toFixed(unitFactor >= 1000 ? 3 : 2)), color: "#f59e0b" },
     ];
-  }, [period]);
+  }, [period, unitFactor]);
 
   const companyBreakdownColumns = useMemo<ColumnDef<any>[]>(
     () => [
@@ -201,18 +241,18 @@ export function PurchasingCenterDashboardView({
       },
       {
         id: "volume",
-        header: "Volume (g)",
+        header: `Volume (${unitSymbol})`,
         cell: ({ row }) => {
-          const totalVol = period?.total_canonical_quantity || 1;
-          const canonical = Number(row.original.canonical_quantity ?? 0);
+          const totalVol = (period?.total_canonical_quantity || 1) / unitFactor;
+          const canonical = Number(row.original.canonical_quantity ?? 0) / unitFactor;
           const sharePct = ((canonical / totalVol) * 100).toFixed(1);
           return (
             <span className="font-mono font-bold text-amber-600 dark:text-amber-400 text-xs">
               {canonical.toLocaleString(undefined, {
-                minimumFractionDigits: 2,
-                maximumFractionDigits: 2,
+                minimumFractionDigits: unitFactor >= 1000 ? 3 : 2,
+                maximumFractionDigits: unitFactor >= 1000 ? 4 : 3,
               })}{" "}
-              g <span className="text-[10px] text-muted-foreground font-normal">({sharePct}%)</span>
+              {unitSymbol} <span className="text-[10px] text-muted-foreground font-normal">({sharePct}%)</span>
             </span>
           );
         },
@@ -230,7 +270,7 @@ export function PurchasingCenterDashboardView({
         },
       },
     ],
-    [period]
+    [period, unitFactor, unitSymbol]
   );
 
   const asmBreakdownColumns = useMemo<ColumnDef<any>[]>(
@@ -263,18 +303,18 @@ export function PurchasingCenterDashboardView({
       },
       {
         id: "volume",
-        header: "Volume (g)",
+        header: `Volume (${unitSymbol})`,
         cell: ({ row }) => {
-          const totalVol = period?.total_canonical_quantity || 1;
-          const canonical = Number(row.original.canonical_quantity ?? 0);
+          const totalVol = (period?.total_canonical_quantity || 1) / unitFactor;
+          const canonical = Number(row.original.canonical_quantity ?? 0) / unitFactor;
           const sharePct = ((canonical / totalVol) * 100).toFixed(1);
           return (
             <span className="font-mono font-bold text-amber-600 dark:text-amber-400 text-xs">
               {canonical.toLocaleString(undefined, {
-                minimumFractionDigits: 2,
-                maximumFractionDigits: 2,
+                minimumFractionDigits: unitFactor >= 1000 ? 3 : 2,
+                maximumFractionDigits: unitFactor >= 1000 ? 4 : 3,
               })}{" "}
-              g <span className="text-[10px] text-muted-foreground font-normal">({sharePct}%)</span>
+              {unitSymbol} <span className="text-[10px] text-muted-foreground font-normal">({sharePct}%)</span>
             </span>
           );
         },
@@ -292,7 +332,7 @@ export function PurchasingCenterDashboardView({
         },
       },
     ],
-    [period]
+    [period, unitFactor, unitSymbol]
   );
 
   const recentPurchaseColumns = useMemo<ColumnDef<any>[]>(
@@ -548,9 +588,9 @@ export function PurchasingCenterDashboardView({
             accent="primary"
           />
           <KpiCard
-            title="Today's Gold Quantity"
-            value={`${(today?.canonical_quantity || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 4 })} g`}
-            subtitle="Canonical weight (grams base)"
+            title={`Today's Gold Quantity (${unitSymbol})`}
+            value={`${formatUnitVolume(today?.canonical_quantity || 0, currentUnit)} ${unitSymbol}`}
+            subtitle={`Canonical weight in ${unitName}`}
             icon={Scale}
             accent="success"
           />
@@ -581,6 +621,18 @@ export function PurchasingCenterDashboardView({
         </div>
       </div>
 
+      {/* ----------------- MULTI-UNIT REPORTING & CONVERSION MATRIX ----------------- */}
+      <GoldUnitReportingMatrix
+        canonicalGramsPeriod={period?.total_canonical_quantity || today?.canonical_quantity || 0}
+        canonicalGramsAllTime={period?.total_canonical_quantity || 0}
+        configuredUnits={configuredUnits}
+        unitBreakdown={period?.unit_breakdown || []}
+        selectedUnitCode={selectedUnitCode}
+        onSelectUnit={setSelectedUnitCode}
+        periodLabel={timeRange === "today" ? "Today" : `${timeRange} Scope`}
+        showCardsGrid={selectedUnitCode === "all"}
+      />
+
       {/* ----------------- CUMULATIVE PERIOD SUMMARY & TIME RANGE FILTER ----------------- */}
       <div className="space-y-4">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
@@ -589,31 +641,57 @@ export function PurchasingCenterDashboardView({
             description="Total gold volume acquired, canonical weight rollups, and supplier sourcing analytics"
           />
 
-          {/* Time Range Selector */}
-          <div className="flex items-center gap-1.5 bg-card p-1 rounded-2xl border border-border shadow-xs self-start sm:self-auto">
-            <span className="text-xs text-muted-foreground px-2 flex items-center gap-1">
-              <Filter className="h-3 w-3" /> Range:
-            </span>
-            {[
-              { id: "today", label: "Today" },
-              { id: "7d", label: "7 Days" },
-              { id: "30d", label: "30 Days" },
-              { id: "90d", label: "Quarter" },
-              { id: "all", label: "All Time" },
-            ].map((r) => (
-              <button
-                key={r.id}
-                type="button"
-                onClick={() => setTimeRange(r.id)}
-                className={`px-3 py-1 rounded-xl text-xs font-semibold transition-all ${
-                  timeRange === r.id
-                    ? "bg-primary text-primary-foreground shadow-xs"
-                    : "text-muted-foreground hover:bg-muted/70 hover:text-foreground"
-                }`}
-              >
-                {r.label}
-              </button>
-            ))}
+          <div className="flex items-center gap-2 flex-wrap self-start sm:self-auto">
+            {/* Unit Selector */}
+            <div className="flex items-center gap-1.5 bg-card p-1 rounded-2xl border border-border shadow-xs">
+              <span className="text-xs text-muted-foreground px-2 flex items-center gap-1">
+                <Scale className="h-3 w-3 text-amber-500" /> Unit:
+              </span>
+              <Select value={selectedUnitCode} onValueChange={setSelectedUnitCode}>
+                <SelectTrigger className="h-7 border-none p-0 text-xs shadow-none focus:ring-0 focus-visible:ring-0 w-[130px] font-semibold">
+                  <SelectValue placeholder="Unit" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="GRAM">Gram (g)</SelectItem>
+                  <SelectItem value="KG">Kilogram (kg)</SelectItem>
+                  {configuredUnits
+                    .filter((u) => u.code.toUpperCase() !== "GRAM" && u.code.toUpperCase() !== "KG")
+                    .map((u) => (
+                      <SelectItem key={u.code} value={u.code.toUpperCase()}>
+                        {u.name} ({u.symbol})
+                      </SelectItem>
+                    ))}
+                  <SelectItem value="all">All Configured Units</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* Time Range Selector */}
+            <div className="flex items-center gap-1.5 bg-card p-1 rounded-2xl border border-border shadow-xs">
+              <span className="text-xs text-muted-foreground px-2 flex items-center gap-1">
+                <Filter className="h-3 w-3" /> Range:
+              </span>
+              {[
+                { id: "today", label: "Today" },
+                { id: "7d", label: "7 Days" },
+                { id: "30d", label: "30 Days" },
+                { id: "90d", label: "Quarter" },
+                { id: "all", label: "All Time" },
+              ].map((r) => (
+                <button
+                  key={r.id}
+                  type="button"
+                  onClick={() => setTimeRange(r.id)}
+                  className={`px-3 py-1 rounded-xl text-xs font-semibold transition-all ${
+                    timeRange === r.id
+                      ? "bg-primary text-primary-foreground shadow-xs"
+                      : "text-muted-foreground hover:bg-muted/70 hover:text-foreground"
+                  }`}
+                >
+                  {r.label}
+                </button>
+              ))}
+            </div>
           </div>
         </div>
 
@@ -626,9 +704,9 @@ export function PurchasingCenterDashboardView({
             accent="primary"
           />
           <KpiCard
-            title="Total Canonical Gold"
-            value={`${(period?.total_canonical_quantity || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 4 })} g`}
-            subtitle="Aggregated standard metric weight"
+            title={`Total Canonical Gold (${unitSymbol})`}
+            value={`${formatUnitVolume(period?.total_canonical_quantity || 0, currentUnit)} ${unitSymbol}`}
+            subtitle={`Aggregated volume in ${unitName}`}
             icon={Scale}
             accent="success"
           />
@@ -667,7 +745,7 @@ export function PurchasingCenterDashboardView({
                   Gold Intake Trajectory & Payout Curve
                 </h3>
                 <p className="text-xs text-muted-foreground">
-                  Daily canonical intake (grams) and capital disbursement (ETB) over time
+                  Daily canonical intake ({unitSymbol}) and capital disbursement (ETB) over time
                 </p>
               </div>
               <Badge variant="outline" className="text-xs font-mono">
@@ -701,7 +779,7 @@ export function PurchasingCenterDashboardView({
                       tick={{ fontSize: 11 }}
                       stroke="#f59e0b"
                       tickLine={false}
-                      tickFormatter={(val) => `${val}g`}
+                      tickFormatter={(val) => `${val}${unitSymbol}`}
                     />
                     <YAxis
                       yAxisId="right"
@@ -718,7 +796,7 @@ export function PurchasingCenterDashboardView({
                             <div className="p-3 bg-popover/95 backdrop-blur-sm border border-border shadow-lg rounded-2xl text-xs space-y-1">
                               <p className="font-bold text-foreground">{label}</p>
                               <p className="text-amber-600 dark:text-amber-400 font-mono">
-                                Volume: {Number(payload[0]?.value).toLocaleString()} grams
+                                Volume: {Number(payload[0]?.value).toLocaleString()} {unitSymbol}
                               </p>
                               {payload[1] && (
                                 <p className="text-emerald-600 dark:text-emerald-400 font-mono">
@@ -736,7 +814,7 @@ export function PurchasingCenterDashboardView({
                       yAxisId="left"
                       type="monotone"
                       dataKey="volume"
-                      name="Intake (grams)"
+                      name={`Intake (${unitSymbol})`}
                       stroke="#f59e0b"
                       strokeWidth={2.5}
                       fillOpacity={1}
@@ -801,7 +879,7 @@ export function PurchasingCenterDashboardView({
                             <div className="p-2.5 bg-popover/95 border border-border shadow-md rounded-xl text-xs">
                               <p className="font-bold text-foreground">{data.name}</p>
                               <p className="font-mono text-muted-foreground">
-                                {data.value.toLocaleString()} g ({pct}%)
+                                {data.value.toLocaleString()} {unitSymbol} ({pct}%)
                               </p>
                             </div>
                           );
@@ -822,7 +900,7 @@ export function PurchasingCenterDashboardView({
                   <div className="w-3 h-3 rounded-full" style={{ backgroundColor: item.color }} />
                   <div>
                     <p className="text-[11px] font-medium text-foreground">{item.name}</p>
-                    <p className="text-[11px] font-mono text-muted-foreground">{item.value.toLocaleString()} g</p>
+                    <p className="text-[11px] font-mono text-muted-foreground">{item.value.toLocaleString()} {unitSymbol}</p>
                   </div>
                 </div>
               ))}
@@ -841,7 +919,7 @@ export function PurchasingCenterDashboardView({
                   Karat Purity Composition
                 </h3>
                 <p className="text-xs text-muted-foreground">
-                  Gold weight canonical volume split by karat standard
+                  Gold weight canonical volume split by karat standard ({unitSymbol})
                 </p>
               </div>
               <Badge variant="outline" className="text-xs font-mono">
@@ -876,7 +954,7 @@ export function PurchasingCenterDashboardView({
                             <div className="p-2.5 bg-popover/95 border border-border shadow-md rounded-xl text-xs space-y-0.5">
                               <p className="font-bold text-foreground">{data.name}</p>
                               <p className="font-mono text-amber-600 dark:text-amber-400">
-                                {data.value.toLocaleString()} grams ({pct}%)
+                                {data.value.toLocaleString()} {unitSymbol} ({pct}%)
                               </p>
                               <p className="text-[10px] text-muted-foreground">{data.count} purchases</p>
                             </div>
@@ -896,7 +974,7 @@ export function PurchasingCenterDashboardView({
               {karatChartData.map((k) => (
                 <Badge key={k.name} variant="outline" className="text-xs gap-1.5 py-1 px-2.5">
                   <div className="w-2 h-2 rounded-full" style={{ backgroundColor: k.color }} />
-                  <span>{k.name}: <strong>{k.value.toLocaleString()}g</strong></span>
+                  <span>{k.name}: <strong>{k.value.toLocaleString()}{unitSymbol}</strong></span>
                 </Badge>
               ))}
             </div>
@@ -911,7 +989,7 @@ export function PurchasingCenterDashboardView({
                   Quality Grade Certified Volume
                 </h3>
                 <p className="text-xs text-muted-foreground">
-                  Intake volume (grams) categorized by export, commercial, and artisanal grade
+                  Intake volume ({unitSymbol}) categorized by export, commercial, and artisanal grade
                 </p>
               </div>
               <Badge variant="outline" className="text-xs font-mono">
@@ -925,7 +1003,7 @@ export function PurchasingCenterDashboardView({
                   <BarChart data={qualityChartData} margin={{ top: 10, right: 10, left: -10, bottom: 0 }}>
                     <CartesianGrid strokeDasharray="3 3" opacity={0.15} />
                     <XAxis dataKey="name" tick={{ fontSize: 11 }} stroke="#888888" tickLine={false} />
-                    <YAxis tick={{ fontSize: 11 }} stroke="#888888" tickLine={false} tickFormatter={(val) => `${val}g`} />
+                    <YAxis tick={{ fontSize: 11 }} stroke="#888888" tickLine={false} tickFormatter={(val) => `${val}${unitSymbol}`} />
                     <RechartsTooltip
                       content={({ active, payload, label }) => {
                         if (active && payload && payload.length) {
@@ -934,7 +1012,7 @@ export function PurchasingCenterDashboardView({
                             <div className="p-2.5 bg-popover/95 border border-border shadow-md rounded-xl text-xs space-y-0.5">
                               <p className="font-bold text-foreground">{label}</p>
                               <p className="font-mono text-emerald-600 dark:text-emerald-400">
-                                {Number(data.value).toLocaleString()} grams
+                                {Number(data.value).toLocaleString()} {unitSymbol}
                               </p>
                               <p className="text-[10px] text-muted-foreground">{data.count} purchases</p>
                             </div>
@@ -943,7 +1021,7 @@ export function PurchasingCenterDashboardView({
                         return null;
                       }}
                     />
-                    <Bar dataKey="value" name="Volume (g)" radius={[6, 6, 0, 0]}>
+                    <Bar dataKey="value" name={`Volume (${unitSymbol})`} radius={[6, 6, 0, 0]}>
                       {qualityChartData.map((entry, index) => (
                         <Cell key={`bar-${index}`} fill={entry.color} />
                       ))}

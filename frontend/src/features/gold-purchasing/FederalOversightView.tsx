@@ -47,11 +47,19 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { useGetFederalGoldOversightQuery } from "@/redux/api/goldApi";
+import {
+  useGetFederalGoldOversightQuery,
+  useGetGoldUnitsQuery,
+} from "@/redux/api/goldApi";
 import { useGetPurchasingCentersQuery } from "@/redux/api/purchasingCenterApi";
 import Loading01 from "@/features/template/component/Loading/Loading01";
 import { KpiCard } from "@/features/plan-management/dashboard/components/KpiCard";
 import { AnalyticsPanel } from "@/features/plan-management/dashboard/components/AnalyticsPanel";
+import {
+  GoldUnitReportingMatrix,
+  resolveConfiguredUnits,
+  formatUnitVolume,
+} from "./GoldUnitReportingMatrix";
 
 /** Business dates are in Addis Ababa time (YYYY-MM-DD). */
 function addisDate(offsetDays = 0): string {
@@ -83,11 +91,13 @@ export function FederalOversightView() {
   const [dateFrom, setDateFrom] = useState(() => addisDate());
   const [dateTo, setDateTo] = useState(() => addisDate());
   const [selectedCenterId, setSelectedCenterId] = useState<string>("all");
+  const [selectedUnitCode, setSelectedUnitCode] = useState<string>("GRAM");
   const [activeMetric, setActiveMetric] = useState<"volume" | "amount" | "purchases" | "avg_ticket">("volume");
   const [sourcingMode, setSourcingMode] = useState<"period" | "all_time">("period");
   const [overviewDisplayMode, setOverviewDisplayMode] = useState<"period" | "cumulative">("period");
 
   const { data: allCenters = [] } = useGetPurchasingCentersQuery();
+  const { data: dbUnits = [] } = useGetGoldUnitsQuery();
 
   const { data, isLoading, isFetching, refetch } = useGetFederalGoldOversightQuery({
     date_from: dateFrom || undefined,
@@ -99,6 +109,25 @@ export function FederalOversightView() {
     () => allCenters.find((c) => c.purchasing_center_id === selectedCenterId),
     [allCenters, selectedCenterId]
   );
+
+  const configuredUnits = useMemo(
+    () => resolveConfiguredUnits(data?.configured_units || dbUnits),
+    [data?.configured_units, dbUnits]
+  );
+
+  const currentUnit = useMemo(() => {
+    if (selectedUnitCode === "all") {
+      return configuredUnits.find((u) => u.is_canonical_base) || configuredUnits[0];
+    }
+    return (
+      configuredUnits.find((u) => u.code.toUpperCase() === selectedUnitCode.toUpperCase()) ||
+      configuredUnits[0]
+    );
+  }, [configuredUnits, selectedUnitCode]);
+
+  const unitFactor = currentUnit?.conversion_factor || 1.0;
+  const unitSymbol = currentUnit?.symbol || "g";
+  const unitName = currentUnit?.name || "Gram";
 
   const overview = data?.overview;
   const today = data?.today;
@@ -122,13 +151,15 @@ export function FederalOversightView() {
     setDateTo(to);
   };
 
-  // Recharts Center Comparison Data
+  // Recharts Center Comparison Data (converted to active reporting unit)
   const centerChartData = useMemo(() => {
     return centers.map((c) => {
-      const volume = parseFloat(parseFloat(String(c.today_quantity_canonical || 0)).toFixed(2));
+      const canonicalGrams = parseFloat(String(c.today_quantity_canonical || 0));
+      const volume = parseFloat((canonicalGrams / unitFactor).toFixed(unitFactor >= 1000 ? 3 : 2));
       const amount = parseFloat(parseFloat(String(c.today_amount || 0)).toFixed(2));
       const purchases = c.today_purchases || 0;
-      const avg_ticket = purchases > 0 ? parseFloat((volume / purchases).toFixed(2)) : 0;
+      const avg_ticket = purchases > 0 ? parseFloat((volume / purchases).toFixed(unitFactor >= 1000 ? 3 : 2)) : 0;
+      const totalVolume = parseFloat((parseFloat(String(c.total_quantity_canonical || 0)) / unitFactor).toFixed(unitFactor >= 1000 ? 3 : 2));
       return {
         name: c.name,
         code: c.code,
@@ -136,10 +167,10 @@ export function FederalOversightView() {
         amount,
         purchases,
         avg_ticket,
-        totalVolume: parseFloat(parseFloat(String(c.total_quantity_canonical || 0)).toFixed(2)),
+        totalVolume,
       };
     });
-  }, [centers]);
+  }, [centers, unitFactor]);
 
   // Sourcing Distribution Donut Data (supports Period vs All-Time mode)
   const sourcingChartData = useMemo(() => {
@@ -168,23 +199,24 @@ export function FederalOversightView() {
     ];
   }, [sourcingMode, periodSellerDistribution, sellerDistribution]);
 
-  // Statistical calculations
+  // Statistical calculations (respects active reporting unit)
   const statisticalMetrics = useMemo(() => {
     const totalGrams = parseFloat(String(today?.canonical_quantity || 0));
     const totalAmount = parseFloat(String(today?.amount || 0));
     const totalPurchases = today?.purchases_count || 0;
     const days = Math.max(today?.days || 1, 1);
 
-    const avgTransactionWeight = totalPurchases > 0 ? (totalGrams / totalPurchases) : 0;
+    const convertedTotalVolume = totalGrams / unitFactor;
+    const avgTransactionWeight = totalPurchases > 0 ? (convertedTotalVolume / totalPurchases) : 0;
     const avgTransactionValue = totalPurchases > 0 ? (totalAmount / totalPurchases) : 0;
-    const effectivePricePerGram = totalGrams > 0 ? (totalAmount / totalGrams) : 0;
-    const dailyVolumePace = totalGrams / days;
+    const effectivePricePerUnit = convertedTotalVolume > 0 ? (totalAmount / convertedTotalVolume) : 0;
+    const dailyVolumePace = convertedTotalVolume / days;
 
     // Top Center by Volume
     const sortedCenters = [...centers].sort((a, b) => (b.today_quantity_canonical || 0) - (a.today_quantity_canonical || 0));
     const topCenter = sortedCenters[0] || null;
-    const topCenterVolume = parseFloat(String(topCenter?.today_quantity_canonical || 0));
-    const topCenterShare = totalGrams > 0 ? ((topCenterVolume / totalGrams) * 100).toFixed(1) : "0";
+    const topCenterVolume = parseFloat(String(topCenter?.today_quantity_canonical || 0)) / unitFactor;
+    const topCenterShare = totalGrams > 0 ? (((topCenterVolume * unitFactor) / totalGrams) * 100).toFixed(1) : "0";
 
     // ASM Share in current distribution
     const dist = sourcingMode === "period" && periodSellerDistribution
@@ -198,19 +230,21 @@ export function FederalOversightView() {
     // Active centers reporting purchases in period
     const activeReportingCenters = centers.filter((c) => (c.today_purchases || 0) > 0).length;
 
+    const volumeDecimals = unitFactor >= 1000 ? 3 : 2;
+
     return {
-      avgTransactionWeight: avgTransactionWeight.toFixed(2),
+      avgTransactionWeight: avgTransactionWeight.toFixed(volumeDecimals),
       avgTransactionValue: avgTransactionValue.toLocaleString(undefined, { maximumFractionDigits: 0 }),
-      effectivePricePerGram: effectivePricePerGram.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }),
-      dailyVolumePace: dailyVolumePace.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }),
+      effectivePricePerUnit: effectivePricePerUnit.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }),
+      dailyVolumePace: dailyVolumePace.toLocaleString(undefined, { minimumFractionDigits: volumeDecimals, maximumFractionDigits: volumeDecimals + 1 }),
       topCenterName: topCenter ? topCenter.name : "N/A",
-      topCenterVolume: topCenterVolume.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }),
+      topCenterVolume: topCenterVolume.toLocaleString(undefined, { minimumFractionDigits: volumeDecimals, maximumFractionDigits: volumeDecimals + 1 }),
       topCenterShare,
       asmSharePct,
       activeReportingCenters,
       totalCenters: centers.length,
     };
-  }, [today, centers, sourcingMode, periodSellerDistribution, sellerDistribution]);
+  }, [today, centers, sourcingMode, periodSellerDistribution, sellerDistribution, unitFactor]);
 
   return (
     <div className="space-y-6">
@@ -250,6 +284,28 @@ export function FederalOversightView() {
                     {c.name} ({c.code})
                   </SelectItem>
                 ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          {/* Unit Filter Selector */}
+          <div className="flex items-center gap-1.5 bg-card border border-border rounded-xl px-2.5 py-1 shadow-xs">
+            <Scale className="h-4 w-4 text-amber-500 shrink-0" />
+            <Select value={selectedUnitCode} onValueChange={setSelectedUnitCode}>
+              <SelectTrigger className="h-8 border-none p-0 text-xs shadow-none focus:ring-0 focus-visible:ring-0 w-[140px] sm:w-[160px]">
+                <SelectValue placeholder="Unit: Gram (g)" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="GRAM">Gram (g)</SelectItem>
+                <SelectItem value="KG">Kilogram (kg)</SelectItem>
+                {configuredUnits
+                  .filter((u) => u.code.toUpperCase() !== "GRAM" && u.code.toUpperCase() !== "KG")
+                  .map((u) => (
+                    <SelectItem key={u.code} value={u.code.toUpperCase()}>
+                      {u.name} ({u.symbol})
+                    </SelectItem>
+                  ))}
+                <SelectItem value="all">All Configured Units</SelectItem>
               </SelectContent>
             </Select>
           </div>
@@ -308,6 +364,18 @@ export function FederalOversightView() {
         </div>
       </div>
 
+      {/* ----------------- MULTI-UNIT REPORTING & CONVERSION MATRIX ----------------- */}
+      <GoldUnitReportingMatrix
+        canonicalGramsPeriod={today?.canonical_quantity || 0}
+        canonicalGramsAllTime={overview?.total_quantity_canonical || 0}
+        configuredUnits={configuredUnits}
+        unitBreakdown={data?.unit_breakdown || []}
+        selectedUnitCode={selectedUnitCode}
+        onSelectUnit={setSelectedUnitCode}
+        periodLabel={periodLabel}
+        showCardsGrid={selectedUnitCode === "all"}
+      />
+
       {/* ----------------- TODAY'S NATIONAL PERFORMANCE ----------------- */}
       <div className="space-y-4">
         <h3 className="text-base font-bold text-foreground">
@@ -325,8 +393,8 @@ export function FederalOversightView() {
           />
           <KpiCard
             title={`${periodPrefix} Canonical Volume`}
-            value={`${(today?.canonical_quantity || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 4 })} g`}
-            subtitle="Standardized metric gold weight"
+            value={`${formatUnitVolume(today?.canonical_quantity || 0, currentUnit)} ${unitSymbol}`}
+            subtitle={`Standardized weight in ${unitName}`}
             icon={Scale}
             accent="success"
           />
@@ -365,7 +433,7 @@ export function FederalOversightView() {
               Avg Transaction Size
             </span>
             <p className="text-xl font-bold font-mono text-amber-600 dark:text-amber-400">
-              {statisticalMetrics.avgTransactionWeight} g
+              {statisticalMetrics.avgTransactionWeight} {unitSymbol}
             </p>
             <p className="text-[10px] text-muted-foreground">Per individual purchase</p>
           </div>
@@ -382,10 +450,10 @@ export function FederalOversightView() {
 
           <div className="p-4 rounded-2xl bg-card border border-border space-y-1">
             <span className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">
-              Effective Price / Gram
+              Effective Price / {unitSymbol}
             </span>
             <p className="text-xl font-bold font-mono text-foreground">
-              {statisticalMetrics.effectivePricePerGram} ETB
+              {statisticalMetrics.effectivePricePerUnit} ETB
             </p>
             <p className="text-[10px] text-muted-foreground">Weighted average rate</p>
           </div>
@@ -395,7 +463,7 @@ export function FederalOversightView() {
               Top Outpost Volume
             </span>
             <p className="text-xl font-bold font-mono text-sky-600 dark:text-sky-400">
-              {statisticalMetrics.topCenterVolume} g
+              {statisticalMetrics.topCenterVolume} {unitSymbol}
             </p>
             <p className="text-[10px] text-muted-foreground truncate">
               {statisticalMetrics.topCenterName} ({statisticalMetrics.topCenterShare}% share)
@@ -422,10 +490,10 @@ export function FederalOversightView() {
               <div className="flex items-center gap-1 bg-muted/50 p-1 rounded-xl border border-border shrink-0 flex-wrap">
                 {(
                   [
-                    { key: "volume", label: "Canonical Gold (g)" },
+                    { key: "volume", label: `Canonical Gold (${unitSymbol})` },
                     { key: "amount", label: "Payout (ETB)" },
                     { key: "purchases", label: "Transactions (#)" },
-                    { key: "avg_ticket", label: "Avg Ticket (g)" },
+                    { key: "avg_ticket", label: `Avg Ticket (${unitSymbol})` },
                   ] as const
                 ).map((m) => (
                   <button
@@ -467,7 +535,7 @@ export function FederalOversightView() {
                           return val >= 1_000_000 ? `${(val / 1_000_000).toFixed(1)}M` : val >= 1000 ? `${(val / 1000).toFixed(0)}k` : `${val}`;
                         }
                         if (activeMetric === "volume" || activeMetric === "avg_ticket") {
-                          return `${val}g`;
+                          return `${val}${unitSymbol}`;
                         }
                         return `${val}`;
                       }}
@@ -483,7 +551,7 @@ export function FederalOversightView() {
                               </p>
                               <div className="space-y-1">
                                 <p className={`font-mono font-bold ${activeMetric === "volume" ? "text-amber-600 dark:text-amber-400" : "text-muted-foreground"}`}>
-                                  • Volume: {item.volume.toLocaleString()} grams
+                                  • Volume: {item.volume.toLocaleString()} {unitSymbol}
                                 </p>
                                 <p className={`font-mono font-bold ${activeMetric === "amount" ? "text-emerald-600 dark:text-emerald-400" : "text-muted-foreground"}`}>
                                   • Payout: {item.amount.toLocaleString()} ETB
@@ -492,7 +560,7 @@ export function FederalOversightView() {
                                   • Transactions: {item.purchases}
                                 </p>
                                 <p className={`font-mono font-bold ${activeMetric === "avg_ticket" ? "text-purple-600 dark:text-purple-400" : "text-muted-foreground"}`}>
-                                  • Avg Ticket: {item.avg_ticket} g / txn
+                                  • Avg Ticket: {item.avg_ticket} {unitSymbol} / txn
                                 </p>
                               </div>
                             </div>
@@ -693,23 +761,23 @@ export function FederalOversightView() {
               accent="primary"
             />
             <KpiCard
-              title="Period Canonical Gold"
-              value={`${(today?.canonical_quantity || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 4 })} g`}
-              subtitle={`Daily pace: ~${statisticalMetrics.dailyVolumePace} g/day`}
+              title={`Period Canonical Gold (${unitSymbol})`}
+              value={`${formatUnitVolume(today?.canonical_quantity || 0, currentUnit)} ${unitSymbol}`}
+              subtitle={`Daily pace: ~${statisticalMetrics.dailyVolumePace} ${unitSymbol}/day`}
               icon={Scale}
               accent="success"
             />
             <KpiCard
               title="Period Capital Disbursed"
               value={`${(today?.amount || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ETB`}
-              subtitle={`Effective rate: ${statisticalMetrics.effectivePricePerGram} ETB/g`}
+              subtitle={`Effective rate: ${statisticalMetrics.effectivePricePerUnit} ETB/${unitSymbol}`}
               icon={DollarSign}
               accent="warning"
             />
             <KpiCard
               title="Period Transactions"
               value={`${today?.purchases_count?.toLocaleString() || "0"}`}
-              subtitle={`Mean size: ${statisticalMetrics.avgTransactionWeight} g / purchase`}
+              subtitle={`Mean size: ${statisticalMetrics.avgTransactionWeight} ${unitSymbol} / purchase`}
               icon={Coins}
               accent="info"
             />
@@ -724,9 +792,9 @@ export function FederalOversightView() {
               accent="primary"
             />
             <KpiCard
-              title="Total Gold Acquired"
-              value={`${(overview?.total_quantity_canonical || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 4 })} g`}
-              subtitle="All-time canonical volume"
+              title={`Total Gold Acquired (${unitSymbol})`}
+              value={`${formatUnitVolume(overview?.total_quantity_canonical || 0, currentUnit)} ${unitSymbol}`}
+              subtitle={`All-time canonical volume in ${unitName}`}
               icon={Scale}
               accent="success"
             />

@@ -270,6 +270,14 @@ export interface PurchasingCenterDashboardData {
     is_active: boolean;
   };
   time_range?: string;
+  configured_units?: Array<{
+    unit_id?: string;
+    name: string;
+    code: string;
+    symbol: string;
+    conversion_factor: number;
+    is_canonical_base?: boolean;
+  }>;
   today: {
     business_date: string;
     purchases_count: number;
@@ -383,6 +391,15 @@ export interface FederalOversightDashboardData {
     asm: { count: number; canonical_quantity: number; amount: number };
   };
   centers: CenterOversightSummary[];
+  unit_breakdown?: UnitBreakdownItem[];
+  configured_units?: Array<{
+    unit_id?: string;
+    name: string;
+    code: string;
+    symbol: string;
+    conversion_factor: number;
+    is_canonical_base?: boolean;
+  }>;
   recent_purchases: GoldPurchase[];
 }
 
