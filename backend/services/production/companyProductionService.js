@@ -1195,7 +1195,6 @@ async function calculateProductionPerformance({
   for (const r of reports) {
     if (r.status === "superseded" || r.status === "rejected") continue;
     if (r.parent_report_id && r.status !== "approved") continue; // Exclude pending revisions from calculation
-    if (assignment.requires_review && r.status !== "approved") continue;
     totalActualBase += Number(r.normalized_quantity || 0);
   }
   totalActualBase = roundDecimal(totalActualBase, 4);
@@ -2971,7 +2970,7 @@ async function getProductionDetail(assignmentId, companyScope = null) {
       { model: User, as: "submitter", attributes: ["full_name", "email"] },
     ],
     order: [["report_date", "DESC"]],
-    limit: 20,
+    limit: 100,
   });
 
   // Fetch all amendments for this assignment

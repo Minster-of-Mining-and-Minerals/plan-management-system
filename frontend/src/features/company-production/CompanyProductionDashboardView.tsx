@@ -32,6 +32,7 @@ import {
   ShieldAlert,
   SlidersHorizontal,
   Award,
+  Lock,
 } from "lucide-react";
 
 import {
@@ -1322,6 +1323,7 @@ export function CompanyProductionDashboardView({
                     key={itemPerf.assignment.assignment_id}
                     companyId={companyId}
                     itemPerf={itemPerf}
+                    recentReports={recentReports}
                   />
                 ))
               )}
@@ -1361,9 +1363,11 @@ export function CompanyProductionDashboardView({
 function AssignmentCommitmentCard({
   companyId,
   itemPerf,
+  recentReports = [],
 }: {
   companyId: string;
   itemPerf: any;
+  recentReports?: any[];
 }) {
   const { assignment, performance: initialPerformance } = itemPerf;
   const [selectedPeriodLabel, setSelectedPeriodLabel] =
@@ -1713,6 +1717,22 @@ function AssignmentCommitmentCard({
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
             {childTargets.map((ct: CompanyProductionTarget) => {
               const isActive = selectedPeriodLabel === ct.period_label;
+
+              // Find matching reports for this sub-period
+              const matchingReports = (recentReports || []).filter((r: any) => {
+                if (r.assignment_id && r.assignment_id !== assignment.assignment_id) return false;
+                if (r.status === "superseded" || r.status === "rejected") return false;
+                if (r.period_label && ct.period_label && r.period_label === ct.period_label) return true;
+                if (r.report_date && ct.period_start_date && ct.period_end_date) {
+                  return r.report_date >= ct.period_start_date && r.report_date <= ct.period_end_date;
+                }
+                return false;
+              });
+              const reportedQty = matchingReports.reduce((sum: number, r: any) => sum + (Number(r.quantity_reported) || 0), 0);
+              const targetQty = Number(ct.target_quantity || 0);
+              const achRate = targetQty > 0 && reportedQty > 0 ? Math.round((reportedQty / targetQty) * 1000) / 10 : (reportedQty > 0 ? 100 : 0);
+              const hasReport = matchingReports.length > 0;
+
               return (
                 <button
                   type="button"
@@ -1732,20 +1752,43 @@ function AssignmentCommitmentCard({
                     <span className="font-bold text-sm text-foreground">
                       {ct.period_label}
                     </span>
-                    <Badge
-                      variant={isActive ? "default" : "outline"}
-                      className={`text-[10px] ${
-                        isActive ? "bg-amber-600 text-white" : ""
-                      }`}
-                    >
-                      {isActive ? "Active View" : ct.target_period_type}
-                    </Badge>
+                    <div className="flex items-center gap-1.5">
+                      {hasReport && (
+                        <Badge className="bg-emerald-600 text-white text-[9px] px-1 py-0 h-4 gap-0.5">
+                          <Lock className="h-2 w-2" /> Locked
+                        </Badge>
+                      )}
+                      <Badge
+                        variant={isActive ? "default" : "outline"}
+                        className={`text-[10px] ${
+                          isActive ? "bg-amber-600 text-white" : ""
+                        }`}
+                      >
+                        {isActive ? "Active View" : ct.target_period_type}
+                      </Badge>
+                    </div>
                   </div>
-                  <div className="text-sm font-semibold text-primary font-mono">
-                    {Number(ct.target_quantity).toLocaleString()} {unitSymbol}
+                  <div className="flex items-baseline justify-between gap-1">
+                    <div className="text-xs font-semibold text-primary font-mono truncate">
+                      Target: {targetQty.toLocaleString()} {unitSymbol}
+                    </div>
                   </div>
-                  <div className="text-[11px] text-muted-foreground">
-                    {ct.period_start_date} &rarr; {ct.period_end_date}
+                  {hasReport ? (
+                    <div className="text-xs font-mono font-bold text-emerald-600 dark:text-emerald-400">
+                      Actual: {reportedQty.toLocaleString()} {unitSymbol} ({achRate}%)
+                    </div>
+                  ) : (
+                    <div className="text-[11px] text-muted-foreground italic">
+                      Actual: Not reported
+                    </div>
+                  )}
+                  <div className="text-[11px] text-muted-foreground flex items-center justify-between pt-0.5">
+                    <span>{ct.period_start_date} &rarr; {ct.period_end_date}</span>
+                    {hasReport ? (
+                      <span className="text-[10px] text-emerald-600 font-semibold">Reported</span>
+                    ) : (
+                      <span className="text-[10px] text-muted-foreground italic">Pending</span>
+                    )}
                   </div>
                 </button>
               );

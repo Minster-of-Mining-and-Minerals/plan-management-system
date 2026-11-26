@@ -1195,6 +1195,9 @@ export function CompanyProductionDetailView({
                             <th className="py-2.5 px-4">Classification</th>
                             <th className="py-2.5 px-4">Validity Date Range</th>
                             <th className="py-2.5 px-4 text-right">Approved Target ({unitSymbol})</th>
+                            <th className="py-2.5 px-4 text-right">Reported Actual ({unitSymbol})</th>
+                            <th className="py-2.5 px-4 text-center">Achievement</th>
+                            <th className="py-2.5 px-4 text-center">Status</th>
                             <th className="py-2.5 px-4 text-right">Department Allocations</th>
                           </tr>
                         </thead>
@@ -1203,11 +1206,33 @@ export function CompanyProductionDetailView({
                             const isExpanded = !!expandedDeptPeriods[p.period_label];
                             const deptAllocations = p.department_allocations || [];
 
+                            // Find matching reported data for this period
+                            const periodReportList = (detailBundle?.recentReports || []).filter((r: any) => {
+                              if (r.status === "superseded" || r.status === "rejected") return false;
+                              if (p.period_label && r.period_label && r.period_label === p.period_label) return true;
+                              if (r.report_date && p.period_start_date && p.period_end_date) {
+                                return r.report_date >= p.period_start_date && r.report_date <= p.period_end_date;
+                              }
+                              return false;
+                            });
+                            const reportedQty = periodReportList.reduce((sum: number, r: any) => sum + (Number(r.quantity_reported) || 0), 0);
+                            const targetQty = Number(p.target_quantity || 0);
+                            const achievementRate = targetQty > 0 && reportedQty > 0 ? Math.round((reportedQty / targetQty) * 1000) / 10 : (reportedQty > 0 ? 100 : 0);
+                            const hasReport = periodReportList.length > 0;
+                            const activeReport = periodReportList[0] || null;
+
                             return (
                               <React.Fragment key={p.period_label}>
                                 <tr className="hover:bg-muted/15 transition-colors">
                                   <td className="py-3 px-4 font-semibold text-foreground">
-                                    {p.period_label}
+                                    <div className="flex items-center gap-1.5">
+                                      <span>{p.period_label}</span>
+                                      {hasReport && (
+                                        <Badge variant="outline" className="text-[9px] px-1 py-0 h-3.5 border-emerald-300 text-emerald-700 dark:text-emerald-300 font-mono">
+                                          v{activeReport?.version_number || 1}
+                                        </Badge>
+                                      )}
+                                    </div>
                                   </td>
                                   <td className="py-3 px-4 capitalize font-mono text-muted-foreground">
                                     {p.target_period_type || targetDepth}
@@ -1216,7 +1241,45 @@ export function CompanyProductionDetailView({
                                     {p.period_start_date} &rarr; {p.period_end_date}
                                   </td>
                                   <td className="py-3 px-4 text-right font-mono font-bold text-foreground">
-                                    {Number(p.target_quantity || 0).toLocaleString()} {unitSymbol}
+                                    {targetQty.toLocaleString()} {unitSymbol}
+                                  </td>
+                                  <td className="py-3 px-4 text-right font-mono font-bold">
+                                    {hasReport ? (
+                                      <span className="text-emerald-700 dark:text-emerald-400">
+                                        {reportedQty.toLocaleString()} {unitSymbol}
+                                      </span>
+                                    ) : (
+                                      <span className="text-muted-foreground italic font-normal text-[11px]">Not reported</span>
+                                    )}
+                                  </td>
+                                  <td className="py-3 px-4 text-center">
+                                    {hasReport ? (
+                                      <Badge
+                                        variant="outline"
+                                        className={`font-mono text-xs ${
+                                          achievementRate >= 100
+                                            ? "bg-emerald-50 text-emerald-700 border-emerald-300 dark:bg-emerald-950 dark:text-emerald-300"
+                                            : achievementRate >= 70
+                                            ? "bg-blue-50 text-blue-700 border-blue-300"
+                                            : "bg-amber-50 text-amber-700 border-amber-300"
+                                        }`}
+                                      >
+                                        {achievementRate}%
+                                      </Badge>
+                                    ) : (
+                                      <span className="text-muted-foreground">—</span>
+                                    )}
+                                  </td>
+                                  <td className="py-3 px-4 text-center">
+                                    {hasReport ? (
+                                      <Badge className="bg-emerald-600 text-white text-[10px] font-semibold gap-1 shadow-2xs">
+                                        <Lock className="h-2.5 w-2.5" /> Reported & Locked
+                                      </Badge>
+                                    ) : (
+                                      <Badge variant="outline" className="text-slate-500 text-[10px]">
+                                        Pending
+                                      </Badge>
+                                    )}
                                   </td>
                                   <td className="py-3 px-4 text-right">
                                     {deptAllocations.length > 0 ? (
@@ -1242,7 +1305,7 @@ export function CompanyProductionDetailView({
 
                                 {isExpanded && deptAllocations.length > 0 && (
                                   <tr className="bg-muted/20 border-b">
-                                    <td colSpan={5} className="p-4 space-y-2">
+                                    <td colSpan={8} className="p-4 space-y-2">
                                       <div className="text-xs font-semibold text-foreground flex items-center gap-1.5">
                                         <Building2 className="h-4 w-4 text-primary" />
                                         <span>Department Allocations for {p.period_label}</span>

@@ -133,13 +133,22 @@ export function CompanyProductionReportingHierarchyView({
 
   const getStatusBadge = (
     classification: { status: ReportingPeriodClassification; isAccessible: boolean; reason?: string },
-    actualQuantity: number = 0
+    actualQuantity: number = 0,
+    hasReport: boolean = false,
+    hasPendingRevision: boolean = false
   ) => {
     const { status, isAccessible } = classification;
-    if (actualQuantity > 0 || status === "COMPLETED" || status === "SUBMITTED") {
+    if (hasPendingRevision) {
+      return (
+        <Badge className="bg-amber-600 text-white text-[10px] font-semibold gap-1 shadow-xs">
+          <Clock className="h-3 w-3 animate-pulse" /> Revision Pending (Locked)
+        </Badge>
+      );
+    }
+    if (hasReport || actualQuantity > 0 || status === "COMPLETED" || status === "SUBMITTED") {
       return (
         <Badge className="bg-emerald-600 text-white text-[10px] font-semibold gap-1 shadow-xs">
-          <CheckCircle2 className="h-3 w-3" /> Reported
+          <CheckCircle2 className="h-3 w-3" /> Reported (Locked)
         </Badge>
       );
     }
@@ -329,7 +338,7 @@ export function CompanyProductionReportingHierarchyView({
                       {isOpenNow && <span className="h-2 w-2 rounded-full bg-amber-500 animate-pulse" />}
                       {node.label}
                     </CardTitle>
-                    {getStatusBadge(node.classification, node.actualQuantity)}
+                    {getStatusBadge(node.classification, node.actualQuantity, node.hasReport, Boolean(node.pendingRevision))}
                   </div>
                   <div className="text-[11px] font-mono text-muted-foreground flex items-center gap-1.5">
                     <Calendar className="h-3 w-3 shrink-0 text-amber-600/80 dark:text-amber-400/80" />
@@ -499,7 +508,7 @@ export function CompanyProductionReportingHierarchyView({
                         className="w-full text-xs font-semibold gap-1.5 border-border hover:bg-muted text-foreground h-8.5"
                       >
                         <Eye className="h-3.5 w-3.5 text-primary" />
-                        Preview Reported Data
+                        Preview Reported Data (Locked)
                       </Button>
                     )
                   ) : !node.classification.isAccessible ? (

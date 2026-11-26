@@ -596,7 +596,6 @@ async function buildTargetAlignedReportingHierarchy({ assignmentId, year = null,
   for (const r of reports) {
     if (r.status === "superseded" || r.status === "rejected") continue;
     if (r.parent_report_id && r.status !== "approved") continue; // Exclude pending revisions from calculation
-    if (assignment.requires_review && r.status !== "approved") continue;
     annualActualTotal += Number(r.quantity_reported) || 0;
   }
 
@@ -706,14 +705,13 @@ async function buildTargetAlignedReportingHierarchy({ assignmentId, year = null,
     const effectivePeriodReports = periodReports.filter((r) => {
       if (r.status === "superseded" || r.status === "rejected") return false;
       if (r.parent_report_id && r.status !== "approved") return false;
-      if (assignment.requires_review && r.status !== "approved") return false;
       return true;
     });
 
     const pActualQty = effectivePeriodReports.reduce((sum, r) => sum + (Number(r.quantity_reported) || 0), 0);
     const pAchievement = p.targetQuantity > 0 ? (pActualQty / p.targetQuantity) * 100 : 0;
 
-    const pClassification = classifyPeriodRange({
+    let pClassification = classifyPeriodRange({
       startDate: p.startDate,
       endDate: p.endDate,
       todayStr,
@@ -730,12 +728,21 @@ async function buildTargetAlignedReportingHierarchy({ assignmentId, year = null,
       (targetDepth === "annual" && reportingFreq === "annual");
 
     const pActiveReport = periodReports
-      .filter((r) => r.status === "approved" || (!assignment.requires_review && !r.parent_report_id && r.status !== "rejected" && r.status !== "superseded"))
+      .filter((r) => !r.parent_report_id && r.status !== "rejected" && r.status !== "superseded")
       .sort((a, b) => (b.version_number || 1) - (a.version_number || 1))[0] || null;
 
     const pPendingRevision = periodReports
       .filter((r) => r.parent_report_id && (r.status === "submitted" || r.status === "pending_approval"))
       .sort((a, b) => (b.version_number || 1) - (a.version_number || 1))[0] || null;
+
+    const hasSubmittedReport = Boolean(pActiveReport || pPendingRevision);
+    if (hasSubmittedReport) {
+      pClassification = {
+        status: pActiveReport?.status === "approved" ? PERIOD_STATUS.COMPLETED : PERIOD_STATUS.SUBMITTED,
+        isAccessible: false,
+        reason: `Report already submitted for this period (${(pActiveReport || pPendingRevision).quantity_reported} ${unitSymbol}). Period locked.`,
+      };
+    }
 
     const pNode = {
       id: p.id,
@@ -779,7 +786,7 @@ async function buildTargetAlignedReportingHierarchy({ assignmentId, year = null,
         : null,
       hasReport: Boolean(pActiveReport || pPendingRevision),
       allowUpdate: Boolean(assignment.allow_report_updates),
-      canUpdate: Boolean(assignment.allow_report_updates) && !pPendingRevision && pClassification.isAccessible,
+      canUpdate: Boolean(assignment.allow_report_updates) && (reportingFreq === "monthly" || targetDepth === "monthly") && !pPendingRevision && hasSubmittedReport,
       canPreview: Boolean(pActiveReport || pPendingRevision),
       children: [],
     };
@@ -799,13 +806,20 @@ async function buildTargetAlignedReportingHierarchy({ assignmentId, year = null,
         const effectiveSmReports = smReports.filter((r) => {
           if (r.status === "superseded" || r.status === "rejected") return false;
           if (r.parent_report_id && r.status !== "approved") return false;
-          if (assignment.requires_review && r.status !== "approved") return false;
           return true;
         });
 
         const smActualQty = effectiveSmReports.reduce((sum, r) => sum + (Number(r.quantity_reported) || 0), 0);
 
-        const smClassification = classifyPeriodRange({
+        const smActiveReport = smReports
+          .filter((r) => !r.parent_report_id && r.status !== "rejected" && r.status !== "superseded")
+          .sort((a, b) => (b.version_number || 1) - (a.version_number || 1))[0] || null;
+
+        const smPendingRevision = smReports
+          .filter((r) => r.parent_report_id && (r.status === "submitted" || r.status === "pending_approval"))
+          .sort((a, b) => (b.version_number || 1) - (a.version_number || 1))[0] || null;
+
+        let smClassification = classifyPeriodRange({
           startDate: sm.period_start_date,
           endDate: sm.period_end_date,
           todayStr,
@@ -815,13 +829,14 @@ async function buildTargetAlignedReportingHierarchy({ assignmentId, year = null,
           approvedTarget: approvedRootTarget,
         });
 
-        const smActiveReport = smReports
-          .filter((r) => r.status === "approved" || (!assignment.requires_review && !r.parent_report_id && r.status !== "rejected" && r.status !== "superseded"))
-          .sort((a, b) => (b.version_number || 1) - (a.version_number || 1))[0] || null;
-
-        const smPendingRevision = smReports
-          .filter((r) => r.parent_report_id && (r.status === "submitted" || r.status === "pending_approval"))
-          .sort((a, b) => (b.version_number || 1) - (a.version_number || 1))[0] || null;
+        const smHasSubmittedReport = Boolean(smActiveReport || smPendingRevision);
+        if (smHasSubmittedReport) {
+          smClassification = {
+            status: smActiveReport?.status === "approved" ? PERIOD_STATUS.COMPLETED : PERIOD_STATUS.SUBMITTED,
+            isAccessible: false,
+            reason: `Report already submitted for this period (${(smActiveReport || smPendingRevision).quantity_reported} ${unitSymbol}). Period locked.`,
+          };
+        }
 
         pNode.children.push({
           id: `sub-${sm.period_start_date}-${sm.period_end_date}`,
@@ -864,7 +879,7 @@ async function buildTargetAlignedReportingHierarchy({ assignmentId, year = null,
             : null,
           hasReport: Boolean(smActiveReport || smPendingRevision),
           allowUpdate: Boolean(assignment.allow_report_updates),
-          canUpdate: Boolean(assignment.allow_report_updates) && !smPendingRevision && smClassification.isAccessible,
+          canUpdate: Boolean(assignment.allow_report_updates) && (reportingFreq === "monthly" || targetDepth === "monthly") && !smPendingRevision && smHasSubmittedReport,
           canPreview: Boolean(smActiveReport || smPendingRevision),
           children: [],
         });
