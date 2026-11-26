@@ -31,8 +31,11 @@ import {
   Pickaxe,
   Factory,
   FileCheck2,
+  Target,
+  Award,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import { ActiveStatusBadge } from "@/components/ui/active-status-badge";
 import { useBranding } from "@/providers/BrandingProvider";
 import { usePermissions } from "@/hooks/usePermissions";
@@ -40,6 +43,7 @@ import {
   useGetCompanyDashboardQuery,
   useGetCompanyRolesQuery,
 } from "@/redux/api/companyApi";
+import { useGetCompanyProductionDashboardQuery } from "@/redux/api/productionApi";
 import { useGetPermissionGroupsQuery } from "@/redux/api/permissionGroupApi";
 import Loading01 from "@/features/template/component/Loading/Loading01";
 import { cn } from "@/lib/utils";
@@ -133,6 +137,21 @@ export function CompanyDashboardView({
       ? { group_kind: "company", company_id: activeCompanyId }
       : undefined,
     { skip: !activeCompanyId }
+  );
+
+  // 4. Fetch live company production and target achievement summary
+  const { data: prodDashboard } = useGetCompanyProductionDashboardQuery(
+    { companyId: activeCompanyId || "" },
+    { skip: !activeCompanyId }
+  );
+
+  const prodKpis = prodDashboard?.kpis;
+  const prodPerformances = prodDashboard?.performances || [];
+  const prodTotalTarget = Number(prodKpis?.total_target_quantity || 0);
+  const prodTotalActual = Number(prodKpis?.total_actual_quantity || 0);
+  const prodAchRate = Number(
+    prodKpis?.overall_achievement_percentage ??
+      (prodTotalTarget > 0 ? (prodTotalActual / prodTotalTarget) * 100 : 0)
   );
 
   // Permissions to view sub-sections
@@ -399,6 +418,122 @@ export function CompanyDashboardView({
               icon={ShieldCheck}
             />
           </div>
+
+          {/* Mineral Production & Concession Target Execution Highlight */}
+          {(prodPerformances.length > 0 || prodTotalTarget > 0 || prodTotalActual > 0) && (
+            <div
+              className={`rounded-2xl border p-5 shadow-xs space-y-4 transition-colors ${
+                prodAchRate >= 100
+                  ? "border-emerald-300/70 bg-gradient-to-r from-emerald-500/10 via-card to-card"
+                  : prodAchRate >= 70
+                  ? "border-teal-300/70 bg-gradient-to-r from-teal-500/10 via-card to-card"
+                  : prodAchRate >= 40
+                  ? "border-amber-300/70 bg-gradient-to-r from-amber-500/10 via-card to-card"
+                  : "border-rose-300/70 bg-gradient-to-r from-rose-500/10 via-card to-card"
+              }`}
+            >
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                <div className="flex items-center gap-3">
+                  <span className="p-2.5 rounded-xl bg-amber-500/15 text-amber-600 dark:text-amber-400 ring-1 ring-amber-500/30">
+                    <Factory className="h-5 w-5" />
+                  </span>
+                  <div>
+                    <h3 className="font-bold text-base text-foreground flex items-center gap-2">
+                      Mineral Concession Target Achievement
+                      <Badge variant="outline" className="font-mono text-[10px]">
+                        Live Reporting
+                      </Badge>
+                    </h3>
+                    <p className="text-xs text-muted-foreground mt-0.5">
+                      Verified actual output extracted against approved annual production target schedules.
+                    </p>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <Button
+                    size="sm"
+                    onClick={() => setActiveTab("production")}
+                    className="h-8 text-xs font-semibold gap-1.5 bg-amber-600 hover:bg-amber-700 text-white shadow-xs"
+                  >
+                    <TrendingUp className="h-3.5 w-3.5" />
+                    Concession Details
+                    <ArrowRight className="h-3.5 w-3.5 ml-1" />
+                  </Button>
+                </div>
+              </div>
+
+              {/* Quick 3-Metric Strip */}
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <div className="p-3 rounded-xl bg-card/80 border space-y-1">
+                  <span className="text-[11px] text-muted-foreground block font-medium">
+                    Annual Target Commitment:
+                  </span>
+                  <span className="text-xl font-bold font-mono text-foreground">
+                    {prodTotalTarget.toLocaleString()}{" "}
+                    <span className="text-xs font-normal text-muted-foreground">units</span>
+                  </span>
+                </div>
+
+                <div className="p-3 rounded-xl bg-card/80 border space-y-1">
+                  <span className="text-[11px] text-muted-foreground block font-medium">
+                    Reported Output Yield:
+                  </span>
+                  <span className="text-xl font-bold font-mono text-emerald-600">
+                    {prodTotalActual.toLocaleString()}{" "}
+                    <span className="text-xs font-normal text-muted-foreground">units</span>
+                  </span>
+                </div>
+
+                <div className="p-3 rounded-xl bg-card/80 border space-y-1">
+                  <span className="text-[11px] text-muted-foreground block font-medium">
+                    Target Achievement Rate:
+                  </span>
+                  <span
+                    className={`text-xl font-bold font-mono ${
+                      prodAchRate >= 100
+                        ? "text-emerald-700 dark:text-emerald-300"
+                        : prodAchRate >= 70
+                        ? "text-teal-700 dark:text-teal-300"
+                        : prodAchRate >= 40
+                        ? "text-amber-700 dark:text-amber-300"
+                        : "text-rose-600 dark:text-rose-400"
+                    }`}
+                  >
+                    {prodAchRate.toFixed(1)}%
+                  </span>
+                </div>
+              </div>
+
+              {/* Progress Bar */}
+              <div className="space-y-1.5">
+                <div className="w-full h-3.5 bg-slate-200/80 dark:bg-slate-800 rounded-full overflow-hidden p-0.5 border border-slate-300/60 dark:border-slate-700 shadow-inner">
+                  <div
+                    className={`h-full transition-all duration-700 rounded-full ${
+                      prodAchRate >= 100
+                        ? "bg-gradient-to-r from-emerald-500 via-green-500 to-emerald-600 shadow-sm"
+                        : prodAchRate >= 70
+                        ? "bg-gradient-to-r from-lime-500 to-emerald-500 shadow-sm"
+                        : prodAchRate >= 40
+                        ? "bg-gradient-to-r from-orange-500 via-amber-500 to-yellow-500 shadow-sm"
+                        : "bg-gradient-to-r from-red-600 via-rose-500 to-orange-500 shadow-sm"
+                    }`}
+                    style={{
+                      width: `${Math.min(100, Math.max(2, prodAchRate))}%`,
+                    }}
+                  />
+                </div>
+                <div className="flex justify-between text-[11px] text-muted-foreground">
+                  <span>{prodPerformances.length} assigned mineral commodity flow(s)</span>
+                  <span>
+                    {prodTotalTarget > prodTotalActual
+                      ? `${(prodTotalTarget - prodTotalActual).toLocaleString()} units remaining to fulfill commitment`
+                      : "Target Surpassed"}
+                  </span>
+                </div>
+              </div>
+            </div>
+          )}
 
           {/* Analytical Charts and Summary Panels */}
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">

@@ -1385,6 +1385,65 @@ async function getFederalDashboard(query = {}) {
     });
   }
 
+  // Sort assignments: prioritize those with reported actuals, then targets, then company name
+  assignmentSummaries.sort((a, b) => {
+    const aActual = Number(a.performance?.actual_quantity || 0);
+    const bActual = Number(b.performance?.actual_quantity || 0);
+    if (bActual !== aActual) return bActual - aActual;
+
+    const aTarget = Number(a.performance?.target_quantity || 0);
+    const bTarget = Number(b.performance?.target_quantity || 0);
+    if (bTarget !== aTarget) return bTarget - aTarget;
+
+    const aName = (a.company?.name || "").toLowerCase();
+    const bName = (b.company?.name || "").toLowerCase();
+    return aName.localeCompare(bName);
+  });
+
+  // Calculate Aggregated Portfolio Target Achievement Metrics
+  let totalTarget = 0;
+  let totalActual = 0;
+  let totalExpectedReports = 0;
+  let totalSubmittedReports = 0;
+  let completedCount = 0;
+  let onTrackCount = 0;
+  let moderateCount = 0;
+  let atRiskCount = 0;
+  let companiesWithReports = new Set();
+  let companiesWithTargets = new Set();
+
+  for (const item of assignmentSummaries) {
+    const perf = item.performance;
+    if (!perf) continue;
+    const t = Number(perf.target_quantity || 0);
+    const a = Number(perf.actual_quantity || 0);
+    const ach = perf.achievement_percentage ?? (t > 0 ? (a / t) * 100 : 0);
+
+    totalTarget += t;
+    totalActual += a;
+
+    if (a > 0) {
+      companiesWithReports.add(item.company?.company_id);
+    }
+    if (t > 0) {
+      companiesWithTargets.add(item.company?.company_id);
+      if (ach >= 100) completedCount++;
+      else if (ach >= 70) onTrackCount++;
+      else if (ach >= 40) moderateCount++;
+      else atRiskCount++;
+    }
+
+    if (perf.reporting_compliance) {
+      totalExpectedReports += Number(perf.reporting_compliance.expected_reports || 0);
+      totalSubmittedReports += Number(perf.reporting_compliance.submitted_reports || 0);
+    }
+  }
+
+  totalTarget = roundDecimal(totalTarget, 4);
+  totalActual = roundDecimal(totalActual, 4);
+  const overallAchievement = totalTarget > 0 ? roundDecimal((totalActual / totalTarget) * 100, 2) : 0;
+  const overallComplianceRate = totalExpectedReports > 0 ? Math.min(100, roundDecimal((totalSubmittedReports / totalExpectedReports) * 100, 1)) : 100;
+
   // Recent reports
   const recentReports = await CompanyProductionReport.findAll({
     where: query.company_id ? { company_id: query.company_id } : {},
@@ -1394,15 +1453,31 @@ async function getFederalDashboard(query = {}) {
       { model: GoldMeasurementUnit, as: "reportedUnit" },
     ],
     order: [["report_date", "DESC"], ["created_at", "DESC"]],
-    limit: 10,
+    limit: 15,
   });
 
+  const kpis = {
+    active_assignments: uniqueItemMap.size,
+    reporting_companies: totalCompanies.size,
+    active_production_items: totalItems.size,
+    companies_with_reports: companiesWithReports.size,
+    companies_with_targets: companiesWithTargets.size,
+    total_target_quantity: totalTarget,
+    total_actual_quantity: totalActual,
+    net_variance: roundDecimal(totalActual - totalTarget, 4),
+    overall_achievement_percentage: overallAchievement,
+    total_expected_reports: totalExpectedReports,
+    total_submitted_reports: totalSubmittedReports,
+    overall_compliance_rate: overallComplianceRate,
+    completed_count: completedCount,
+    on_track_count: onTrackCount,
+    moderate_count: moderateCount,
+    at_risk_count: atRiskCount,
+  };
+
   return {
-    kpis: {
-      active_assignments: uniqueItemMap.size,
-      reporting_companies: totalCompanies.size,
-      active_production_items: totalItems.size,
-    },
+    kpis,
+    summary: kpis,
     assignments: assignmentSummaries,
     recent_reports: recentReports,
   };
@@ -1459,6 +1534,43 @@ async function getCompanyDashboard(companyId, query = {}) {
     });
   }
 
+  // Calculate Company-level Aggregated Metrics
+  let totalTarget = 0;
+  let totalActual = 0;
+  let totalExpectedReports = 0;
+  let totalSubmittedReports = 0;
+  let completedCount = 0;
+  let onTrackCount = 0;
+  let moderateCount = 0;
+  let atRiskCount = 0;
+
+  for (const { assignment, performance } of itemPerformances) {
+    if (!performance) continue;
+    const t = Number(performance.target_quantity || 0);
+    const a = Number(performance.actual_quantity || 0);
+    const ach = performance.achievement_percentage ?? (t > 0 ? (a / t) * 100 : 0);
+
+    totalTarget += t;
+    totalActual += a;
+
+    if (t > 0) {
+      if (ach >= 100) completedCount++;
+      else if (ach >= 70) onTrackCount++;
+      else if (ach >= 40) moderateCount++;
+      else atRiskCount++;
+    }
+
+    if (performance.reporting_compliance) {
+      totalExpectedReports += Number(performance.reporting_compliance.expected_reports || 0);
+      totalSubmittedReports += Number(performance.reporting_compliance.submitted_reports || 0);
+    }
+  }
+
+  totalTarget = roundDecimal(totalTarget, 4);
+  totalActual = roundDecimal(totalActual, 4);
+  const overallAchievement = totalTarget > 0 ? roundDecimal((totalActual / totalTarget) * 100, 2) : 0;
+  const overallComplianceRate = totalExpectedReports > 0 ? Math.min(100, roundDecimal((totalSubmittedReports / totalExpectedReports) * 100, 1)) : 100;
+
   // Recent reports for this company
   const recentReports = await CompanyProductionReport.findAll({
     where: { company_id: companyId },
@@ -1470,9 +1582,25 @@ async function getCompanyDashboard(companyId, query = {}) {
     limit: 15,
   });
 
+  const kpis = {
+    total_target_quantity: totalTarget,
+    total_actual_quantity: totalActual,
+    net_variance: roundDecimal(totalActual - totalTarget, 4),
+    overall_achievement_percentage: overallAchievement,
+    total_expected_reports: totalExpectedReports,
+    total_submitted_reports: totalSubmittedReports,
+    overall_compliance_rate: overallComplianceRate,
+    completed_count: completedCount,
+    on_track_count: onTrackCount,
+    moderate_count: moderateCount,
+    at_risk_count: atRiskCount,
+  };
+
   return {
     company_id: companyId,
     active_assignments_count: uniqueItemMap.size,
+    kpis,
+    summary: kpis,
     performances: itemPerformances,
     recent_reports: recentReports,
   };

@@ -345,12 +345,32 @@ export interface ProductionDetailBundle {
   amendmentComparison?: TargetAmendmentComparison | null;
 }
 
+export interface DashboardKpis {
+  active_assignments?: number;
+  reporting_companies?: number;
+  active_production_items?: number;
+  companies_with_reports?: number;
+  companies_with_targets?: number;
+  total_target_quantity: number;
+  total_actual_quantity: number;
+  net_variance?: number;
+  overall_achievement_percentage: number;
+  total_expected_reports: number;
+  total_submitted_reports: number;
+  overall_compliance_rate: number;
+  completed_count: number;
+  on_track_count: number;
+  moderate_count: number;
+  at_risk_count: number;
+}
+
 export interface FederalProductionDashboard {
-  kpis: {
+  kpis: DashboardKpis & {
     active_assignments: number;
     reporting_companies: number;
     active_production_items: number;
   };
+  summary?: DashboardKpis;
   assignments: Array<{
     assignment_id: string;
     company: {
@@ -369,6 +389,8 @@ export interface FederalProductionDashboard {
 export interface CompanyProductionDashboard {
   company_id: string;
   active_assignments_count: number;
+  kpis?: DashboardKpis;
+  summary?: DashboardKpis;
   performances: Array<{
     assignment: CompanyProductionAssignment;
     performance: ProductionPerformance;

@@ -14,6 +14,8 @@ import {
   FileText,
   Factory,
   ShieldCheck,
+  TrendingUp,
+  Award,
 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -23,6 +25,7 @@ import Loading01 from "@/features/template/component/Loading/Loading01";
 
 import {
   useGetAssignmentsQuery,
+  useGetCompanyProductionDashboardQuery,
   useCreateAssignmentMutation,
   useUpdateAssignmentMutation,
   useSaveTargetHierarchyMutation,
@@ -37,6 +40,10 @@ import { FederalProductionTargetReviewModal } from "@/features/production/Federa
 
 export function CompanyProductionDetailTab({ companyId }: { companyId: string }) {
   const { data: assignments = [], isLoading, refetch } = useGetAssignmentsQuery({ company_id: companyId });
+  const { data: dashboardData, refetch: refetchDashboard } = useGetCompanyProductionDashboardQuery(
+    { companyId },
+    { skip: !companyId }
+  );
   const { data: items = [] } = useGetProductionItemsQuery();
   const { data: frequencies = [] } = useGetFrequenciesQuery();
   const { data: companyLicenses = [] } = useGetCompanyLicensesQuery(companyId);
@@ -288,13 +295,20 @@ export function CompanyProductionDetailTab({ companyId }: { companyId: string })
     return <Loading01 />;
   }
 
+  const kpis = dashboardData?.kpis;
+  const performances = dashboardData?.performances || [];
+  const totalTarget = Number(kpis?.total_target_quantity || 0);
+  const totalActual = Number(kpis?.total_actual_quantity || 0);
+  const overallAchievement = Number(kpis?.overall_achievement_percentage || (totalTarget > 0 ? (totalActual / totalTarget) * 100 : 0));
+  const complianceRate = Number(kpis?.overall_compliance_rate ?? 100);
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-lg font-bold text-foreground">Production Reporting Configuration</h2>
+          <h2 className="text-lg font-bold text-foreground">Production Reporting & Target Execution</h2>
           <p className="text-xs text-muted-foreground">
-            Manage commodities assigned to this company, reporting intervals, and approved target structures.
+            Commodity assignments, approved target commitments, and live actual reported output.
           </p>
         </div>
         <Button
@@ -306,6 +320,133 @@ export function CompanyProductionDetailTab({ companyId }: { companyId: string })
           Assign Production Item
         </Button>
       </div>
+
+      {/* Target Achievement Statistics Banner */}
+      {(totalTarget > 0 || totalActual > 0 || performances.length > 0) && (
+        <div className="space-y-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+            {/* Target */}
+            <div className="rounded-xl border bg-card p-4 shadow-sm space-y-1">
+              <div className="flex items-center justify-between text-muted-foreground">
+                <span className="text-[10.5px] font-semibold uppercase tracking-wider">Annual Target</span>
+                <span className="p-1.5 rounded-lg bg-amber-500/10 text-amber-600 dark:text-amber-400">
+                  <Target className="h-3.5 w-3.5" />
+                </span>
+              </div>
+              <div className="text-2xl font-bold tracking-tight text-foreground font-mono">
+                {totalTarget.toLocaleString()}
+              </div>
+              <p className="text-[10px] text-muted-foreground">Approved concession commitment</p>
+            </div>
+
+            {/* Extracted Actual */}
+            <div className="rounded-xl border bg-card p-4 shadow-sm space-y-1">
+              <div className="flex items-center justify-between text-muted-foreground">
+                <span className="text-[10.5px] font-semibold uppercase tracking-wider">Actual Output Reported</span>
+                <span className="p-1.5 rounded-lg bg-emerald-500/10 text-emerald-600 dark:text-emerald-400">
+                  <TrendingUp className="h-3.5 w-3.5" />
+                </span>
+              </div>
+              <div className="text-2xl font-bold tracking-tight text-emerald-600 dark:text-emerald-400 font-mono">
+                {totalActual.toLocaleString()}
+              </div>
+              <p className="text-[10px] text-emerald-600/80 dark:text-emerald-400/80">Verified reported yield</p>
+            </div>
+
+            {/* Achievement Rate */}
+            <div
+              className={`rounded-xl border p-4 shadow-sm space-y-1 ${
+                overallAchievement >= 100
+                  ? "border-emerald-300 bg-emerald-500/5"
+                  : overallAchievement >= 70
+                  ? "border-teal-300 bg-teal-500/5"
+                  : overallAchievement >= 40
+                  ? "border-amber-300 bg-amber-500/5"
+                  : "border-rose-300 bg-rose-500/5"
+              }`}
+            >
+              <div className="flex items-center justify-between text-muted-foreground">
+                <span className="text-[10.5px] font-semibold uppercase tracking-wider">Achievement Rate</span>
+                <span
+                  className={`p-1.5 rounded-lg ${
+                    overallAchievement >= 100
+                      ? "bg-emerald-500/15 text-emerald-600"
+                      : overallAchievement >= 70
+                      ? "bg-teal-500/15 text-teal-600"
+                      : overallAchievement >= 40
+                      ? "bg-amber-500/15 text-amber-600"
+                      : "bg-rose-500/15 text-rose-600"
+                  }`}
+                >
+                  <Award className="h-3.5 w-3.5" />
+                </span>
+              </div>
+              <div
+                className={`text-2xl font-bold tracking-tight font-mono ${
+                  overallAchievement >= 100
+                    ? "text-emerald-700 dark:text-emerald-300"
+                    : overallAchievement >= 70
+                    ? "text-teal-700 dark:text-teal-300"
+                    : overallAchievement >= 40
+                    ? "text-amber-700 dark:text-amber-300"
+                    : "text-rose-600 dark:text-rose-400"
+                }`}
+              >
+                {overallAchievement.toFixed(1)}%
+              </div>
+              <p className="text-[10px] text-muted-foreground">
+                {overallAchievement >= 100
+                  ? "Exceeding Target"
+                  : overallAchievement >= 70
+                  ? "On Pace"
+                  : overallAchievement >= 40
+                  ? "Moderate Progress"
+                  : "At Risk / In Progress"}
+              </p>
+            </div>
+
+            {/* Reporting Compliance */}
+            <div className="rounded-xl border bg-card p-4 shadow-sm space-y-1">
+              <div className="flex items-center justify-between text-muted-foreground">
+                <span className="text-[10.5px] font-semibold uppercase tracking-wider">Compliance Rate</span>
+                <span className="p-1.5 rounded-lg bg-purple-500/10 text-purple-600 dark:text-purple-400">
+                  <ShieldCheck className="h-3.5 w-3.5" />
+                </span>
+              </div>
+              <div className="text-2xl font-bold tracking-tight text-foreground font-mono">
+                {complianceRate}%
+              </div>
+              <p className="text-[10px] text-muted-foreground">
+                {kpis?.total_submitted_reports || dashboardData?.recent_reports?.length || 0} report(s) submitted
+              </p>
+            </div>
+          </div>
+
+          {/* Progress bar */}
+          <div className="p-4 rounded-xl border bg-card/60 space-y-2">
+            <div className="flex justify-between text-xs">
+              <span className="font-semibold text-foreground">Target Fulfillment Progress</span>
+              <span className="font-mono text-muted-foreground">
+                {totalActual.toLocaleString()} / {totalTarget.toLocaleString()} units ({overallAchievement.toFixed(1)}%)
+              </span>
+            </div>
+            <div className="w-full h-3 bg-muted rounded-full overflow-hidden p-0.5">
+              <div
+                className={`h-full transition-all duration-500 rounded-full ${
+                  overallAchievement >= 100
+                    ? "bg-emerald-500"
+                    : overallAchievement >= 70
+                    ? "bg-teal-500"
+                    : overallAchievement >= 40
+                    ? "bg-amber-500"
+                    : "bg-rose-500"
+                }`}
+                style={{ width: `${Math.min(100, Math.max(2, overallAchievement))}%` }}
+              />
+            </div>
+          </div>
+        </div>
+      )}
 
       {assignments.length === 0 ? (
         <div className="rounded-xl border border-dashed p-8 text-center bg-card/40">
@@ -324,11 +465,25 @@ export function CompanyProductionDetailTab({ companyId }: { companyId: string })
           {assignments.map((a) => {
             const rootTarget = a.targets?.find((t) => t.target_period_type === "year");
             const childTargets = a.targets?.filter((t) => t.target_period_type !== "year") || [];
+            const itemPerf = performances.find(
+              (p) =>
+                p.assignment?.assignment_id === a.assignment_id ||
+                p.assignment?.production_item_id === a.production_item_id
+            );
+            const perf = itemPerf?.performance;
+            const actualQty = Number(perf?.actual_quantity || 0);
+            const targetQty = Number(perf?.target_quantity || rootTarget?.target_quantity || 0);
+            const itemAch = perf?.achievement_percentage ?? (targetQty > 0 ? Math.round((actualQty / targetQty) * 100) : 0);
+            const unitSymbol = rootTarget?.unit?.symbol || a.defaultReportingUnit?.symbol || "units";
 
             return (
               <div
                 key={a.assignment_id}
-                className="rounded-xl border bg-card p-5 shadow-sm space-y-3"
+                className={`rounded-xl border p-5 shadow-sm space-y-3 transition-all ${
+                  actualQty > 0
+                    ? "border-teal-500/40 bg-gradient-to-br from-teal-500/5 via-card to-card ring-1 ring-teal-500/20"
+                    : "bg-card"
+                }`}
               >
                 <div className="flex items-start justify-between">
                   <div>
@@ -338,6 +493,11 @@ export function CompanyProductionDetailTab({ companyId }: { companyId: string })
                       <span className="text-xs font-mono px-2 py-0.5 rounded bg-muted text-muted-foreground">
                         {a.productionItem?.code}
                       </span>
+                      {actualQty > 0 && (
+                        <Badge className="bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300 border-emerald-300 text-[10px] font-semibold">
+                          Actual Reported: {actualQty.toLocaleString()} {unitSymbol}
+                        </Badge>
+                      )}
                     </h3>
                     <div className="flex flex-wrap items-center gap-2 mt-1.5">
                       {a.license ? (
@@ -394,22 +554,76 @@ export function CompanyProductionDetailTab({ companyId }: { companyId: string })
                   </div>
                 </div>
 
-                {/* Target Summary */}
-                <div className="p-3 rounded-lg bg-muted/30 border text-xs">
+                {/* Target & Execution Actuals Summary */}
+                <div className="p-4 rounded-xl bg-muted/30 border text-xs space-y-3">
                   {rootTarget ? (
-                    <div className="space-y-2">
-                      <div className="flex justify-between items-center">
-                        <span className="font-semibold text-muted-foreground">
-                          Annual Target ({rootTarget.period_label}):
-                        </span>
-                        <span className="font-bold text-sm text-foreground">
-                          {Number(rootTarget.target_quantity).toLocaleString()}{" "}
-                          {rootTarget.unit?.symbol || "units"} (v{rootTarget.version_number})
-                        </span>
+                    <div className="space-y-3">
+                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                        <div className="p-2.5 rounded-lg bg-card border">
+                          <span className="text-[11px] text-muted-foreground block">
+                            Approved Annual Target ({rootTarget.period_label}):
+                          </span>
+                          <span className="font-bold text-base text-foreground font-mono">
+                            {Number(rootTarget.target_quantity).toLocaleString()}{" "}
+                            <span className="text-xs font-normal text-muted-foreground">{unitSymbol}</span>
+                          </span>
+                        </div>
+
+                        <div className="p-2.5 rounded-lg bg-card border">
+                          <span className="text-[11px] text-muted-foreground block">Reported Cumulative Actual:</span>
+                          <span className="font-bold text-base text-emerald-600 font-mono">
+                            {actualQty.toLocaleString()}{" "}
+                            <span className="text-xs font-normal text-muted-foreground">{unitSymbol}</span>
+                          </span>
+                        </div>
+
+                        <div className="p-2.5 rounded-lg bg-card border">
+                          <span className="text-[11px] text-muted-foreground block">Target Achievement:</span>
+                          <span
+                            className={`font-bold text-base font-mono ${
+                              itemAch >= 100
+                                ? "text-emerald-700 dark:text-emerald-300"
+                                : itemAch >= 70
+                                ? "text-teal-700 dark:text-teal-300"
+                                : itemAch >= 40
+                                ? "text-amber-700 dark:text-amber-300"
+                                : "text-rose-600 dark:text-rose-400"
+                            }`}
+                          >
+                            {itemAch}%
+                          </span>
+                        </div>
+                      </div>
+
+                      {/* Progress bar */}
+                      <div className="space-y-1">
+                        <div className="w-full h-2 rounded-full bg-muted overflow-hidden">
+                          <div
+                            className={`h-full rounded-full transition-all duration-500 ${
+                              itemAch >= 100
+                                ? "bg-emerald-500"
+                                : itemAch >= 70
+                                ? "bg-teal-500"
+                                : itemAch >= 40
+                                ? "bg-amber-500"
+                                : "bg-rose-500"
+                            }`}
+                            style={{ width: `${Math.min(100, Math.max(1, itemAch))}%` }}
+                          />
+                        </div>
+                        <div className="flex justify-between text-[11px] text-muted-foreground">
+                          <span>{perf?.period ? `Period: ${perf.period.period_label}` : "Annual Schedule"}</span>
+                          <span>
+                            {targetQty > actualQty
+                              ? `${(targetQty - actualQty).toLocaleString()} ${unitSymbol} remaining`
+                              : "Target Met"}
+                          </span>
+                        </div>
                       </div>
 
                       {childTargets.length > 0 && (
                         <div className="pt-2 border-t flex flex-wrap gap-2">
+                          <span className="text-[11px] text-muted-foreground mr-1 self-center">Sub-periods:</span>
                           {childTargets.map((ct) => (
                             <span
                               key={ct.target_id}

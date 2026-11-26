@@ -15,6 +15,13 @@ import {
   ExternalLink,
   ChevronRight,
   Sparkles,
+  Target,
+  Award,
+  Factory,
+  ShieldCheck,
+  BarChart3,
+  SlidersHorizontal,
+  X,
 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -33,6 +40,7 @@ import { useGetCompaniesQuery } from "@/redux/api/companyApi";
 export function FederalProductionDashboardView() {
   const [selectedCompanyId, setSelectedCompanyId] = useState<string>("all");
   const [selectedItemId, setSelectedItemId] = useState<string>("all");
+  const [statusFilter, setStatusFilter] = useState<string>("all");
   const [startDate, setStartDate] = useState<string>("");
   const [endDate, setEndDate] = useState<string>("");
   const [search, setSearch] = useState("");
@@ -54,14 +62,35 @@ export function FederalProductionDashboardView() {
     if (!dashboard?.assignments) return [];
     return dashboard.assignments.filter((a) => {
       const cName = a.company?.name || "";
+      const cCode = a.company?.code || "";
       const iName = a.production_item?.name || "";
-      return (
-        !search.trim() ||
-        cName.toLowerCase().includes(search.toLowerCase()) ||
-        iName.toLowerCase().includes(search.toLowerCase())
-      );
+      const perf = a.performance;
+      const actual = Number(perf?.actual_quantity || 0);
+      const target = Number(perf?.target_quantity || 0);
+      const ach = perf?.achievement_percentage ?? (target > 0 ? (actual / target) * 100 : 0);
+
+      // Search filter
+      if (search.trim()) {
+        const q = search.toLowerCase();
+        if (
+          !cName.toLowerCase().includes(q) &&
+          !cCode.toLowerCase().includes(q) &&
+          !iName.toLowerCase().includes(q)
+        ) {
+          return false;
+        }
+      }
+
+      // Status filter
+      if (statusFilter === "active" && actual <= 0) return false;
+      if (statusFilter === "completed" && ach < 100) return false;
+      if (statusFilter === "on_track" && (ach < 70 || ach >= 100)) return false;
+      if (statusFilter === "moderate" && (ach < 40 || ach >= 70)) return false;
+      if (statusFilter === "at_risk" && (ach >= 40 || target <= 0)) return false;
+
+      return true;
     });
-  }, [dashboard, search]);
+  }, [dashboard, search, statusFilter]);
 
   if (isLoading) {
     return <Loading01 />;
@@ -71,7 +100,26 @@ export function FederalProductionDashboardView() {
     active_assignments: 0,
     reporting_companies: 0,
     active_production_items: 0,
+    companies_with_reports: 0,
+    companies_with_targets: 0,
+    total_target_quantity: 0,
+    total_actual_quantity: 0,
+    net_variance: 0,
+    overall_achievement_percentage: 0,
+    total_expected_reports: 0,
+    total_submitted_reports: 0,
+    overall_compliance_rate: 100,
+    completed_count: 0,
+    on_track_count: 0,
+    moderate_count: 0,
+    at_risk_count: 0,
   };
+
+  const totalTarget = Number(kpis.total_target_quantity || 0);
+  const totalActual = Number(kpis.total_actual_quantity || 0);
+  const achievementPct = Number(kpis.overall_achievement_percentage || 0);
+  const netVariance = Number(kpis.net_variance ?? (totalActual - totalTarget));
+  const complianceRate = Number(kpis.overall_compliance_rate ?? 100);
 
   const recentReportColumns: ColumnDef<any>[] = [
     {
@@ -152,7 +200,7 @@ export function FederalProductionDashboardView() {
               </h1>
             </div>
             <p className="mt-1 text-sm text-teal-100">
-              National oversight of mineral and commodity production reporting, target compliance, and achievement.
+              National oversight of mineral and commodity production reporting, target compliance, and achievement statistics.
             </p>
           </div>
 
@@ -168,59 +216,237 @@ export function FederalProductionDashboardView() {
         </div>
       </div>
 
-      {/* KPI Overview Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <div className="rounded-xl border bg-card p-5 shadow-sm">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-medium text-muted-foreground">Reporting Companies</span>
-            <Building2 className="h-4 w-4 text-teal-600" />
+      {/* Target Achievement & Portfolio KPI Suite (6 Cards) */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-3">
+        {/* 1. Approved Target */}
+        <div className="rounded-xl border bg-card p-4 shadow-sm space-y-1">
+          <div className="flex items-center justify-between text-muted-foreground">
+            <span className="text-[10.5px] font-semibold uppercase tracking-wider">Approved Target</span>
+            <span className="p-1.5 rounded-lg bg-amber-500/10 text-amber-600 dark:text-amber-400">
+              <Target className="h-3.5 w-3.5" />
+            </span>
           </div>
-          <div className="mt-2 text-2xl font-bold tracking-tight text-foreground">
+          <div className="text-2xl font-bold tracking-tight text-foreground font-mono truncate">
+            {totalTarget.toLocaleString()}
+          </div>
+          <p className="text-[10px] text-muted-foreground truncate">
+            National annual commitment
+          </p>
+        </div>
+
+        {/* 2. Total Extracted Output */}
+        <div className="rounded-xl border bg-card p-4 shadow-sm space-y-1">
+          <div className="flex items-center justify-between text-muted-foreground">
+            <span className="text-[10.5px] font-semibold uppercase tracking-wider">Total Extracted</span>
+            <span className="p-1.5 rounded-lg bg-emerald-500/10 text-emerald-600 dark:text-emerald-400">
+              <TrendingUp className="h-3.5 w-3.5" />
+            </span>
+          </div>
+          <div className="text-2xl font-bold tracking-tight text-emerald-600 dark:text-emerald-400 font-mono truncate">
+            {totalActual.toLocaleString()}
+          </div>
+          <p className="text-[10px] text-emerald-600/80 dark:text-emerald-400/80 truncate">
+            Verified yield reported
+          </p>
+        </div>
+
+        {/* 3. Overall Achievement Rate */}
+        <div
+          className={`rounded-xl border p-4 shadow-sm space-y-1 ${
+            achievementPct >= 100
+              ? "border-emerald-300 bg-emerald-500/5"
+              : achievementPct >= 70
+              ? "border-teal-300 bg-teal-500/5"
+              : achievementPct >= 40
+              ? "border-amber-300 bg-amber-500/5"
+              : "border-rose-300 bg-rose-500/5"
+          }`}
+        >
+          <div className="flex items-center justify-between text-muted-foreground">
+            <span className="text-[10.5px] font-semibold uppercase tracking-wider">Achievement Rate</span>
+            <span
+              className={`p-1.5 rounded-lg ${
+                achievementPct >= 100
+                  ? "bg-emerald-500/15 text-emerald-600"
+                  : achievementPct >= 70
+                  ? "bg-teal-500/15 text-teal-600"
+                  : achievementPct >= 40
+                  ? "bg-amber-500/15 text-amber-600"
+                  : "bg-rose-500/15 text-rose-600"
+              }`}
+            >
+              <Award className="h-3.5 w-3.5" />
+            </span>
+          </div>
+          <div
+            className={`text-2xl font-bold tracking-tight font-mono ${
+              achievementPct >= 100
+                ? "text-emerald-700 dark:text-emerald-300"
+                : achievementPct >= 70
+                ? "text-teal-700 dark:text-teal-300"
+                : achievementPct >= 40
+                ? "text-amber-700 dark:text-amber-300"
+                : "text-rose-600 dark:text-rose-400"
+            }`}
+          >
+            {achievementPct.toFixed(1)}%
+          </div>
+          <p className="text-[10px] text-muted-foreground truncate">
+            {achievementPct >= 100
+              ? "Exceeding Target"
+              : achievementPct >= 70
+              ? "On Pace"
+              : achievementPct >= 40
+              ? "Moderate Progress"
+              : "At Risk / Deficit"}
+          </p>
+        </div>
+
+        {/* 4. Reporting Compliance */}
+        <div className="rounded-xl border bg-card p-4 shadow-sm space-y-1">
+          <div className="flex items-center justify-between text-muted-foreground">
+            <span className="text-[10.5px] font-semibold uppercase tracking-wider">Compliance Rate</span>
+            <span className="p-1.5 rounded-lg bg-purple-500/10 text-purple-600 dark:text-purple-400">
+              <ShieldCheck className="h-3.5 w-3.5" />
+            </span>
+          </div>
+          <div className="text-2xl font-bold tracking-tight text-foreground font-mono">
+            {complianceRate}%
+          </div>
+          <p className="text-[10px] text-muted-foreground truncate">
+            {kpis.total_submitted_reports || 0}/{kpis.total_expected_reports || 0} scheduled reports
+          </p>
+        </div>
+
+        {/* 5. Reporting Companies */}
+        <div className="rounded-xl border bg-card p-4 shadow-sm space-y-1">
+          <div className="flex items-center justify-between text-muted-foreground">
+            <span className="text-[10.5px] font-semibold uppercase tracking-wider">Mining Companies</span>
+            <span className="p-1.5 rounded-lg bg-teal-500/10 text-teal-600 dark:text-teal-400">
+              <Building2 className="h-3.5 w-3.5" />
+            </span>
+          </div>
+          <div className="text-2xl font-bold tracking-tight text-foreground font-mono">
             {kpis.reporting_companies}
           </div>
-          <p className="mt-1 text-xs text-muted-foreground">Active mining enterprises</p>
+          <p className="text-[10px] text-teal-600 font-semibold truncate">
+            {kpis.companies_with_reports || 0} actively reporting output
+          </p>
         </div>
 
-        <div className="rounded-xl border bg-card p-5 shadow-sm">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-medium text-muted-foreground">Active Item Assignments</span>
-            <Scale className="h-4 w-4 text-emerald-600" />
+        {/* 6. Active Concessions */}
+        <div className="rounded-xl border bg-card p-4 shadow-sm space-y-1">
+          <div className="flex items-center justify-between text-muted-foreground">
+            <span className="text-[10.5px] font-semibold uppercase tracking-wider">Concessions</span>
+            <span className="p-1.5 rounded-lg bg-indigo-500/10 text-indigo-600 dark:text-indigo-400">
+              <Scale className="h-3.5 w-3.5" />
+            </span>
           </div>
-          <div className="mt-2 text-2xl font-bold tracking-tight text-foreground">
+          <div className="text-2xl font-bold tracking-tight text-foreground font-mono">
             {kpis.active_assignments}
           </div>
-          <p className="mt-1 text-xs text-muted-foreground">Production schedules running</p>
+          <p className="text-[10px] text-muted-foreground truncate">
+            Across {kpis.active_production_items} commodities
+          </p>
+        </div>
+      </div>
+
+      {/* National Concession Target Completion Progress Bar */}
+      <div
+        className={`rounded-2xl border p-5 shadow-sm space-y-3 transition-colors ${
+          achievementPct >= 100
+            ? "border-emerald-300/70 bg-gradient-to-r from-emerald-500/10 via-card to-card"
+            : achievementPct >= 70
+            ? "border-teal-300/70 bg-gradient-to-r from-teal-500/10 via-card to-card"
+            : achievementPct >= 40
+            ? "border-amber-300/70 bg-gradient-to-r from-amber-500/10 via-card to-card"
+            : "border-rose-300/70 bg-gradient-to-r from-rose-500/10 via-card to-card"
+        }`}
+      >
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs">
+          <div className="flex items-center gap-2">
+            <span className="font-bold text-foreground text-sm">
+              National Production Target Aggregation
+            </span>
+            <span className="text-muted-foreground">•</span>
+            <span className="text-muted-foreground font-mono">
+              {totalActual.toLocaleString()} of {totalTarget.toLocaleString()} Base Output Units Extracted
+            </span>
+          </div>
+
+          <Badge
+            variant="outline"
+            className={`font-semibold text-xs ${
+              achievementPct >= 100
+                ? "border-emerald-500 text-emerald-700 bg-emerald-50 dark:bg-emerald-950"
+                : achievementPct >= 70
+                ? "border-teal-500 text-teal-700 bg-teal-50 dark:bg-teal-950"
+                : achievementPct >= 40
+                ? "border-amber-500 text-amber-700 bg-amber-50 dark:bg-amber-950"
+                : "border-rose-500 text-rose-700 bg-rose-50 dark:bg-rose-950"
+            }`}
+          >
+            {achievementPct >= 100
+              ? `Target Surpassed (${achievementPct.toFixed(1)}%)`
+              : achievementPct >= 70
+              ? `On Schedule (${achievementPct.toFixed(1)}%)`
+              : achievementPct >= 40
+              ? `Moderate Progress (${achievementPct.toFixed(1)}%)`
+              : `At Risk / Early Phase (${achievementPct.toFixed(1)}%)`}
+          </Badge>
         </div>
 
-        <div className="rounded-xl border bg-card p-5 shadow-sm">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-medium text-muted-foreground">Monitored Commodities</span>
-            <TrendingUp className="h-4 w-4 text-indigo-600" />
-          </div>
-          <div className="mt-2 text-2xl font-bold tracking-tight text-foreground">
-            {kpis.active_production_items}
-          </div>
-          <p className="mt-1 text-xs text-muted-foreground">Configured in national registry</p>
+        {/* Dynamic Red-to-Green Progress Bar */}
+        <div className="w-full h-4 bg-slate-200/80 dark:bg-slate-800 rounded-full overflow-hidden p-0.5 border border-slate-300/60 dark:border-slate-700 shadow-inner">
+          <div
+            className={`h-full transition-all duration-700 rounded-full ${
+              achievementPct >= 100
+                ? "bg-gradient-to-r from-emerald-500 via-green-500 to-emerald-600 shadow-sm"
+                : achievementPct >= 70
+                ? "bg-gradient-to-r from-lime-500 to-emerald-500 shadow-sm"
+                : achievementPct >= 40
+                ? "bg-gradient-to-r from-orange-500 via-amber-500 to-yellow-500 shadow-sm"
+                : "bg-gradient-to-r from-red-600 via-rose-500 to-orange-500 shadow-sm"
+            }`}
+            style={{
+              width: `${Math.min(100, Math.max(2, achievementPct))}%`,
+            }}
+          />
         </div>
 
-        <div className="rounded-xl border bg-card p-5 shadow-sm">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-medium text-muted-foreground">Recent Submissions</span>
-            <Clock className="h-4 w-4 text-cyan-600" />
+        {/* Portfolio Status Distribution Footnote */}
+        <div className="flex flex-wrap items-center justify-between text-[11px] text-muted-foreground pt-1">
+          <div className="flex items-center gap-3">
+            <span className="flex items-center gap-1">
+              <span className="h-2 w-2 rounded-full bg-emerald-500" />
+              Completed: <strong>{kpis.completed_count || 0}</strong>
+            </span>
+            <span className="flex items-center gap-1">
+              <span className="h-2 w-2 rounded-full bg-teal-500" />
+              On Track: <strong>{kpis.on_track_count || 0}</strong>
+            </span>
+            <span className="flex items-center gap-1">
+              <span className="h-2 w-2 rounded-full bg-amber-500" />
+              In Progress: <strong>{kpis.moderate_count || 0}</strong>
+            </span>
+            <span className="flex items-center gap-1">
+              <span className="h-2 w-2 rounded-full bg-rose-500" />
+              At Risk: <strong>{kpis.at_risk_count || 0}</strong>
+            </span>
           </div>
-          <div className="mt-2 text-2xl font-bold tracking-tight text-foreground">
-            {dashboard?.recent_reports?.length || 0}
-          </div>
-          <p className="mt-1 text-xs text-muted-foreground">Production reports in window</p>
+
+          <span className="font-mono text-[10px]">
+            {kpis.companies_with_reports || 0} of {kpis.reporting_companies} companies reporting active actuals
+          </span>
         </div>
       </div>
 
       {/* Filters Bar */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3 rounded-xl border bg-card p-4 shadow-sm">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-3 rounded-xl border bg-card p-4 shadow-sm">
         <div className="lg:col-span-2 relative">
           <Search className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
           <Input
-            placeholder="Search company or production item..."
+            placeholder="Search company name or mineral item..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             className="pl-9 h-9 text-xs"
@@ -233,7 +459,7 @@ export function FederalProductionDashboardView() {
             onChange={(e) => setSelectedCompanyId(e.target.value)}
             className="w-full rounded-md border bg-background px-3 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-teal-500 h-9"
           >
-            <option value="all">All Companies</option>
+            <option value="all">All Companies ({companies.length})</option>
             {companies.map((c) => (
               <option key={c.company_id} value={c.company_id}>
                 {c.name} ({c.code})
@@ -248,12 +474,28 @@ export function FederalProductionDashboardView() {
             onChange={(e) => setSelectedItemId(e.target.value)}
             className="w-full rounded-md border bg-background px-3 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-teal-500 h-9"
           >
-            <option value="all">All Production Items</option>
+            <option value="all">All Production Items ({items.length})</option>
             {items.map((i) => (
               <option key={i.production_item_id} value={i.production_item_id}>
                 {i.name}
               </option>
             ))}
+          </select>
+        </div>
+
+        {/* Health / Reporting Status Filter */}
+        <div>
+          <select
+            value={statusFilter}
+            onChange={(e) => setStatusFilter(e.target.value)}
+            className="w-full rounded-md border bg-background px-3 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-teal-500 h-9"
+          >
+            <option value="all">All Execution Health</option>
+            <option value="active">Active Reports Only</option>
+            <option value="completed">Completed (&ge;100%)</option>
+            <option value="on_track">On Track (70% - 99%)</option>
+            <option value="moderate">In Progress (40% - 69%)</option>
+            <option value="at_risk">At Risk (&lt;40%)</option>
           </select>
         </div>
 
@@ -299,20 +541,32 @@ export function FederalProductionDashboardView() {
               const hasTarget = perf.has_target && perf.target_quantity !== null;
               const achievement = perf.achievement_percentage || 0;
               const unitSymbol = perf.display_unit?.symbol || "units";
+              const hasReportedData = (perf.actual_quantity || 0) > 0;
 
               return (
                 <div
                   key={a.assignment_id}
-                  className="rounded-xl border bg-card p-5 shadow-sm hover:shadow-md transition-all flex flex-col justify-between"
+                  className={`rounded-xl border p-5 shadow-sm hover:shadow-md transition-all flex flex-col justify-between ${
+                    hasReportedData
+                      ? "border-teal-500/50 bg-gradient-to-br from-teal-500/5 via-card to-card ring-1 ring-teal-500/20"
+                      : "bg-card"
+                  }`}
                 >
                   <div>
                     {/* Top Company & Item Row */}
                     <div className="flex items-start justify-between gap-3 mb-3">
                       <div>
-                        <h3 className="font-bold text-base text-foreground flex items-center gap-2">
-                          <Building2 className="h-4 w-4 text-teal-600" />
-                          {a.company?.name}
-                        </h3>
+                        <div className="flex items-center gap-2">
+                          <h3 className="font-bold text-base text-foreground flex items-center gap-2">
+                            <Building2 className="h-4 w-4 text-teal-600" />
+                            {a.company?.name}
+                          </h3>
+                          {hasReportedData && (
+                            <Badge className="bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300 border-emerald-300 text-[10px] font-semibold">
+                              Reported Output
+                            </Badge>
+                          )}
+                        </div>
                         <div className="flex items-center gap-2 mt-1">
                           <Badge variant="outline" className="text-xs bg-muted/40 font-mono">
                             {a.company?.code}
