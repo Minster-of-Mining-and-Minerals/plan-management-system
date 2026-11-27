@@ -964,10 +964,13 @@ export function NationalDashboardTab() {
                     <XAxis dataKey="name" tick={{ fontSize: 11 }} />
                     <YAxis allowDecimals={false} tick={{ fontSize: 11 }} />
                     <Tooltip
-                      formatter={(val: any, name: any) => [
-                        val,
-                        name === "assigned" ? "Assigned Requirements" : "Validated Submissions",
-                      ]}
+                      formatter={(val: any, name: any, item: any) => {
+                        const isAssigned = item?.dataKey === "assigned" || String(name).toLowerCase().includes("assigned");
+                        return [
+                          `${Number(val).toLocaleString()} KPIs`,
+                          isAssigned ? "Assigned Requirements" : "Validated Submissions",
+                        ];
+                      }}
                       contentStyle={{
                         borderRadius: "8px",
                         boxShadow: "0 4px 12px rgba(0,0,0,0.1)",
@@ -1004,10 +1007,14 @@ export function NationalDashboardTab() {
                     <XAxis dataKey="name" tick={{ fontSize: 10 }} />
                     <YAxis tick={{ fontSize: 10 }} />
                     <Tooltip
-                      formatter={(val: any, name: any, item: any) => [
-                        `${Number(val).toLocaleString()} ${item.payload.unit || ""}`,
-                        name === "target" ? "Planned National Target" : "Reported National Actual",
-                      ]}
+                      formatter={(val: any, name: any, item: any) => {
+                        const isTarget = item?.dataKey === "target" || String(name).toLowerCase().includes("target") || String(name).toLowerCase().includes("planned");
+                        const unit = item?.payload?.unit || "";
+                        return [
+                          `${Number(val).toLocaleString()} ${unit}`,
+                          isTarget ? "Planned National Target" : "Reported National Actual",
+                        ];
+                      }}
                       labelFormatter={(label: any, items: any) => {
                         const item = items?.[0]?.payload;
                         return item ? `${item.title} (${item.name})` : label;
@@ -1061,7 +1068,10 @@ export function NationalDashboardTab() {
                       ))}
                     </Pie>
                     <Tooltip
-                      formatter={(val: any) => [val, "Submissions"]}
+                      formatter={(val: any, name: any) => [
+                        `${Number(val).toLocaleString()} Reports`,
+                        name || "Submissions",
+                      ]}
                       contentStyle={{ borderRadius: "8px" }}
                     />
                   </PieChart>

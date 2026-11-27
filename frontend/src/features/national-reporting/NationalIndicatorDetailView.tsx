@@ -529,10 +529,13 @@ export function NationalIndicatorDetailView({
                   <XAxis dataKey="name" tick={{ fontSize: 11 }} />
                   <YAxis tick={{ fontSize: 11 }} />
                   <Tooltip
-                    formatter={(val: any, name: any) => [
-                      `${Number(val).toLocaleString()} ${indicator.expectedUnit}`,
-                      name === "target" ? "Planned Target" : "Reported Output",
-                    ]}
+                    formatter={(val: any, name: any, item: any) => {
+                      const isTarget = item?.dataKey === "target" || String(name).toLowerCase().includes("target") || String(name).toLowerCase().includes("planned");
+                      return [
+                        `${Number(val).toLocaleString()} ${indicator.expectedUnit}`,
+                        isTarget ? "Planned Target" : "Reported Output",
+                      ];
+                    }}
                     contentStyle={{
                       borderRadius: "8px",
                       boxShadow: "0 4px 12px rgba(0,0,0,0.1)",

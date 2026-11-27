@@ -750,10 +750,13 @@ export function NationalRegionDetailView({
                       fontSize: "12px",
                       border: "none",
                     }}
-                    formatter={(val: any, name: any, item: any) => [
-                      `${Number(val).toLocaleString()} ${item.payload.unit}`,
-                      name === "target" ? "Planned Target" : "Reported Output",
-                    ]}
+                    formatter={(val: any, name: any, item: any) => {
+                      const isTarget = item?.dataKey === "target" || String(name).toLowerCase().includes("target") || String(name).toLowerCase().includes("planned");
+                      return [
+                        `${Number(val).toLocaleString()} ${item?.payload?.unit || ""}`,
+                        isTarget ? "Planned Target" : "Reported Output",
+                      ];
+                    }}
                     labelFormatter={(label: any, items: any) => {
                       const first = items?.[0]?.payload;
                       return first ? `${first.name} - ${first.title}` : label;
