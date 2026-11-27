@@ -206,7 +206,7 @@ export const PRIVATE_CATEGORIZED_NAVIGATION: NavCategory[] = [
     category: "NATIONAL & REGIONAL OVERSIGHT",
     items: [
       {
-        title: "National Reporting",
+        title: "National KPI",
         url: "/national-reporting",
         icon: BarChart3,
         anyPermissions: [
@@ -222,13 +222,13 @@ export const PRIVATE_CATEGORIZED_NAVIGATION: NavCategory[] = [
             anyPermissions: ["NATIONAL_REPORTING:READ_DASHBOARD", "NATIONAL_REPORTING:MANAGE"],
           },
           {
-            title: "Requirements Catalog",
+            title: "KPI Catalog",
             url: "/national-reporting/catalog",
             icon: Layers,
             anyPermissions: ["NATIONAL_REPORTING:READ_REQUIREMENT", "NATIONAL_REPORTING:MANAGE"],
           },
           {
-            title: "Regional Assignments",
+            title: "KPI Assignment",
             url: "/national-reporting/assignments",
             icon: Share2,
             anyPermissions: ["NATIONAL_REPORTING:READ_REQUIREMENT", "NATIONAL_REPORTING:MANAGE"],
@@ -244,7 +244,7 @@ export const PRIVATE_CATEGORIZED_NAVIGATION: NavCategory[] = [
             ],
           },
           {
-            title: "Reporting Configuration",
+            title: "KPI Category & Config",
             url: "/national-reporting/configuration",
             icon: Settings,
             anyPermissions: ["NATIONAL_REPORTING:MANAGE", "NATIONAL_REPORTING:READ_REQUIREMENT"],

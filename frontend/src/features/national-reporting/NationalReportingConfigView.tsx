@@ -330,10 +330,10 @@ export function NationalReportingConfigView() {
             Federal Reporting Administration
           </div>
           <h1 className="text-2xl font-bold tracking-tight text-slate-900 dark:text-slate-100 mt-1">
-            National Reporting Configuration
+            National KPI Configuration
           </h1>
           <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-            Configure national reporting sectors, measurement categories, and national unit conversion matrices for regional compliance.
+            Configure national KPI categories, measurement units, and period classification naming for regional compliance.
           </p>
         </div>
       </div>
@@ -346,7 +346,7 @@ export function NationalReportingConfigView() {
             className="flex items-center gap-2 data-[state=active]:bg-white dark:data-[state=active]:bg-slate-900 data-[state=active]:text-emerald-700 dark:data-[state=active]:text-emerald-400 data-[state=active]:shadow-sm rounded-lg text-xs font-semibold"
           >
             <Layers className="h-4 w-4" />
-            Reporting Categories
+            KPI Category
           </TabsTrigger>
 
           <TabsTrigger
@@ -374,7 +374,7 @@ export function NationalReportingConfigView() {
           </TabsTrigger>
         </TabsList>
 
-        {/* Tab 1: Reporting Categories */}
+        {/* Tab 1: KPI Categories */}
         <TabsContent value="categories" className="space-y-4 outline-none">
           <Card className="border border-slate-200 dark:border-slate-800 shadow-sm">
             <CardHeader className="p-4 pb-2">
@@ -382,10 +382,10 @@ export function NationalReportingConfigView() {
                 <div>
                   <CardTitle className="text-sm font-bold flex items-center gap-2">
                     <Layers className="h-4 w-4 text-emerald-600" />
-                    <span>Federal Reporting Category Taxonomy</span>
+                    <span>Federal KPI Category Taxonomy</span>
                   </CardTitle>
                   <CardDescription className="text-xs">
-                    Official sectors under which national reporting indicators and regional mandates are grouped.
+                    Official sectors and thematic groups under which national KPIs and regional assignments are classified.
                   </CardDescription>
                 </div>
 
@@ -393,7 +393,7 @@ export function NationalReportingConfigView() {
                   <div className="relative w-52">
                     <Search className="absolute left-2.5 top-2.5 h-3.5 w-3.5 text-slate-400" />
                     <Input
-                      placeholder="Search categories..."
+                      placeholder="Search KPI categories..."
                       value={categorySearch}
                       onChange={(e) => setCategorySearch(e.target.value)}
                       className="pl-8 h-8 text-xs"
@@ -406,7 +406,7 @@ export function NationalReportingConfigView() {
                     onClick={() => setIsAddCategoryOpen(true)}
                   >
                     <Plus className="h-3.5 w-3.5" />
-                    <span>Add Category</span>
+                    <span>Add KPI Category</span>
                   </Button>
                 </div>
               </div>

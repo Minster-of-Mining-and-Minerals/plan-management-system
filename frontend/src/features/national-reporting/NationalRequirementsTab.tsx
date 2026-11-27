@@ -580,7 +580,7 @@ export function NationalRequirementsTab() {
   // Top Actions for TableLayout
   const actions: ActionButton[] = [
     {
-      label: "New Requirement",
+      label: "New KPI",
       icon: <Plus className="h-4 w-4" />,
       variant: "default",
       onClick: handleOpenCreate,
@@ -589,7 +589,7 @@ export function NationalRequirementsTab() {
 
   return (
     <div className="space-y-4">
-      {/* Sub-Tabs for Requirements Catalog vs Unit Configuration */}
+      {/* Sub-Tabs for KPI Catalog vs Unit Configuration */}
       <div className="flex items-center gap-2 border-b border-slate-200 dark:border-slate-800 pb-2">
         <Button
           variant={subTab === "catalog" ? "default" : "outline"}
@@ -602,7 +602,7 @@ export function NationalRequirementsTab() {
           }`}
         >
           <Layers className="h-3.5 w-3.5" />
-          <span>Requirements Catalog</span>
+          <span>KPI Catalog</span>
         </Button>
 
         <Button
@@ -622,7 +622,7 @@ export function NationalRequirementsTab() {
 
       {subTab === "catalog" ? (
         <TableLayout
-          title="National Reporting Requirements"
+          title="National KPI Catalog"
           description="Manage national mining KPIs organized by Global Regulatory Categories with independent category tables and pagination."
           actions={actions}
           filters={filters}

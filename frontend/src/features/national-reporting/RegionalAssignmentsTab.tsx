@@ -489,7 +489,8 @@ export function RegionalAssignmentsTab() {
   return (
     <>
       <TableLayout
-        title="Regional Assignments & Reporting Permissions"
+        title="KPI Assignments & Regional Presets"
+        description="Assign national KPIs to regional states, customize per-region annual & period targets, and oversee submission locks."
         filters={filters}
         filterColumnsPerRow={3}
       >

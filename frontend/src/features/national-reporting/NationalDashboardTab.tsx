@@ -65,6 +65,9 @@ export function NationalDashboardTab() {
   const [periodFilter, setPeriodFilter] = useState<string>("all");
   const [regionFilter, setRegionFilter] = useState<string>("all");
 
+  // Selected category for expanded analytics view
+  const [expandedCategoryCode, setExpandedCategoryCode] = useState<string | null>(null);
+
   // Regional table filters
   const [regionalSearchQuery, setRegionalSearchQuery] = useState<string>("");
   const [regionalStatusFilter, setRegionalStatusFilter] = useState<string>("all");
@@ -592,7 +595,7 @@ export function NationalDashboardTab() {
         <Card className="bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 shadow-sm">
           <CardHeader className="p-4 pb-2">
             <span className="text-xs font-medium text-slate-500 uppercase tracking-wider">
-              National Requirements
+              Total National KPIs
             </span>
           </CardHeader>
           <CardContent className="p-4 pt-0 flex items-center justify-between">
@@ -608,7 +611,7 @@ export function NationalDashboardTab() {
         <Card className="bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 shadow-sm">
           <CardHeader className="p-4 pb-2">
             <span className="text-xs font-medium text-slate-500 uppercase tracking-wider">
-              Regional Assignments
+              Regional KPI Assignments
             </span>
           </CardHeader>
           <CardContent className="p-4 pt-0 flex items-center justify-between">
@@ -624,7 +627,7 @@ export function NationalDashboardTab() {
         <Card className="bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 shadow-sm">
           <CardHeader className="p-4 pb-2">
             <span className="text-xs font-medium text-slate-500 uppercase tracking-wider">
-              Validated Submissions
+              Submitted KPI Reports
             </span>
           </CardHeader>
           <CardContent className="p-4 pt-0 flex items-center justify-between">
@@ -640,7 +643,7 @@ export function NationalDashboardTab() {
         <Card className="bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 shadow-sm">
           <CardHeader className="p-4 pb-2">
             <span className="text-xs font-medium text-slate-500 uppercase tracking-wider">
-              National Compliance
+              National KPI Compliance
             </span>
           </CardHeader>
           <CardContent className="p-4 pt-0 flex items-center justify-between">
@@ -656,7 +659,7 @@ export function NationalDashboardTab() {
         <Card className="bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 shadow-sm">
           <CardHeader className="p-4 pb-2">
             <span className="text-xs font-medium text-slate-500 uppercase tracking-wider">
-              Missing Submissions
+              Pending KPI Reports
             </span>
           </CardHeader>
           <CardContent className="p-4 pt-0 flex items-center justify-between">
@@ -727,30 +730,52 @@ export function NationalDashboardTab() {
       {/* Category Thematic Performance Cards */}
       {summary?.categoryBreakdown && summary.categoryBreakdown.length > 0 && (
         <div className="space-y-3">
-          <h3 className="text-xs font-bold uppercase tracking-wider text-slate-600 dark:text-slate-400 flex items-center gap-2">
-            <Layers className="h-4 w-4 text-emerald-600" />
-            Performance by Category & Thematic Domain
-          </h3>
+          <div className="flex items-center justify-between">
+            <h3 className="text-xs font-bold uppercase tracking-wider text-slate-600 dark:text-slate-400 flex items-center gap-2">
+              <Layers className="h-4 w-4 text-emerald-600" />
+              KPI Performance by Category (Click to view breakdown)
+            </h3>
+            {expandedCategoryCode && (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setExpandedCategoryCode(null)}
+                className="text-xs h-7 text-slate-500 hover:text-slate-900 dark:hover:text-slate-100"
+              >
+                Close Expanded View
+              </Button>
+            )}
+          </div>
+
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
             {summary.categoryBreakdown.map((cat) => {
               const catMeta = categoryMap.get(cat.category);
               const label = cat.categoryLabel || catMeta?.label || cat.category;
               const icon = cat.icon || catMeta?.icon || "📊";
+              const isSelected = expandedCategoryCode === cat.category;
 
               return (
-                <Card key={cat.category} className="bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 shadow-sm p-3.5">
+                <Card
+                  key={cat.category}
+                  onClick={() => setExpandedCategoryCode(isSelected ? null : cat.category)}
+                  className={`bg-white dark:bg-slate-900 border transition-all cursor-pointer p-3.5 select-none ${
+                    isSelected
+                      ? "border-emerald-600 ring-2 ring-emerald-500/30 shadow-md bg-emerald-50/20 dark:bg-emerald-950/20"
+                      : "border-slate-200 dark:border-slate-800 hover:border-emerald-300 dark:hover:border-emerald-700 shadow-sm hover:shadow"
+                  }`}
+                >
                   <div className="flex items-center justify-between mb-2">
                     <span className="text-xs font-semibold text-slate-800 dark:text-slate-200 flex items-center gap-1.5 line-clamp-1" title={label}>
                       <span>{icon}</span>
                       <span className="truncate">{label}</span>
                     </span>
-                    <Badge variant="outline" className="text-[10px] font-mono shrink-0 ml-1">
+                    <Badge variant={isSelected ? "default" : "outline"} className={`text-[10px] font-mono shrink-0 ml-1 ${isSelected ? "bg-emerald-600 text-white" : ""}`}>
                       {cat.publishedCount} / {cat.assignmentsCount}
                     </Badge>
                   </div>
                   <div className="w-full bg-slate-100 dark:bg-slate-800 rounded-full h-2 overflow-hidden mb-1.5">
                     <div
-                      className={`h-full rounded-full ${
+                      className={`h-full rounded-full transition-all duration-300 ${
                         cat.complianceRate >= 80
                           ? "bg-emerald-600"
                           : cat.complianceRate >= 50
@@ -761,15 +786,153 @@ export function NationalDashboardTab() {
                     />
                   </div>
                   <div className="flex items-center justify-between text-[11px] text-slate-500">
-                    <span>Compliance</span>
+                    <span className="text-[10px] font-medium text-emerald-700 dark:text-emerald-400">
+                      {isSelected ? "▲ Click to collapse" : "▼ Click to expand"}
+                    </span>
                     <span className="font-mono font-bold text-slate-800 dark:text-slate-200">
-                      {cat.complianceRate}%
+                      {cat.complianceRate}% Compliance
                     </span>
                   </div>
                 </Card>
               );
             })}
           </div>
+
+          {/* Expanded Category Analytics Detail Drawer / Card */}
+          {expandedCategoryCode && (() => {
+            const selectedCat = summary.categoryBreakdown.find((c) => c.category === expandedCategoryCode);
+            const catMeta = categoryMap.get(expandedCategoryCode);
+            const label = selectedCat?.categoryLabel || catMeta?.label || expandedCategoryCode;
+            const icon = selectedCat?.icon || catMeta?.icon || "📊";
+
+            // Filter KPIs belonging to this category
+            const categoryKpis = requirementSummaries.filter(
+              (r) => r.category.toLowerCase() === expandedCategoryCode.toLowerCase()
+            );
+
+            const totalAssignedInCat = categoryKpis.reduce((acc, curr) => acc + (curr.assignedRegionsCount || 0), 0);
+            const totalSubmittedInCat = categoryKpis.reduce((acc, curr) => acc + (curr.submittedRegionsCount || 0), 0);
+
+            return (
+              <div className="p-4 rounded-xl bg-slate-50 dark:bg-slate-900/80 border border-emerald-300 dark:border-emerald-800/60 shadow-sm space-y-4 animate-in fade-in-50 duration-200">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-200 dark:border-slate-800 pb-3">
+                  <div className="flex items-center gap-2.5">
+                    <span className="text-2xl p-2 rounded-lg bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 shadow-sm">
+                      {icon}
+                    </span>
+                    <div>
+                      <h4 className="text-base font-bold text-slate-900 dark:text-slate-100 flex items-center gap-2">
+                        {label} Analytics Detail
+                        <Badge variant="outline" className="font-mono text-xs border-emerald-400 text-emerald-700 dark:text-emerald-400">
+                          {selectedCat?.complianceRate ?? 0}% Compliance
+                        </Badge>
+                      </h4>
+                      <p className="text-xs text-slate-500">
+                        {categoryKpis.length} National KPIs categorized under this domain • {totalSubmittedInCat} of {totalAssignedInCat} regional reports received
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-2">
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => {
+                        setIndicatorCategoryFilter(expandedCategoryCode);
+                        const tableElem = document.getElementById("national-indicators-section");
+                        if (tableElem) tableElem.scrollIntoView({ behavior: "smooth" });
+                      }}
+                      className="text-xs h-7 border-emerald-300 text-emerald-700 dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-950"
+                    >
+                      Filter KPI Table to This Category
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      onClick={() => setExpandedCategoryCode(null)}
+                      className="text-xs h-7"
+                    >
+                      Close
+                    </Button>
+                  </div>
+                </div>
+
+                {/* Sub-KPIs Grid for this category */}
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                  {categoryKpis.length === 0 ? (
+                    <div className="col-span-3 py-6 text-center text-xs text-slate-400">
+                      No KPIs found under {label}.
+                    </div>
+                  ) : (
+                    categoryKpis.map((req) => {
+                      const actual = req.nationalTotalActual ?? 0;
+                      const target = req.nationalTotalTarget ?? 0;
+                      const achRate = req.achievementRate ?? (target > 0 ? Math.round((actual / target) * 1000) / 10 : null);
+
+                      return (
+                        <div
+                          key={req.requirementId}
+                          onClick={() => router.push(`/national-reporting/indicators/${req.requirementId}?year=${yearFilter}&period=${periodFilter}`)}
+                          className="p-3 bg-white dark:bg-slate-950 rounded-lg border border-slate-200 dark:border-slate-800 hover:border-emerald-300 dark:hover:border-emerald-700 transition-all cursor-pointer space-y-2 group"
+                        >
+                          <div className="flex items-start justify-between gap-2">
+                            <div>
+                              <div className="flex items-center gap-1.5">
+                                <span className="font-mono text-[10px] font-bold text-emerald-600 bg-emerald-50 dark:bg-emerald-950 px-1.5 py-0.5 rounded">
+                                  {req.code}
+                                </span>
+                                <span className="font-semibold text-xs text-slate-900 dark:text-slate-100 group-hover:text-emerald-600 transition-colors line-clamp-1" title={req.title}>
+                                  {req.title}
+                                </span>
+                              </div>
+                              <span className="text-[10px] text-slate-400 font-mono">
+                                Unit: {req.expectedUnit} • Cycle: {req.frequency}
+                              </span>
+                            </div>
+                            <ExternalLink className="h-3 w-3 text-slate-400 group-hover:text-emerald-600 shrink-0" />
+                          </div>
+
+                          <div className="grid grid-cols-3 gap-2 text-[11px] pt-1 border-t border-slate-100 dark:border-slate-800/80 font-mono">
+                            <div>
+                              <span className="text-[9px] uppercase text-slate-400 block">Target</span>
+                              <span className="font-semibold text-slate-700 dark:text-slate-300">
+                                {target ? target.toLocaleString() : "—"}
+                              </span>
+                            </div>
+                            <div>
+                              <span className="text-[9px] uppercase text-slate-400 block">Actual</span>
+                              <span className="font-bold text-emerald-700 dark:text-emerald-400">
+                                {actual ? actual.toLocaleString() : "—"}
+                              </span>
+                            </div>
+                            <div>
+                              <span className="text-[9px] uppercase text-slate-400 block">Achievement</span>
+                              <span className={`font-bold ${achRate != null && achRate >= 100 ? "text-emerald-600" : achRate != null && achRate >= 70 ? "text-blue-600" : "text-amber-600"}`}>
+                                {achRate != null ? `${achRate}%` : "—"}
+                              </span>
+                            </div>
+                          </div>
+
+                          <div className="space-y-1 pt-1">
+                            <div className="flex items-center justify-between text-[10px] text-slate-500 font-mono">
+                              <span>Regional Coverage</span>
+                              <span>{req.submittedRegionsCount} / {req.assignedRegionsCount} regions ({req.dataCompletenessPercent}%)</span>
+                            </div>
+                            <div className="w-full bg-slate-100 dark:bg-slate-800 rounded-full h-1.5 overflow-hidden">
+                              <div
+                                className="h-full bg-emerald-500 rounded-full"
+                                style={{ width: `${Math.min(100, req.dataCompletenessPercent)}%` }}
+                              />
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })
+                  )}
+                </div>
+              </div>
+            );
+          })()}
         </div>
       )}
 
@@ -965,21 +1128,21 @@ export function NationalDashboardTab() {
       </div>
 
       {/* Row 3: Tabular Standardized National Indicator Aggregates & Over-Achievement */}
-      <Card className="bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 shadow-sm">
+      <Card id="national-indicators-section" className="bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 shadow-sm">
         <CardHeader className="p-5 pb-3 space-y-3">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
             <div>
               <CardTitle className="text-base font-bold text-slate-900 dark:text-slate-100 flex items-center gap-2">
                 <Scale className="h-5 w-5 text-emerald-600" />
-                Standardized National Indicator Aggregates & Over-Achievement
+                Standardized National KPI Aggregates &amp; Over-Achievement
               </CardTitle>
               <p className="text-xs text-slate-500 mt-0.5">
-                Full tabular rollups of national targets, reported actuals, over-achievement tracking, and regional assignments.
+                Full tabular rollups of national targets, reported actuals, over-achievement tracking, and regional KPI assignments.
               </p>
             </div>
 
             <Badge variant="outline" className="font-mono text-xs w-fit">
-              {filteredIndicators.length} Indicators
+              {filteredIndicators.length} KPIs
             </Badge>
           </div>
 
