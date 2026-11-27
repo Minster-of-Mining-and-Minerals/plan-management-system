@@ -88,41 +88,55 @@ async function purgeAllData(queryInterface, adminIds) {
   console.log("  Deleting national_reporting_period_configs ...");
   await safeQuery(queryInterface, `DELETE FROM national_reporting_period_configs`);
 
-  // ── 3. Plan data ───────────────────────────────────────────────────────────
-  console.log("  Deleting plan_period_achievement_attachments ...");
+  // ── 3. Plan & execution data ───────────────────────────────────────────────
+  console.log("  Deleting plan attachments & logs ...");
   await safeQuery(queryInterface, `DELETE FROM plan_period_achievement_attachments`);
-
-  console.log("  Deleting plan_period_achievements ...");
   await safeQuery(queryInterface, `DELETE FROM plan_period_achievements`);
-
-  console.log("  Deleting plan_node_action_logs ...");
   await safeQuery(queryInterface, `DELETE FROM plan_node_action_logs`);
-
-  console.log("  Deleting plan_assignments ...");
-  await safeQuery(queryInterface, `DELETE FROM plan_assignments`);
-
-  console.log("  Deleting regional_plan_assignments ...");
-  await safeQuery(queryInterface, `DELETE FROM regional_plan_assignments`);
-
-  console.log("  Deleting regional_plan_period_achievements ...");
-  await safeQuery(queryInterface, `DELETE FROM regional_plan_period_achievements`);
-
-  console.log("  Deleting regional_plan_versions ...");
-  await safeQuery(queryInterface, `DELETE FROM regional_plan_versions`);
-
-  console.log("  Deleting regional_planning_configurations ...");
-  await safeQuery(queryInterface, `DELETE FROM regional_planning_configurations`);
-
-  console.log("  Deleting plan_amendment_requests ...");
+  await safeQuery(queryInterface, `DELETE FROM regional_plan_node_action_logs`);
+  await safeQuery(queryInterface, `DELETE FROM company_plan_node_action_logs`);
+  await safeQuery(queryInterface, `DELETE FROM plan_sector_aggregation_publishes`);
+  await safeQuery(queryInterface, `DELETE FROM plan_amendments`);
   await safeQuery(queryInterface, `DELETE FROM plan_amendment_requests`);
-
-  console.log("  Deleting plan_versions ...");
+  await safeQuery(queryInterface, `DELETE FROM target_reallocation_requests`);
+  await safeQuery(queryInterface, `DELETE FROM target_allocation_histories`);
+  await safeQuery(queryInterface, `DELETE FROM plan_execution_window_overrides`);
+  await safeQuery(queryInterface, `DELETE FROM plan_assignments`);
+  await safeQuery(queryInterface, `DELETE FROM regional_plan_assignments`);
+  await safeQuery(queryInterface, `DELETE FROM regional_plan_period_achievements`);
+  await safeQuery(queryInterface, `DELETE FROM plan_nodes`);
+  await safeQuery(queryInterface, `DELETE FROM regional_plan_nodes`);
+  await safeQuery(queryInterface, `DELETE FROM company_plan_nodes`);
+  await safeQuery(queryInterface, `DELETE FROM company_production_reports`);
+  await safeQuery(queryInterface, `DELETE FROM company_production_reporting_assignments`);
+  await safeQuery(queryInterface, `DELETE FROM company_production_target_amendments`);
+  await safeQuery(queryInterface, `DELETE FROM company_production_target_approval_histories`);
+  await safeQuery(queryInterface, `DELETE FROM company_production_targets`);
+  await safeQuery(queryInterface, `DELETE FROM company_production_assignments`);
+  await safeQuery(queryInterface, `DELETE FROM regional_issue_escalation_messages`);
+  await safeQuery(queryInterface, `DELETE FROM regional_issue_escalations`);
+  await safeQuery(queryInterface, `DELETE FROM regional_issue_histories`);
+  await safeQuery(queryInterface, `DELETE FROM regional_issue_comments`);
+  await safeQuery(queryInterface, `DELETE FROM regional_issues`);
+  await safeQuery(queryInterface, `DELETE FROM regional_requirement_mappings`);
+  await safeQuery(queryInterface, `DELETE FROM regional_plan_versions`);
+  await safeQuery(queryInterface, `DELETE FROM regional_planning_configurations`);
   await safeQuery(queryInterface, `DELETE FROM plan_versions`);
-
-  console.log("  Deleting planning_configurations ...");
   await safeQuery(queryInterface, `DELETE FROM planning_configurations`);
+  await safeQuery(queryInterface, `DELETE FROM plan_rules`);
 
-  // ── 4. Users (preserve admins) ────────────────────────────────────────────
+  // ── 4. User sessions & security logs ───────────────────────────────────────
+  console.log("  Deleting sessions and security logs ...");
+  await safeQuery(queryInterface, `DELETE FROM user_sessions`);
+  await safeQuery(queryInterface, `DELETE FROM session_security_logs`);
+  await safeQuery(queryInterface, `DELETE FROM user_device_restrictions`);
+  await safeQuery(queryInterface, `DELETE FROM user_permission_groups`);
+  await safeQuery(queryInterface, `UPDATE system_audit_logs SET changed_by = NULL`);
+  await safeQuery(queryInterface, `DELETE FROM system_audit_logs WHERE changed_by IS NULL`);
+  await safeQuery(queryInterface, `UPDATE branding_audit_logs SET changed_by = NULL`);
+  await safeQuery(queryInterface, `DELETE FROM branding_audit_logs`);
+
+  // ── 5. Users (preserve admins) ────────────────────────────────────────────
   console.log(`  Preserving admin users: ${adminIds.join(", ")}`);
 
   // Null out structure references on non-admins first (FK safety)
@@ -141,6 +155,13 @@ async function purgeAllData(queryInterface, adminIds) {
     { adminIds }
   );
 
+  // Any other company/external/regional assignment references to users
+  await safeQuery(queryInterface, `DELETE FROM company_internal_assignments`);
+  await safeQuery(queryInterface, `DELETE FROM regional_internal_assignments`);
+  await safeQuery(queryInterface, `DELETE FROM internal_assignments`);
+  await safeQuery(queryInterface, `DELETE FROM external_assignments`);
+  await safeQuery(queryInterface, `DELETE FROM asm_miners`);
+
   // Delete non-admin users
   console.log("  Deleting non-admin users ...");
   await safeQuery(
@@ -149,7 +170,7 @@ async function purgeAllData(queryInterface, adminIds) {
     { adminIds }
   );
 
-  // ── 5. Internal structures ────────────────────────────────────────────────
+  // ── 6. Internal structures ────────────────────────────────────────────────
   console.log("  Deleting internal_structure_permission_groups ...");
   await safeQuery(queryInterface, `DELETE FROM internal_structure_permission_groups`);
 
@@ -159,21 +180,26 @@ async function purgeAllData(queryInterface, adminIds) {
   console.log("  Deleting internal_structures ...");
   await safeQuery(queryInterface, `DELETE FROM internal_structures`);
 
-  // ── 6. Government structures ──────────────────────────────────────────────
+  // ── 7. Government structures ──────────────────────────────────────────────
   // Null out references in users (admins) before deleting sectors
   if (adminIds.length > 0) {
     await safeQuery(
       queryInterface,
-      `UPDATE users SET government_structure_id = NULL WHERE user_id IN (:adminIds)`,
+      `UPDATE users SET government_structure_id = NULL, internal_structure_id = NULL WHERE user_id IN (:adminIds)`,
       { adminIds }
     );
   }
 
   console.log("  Deleting permission_group_government_structures ...");
   await safeQuery(queryInterface, `DELETE FROM permission_group_government_structures`);
+  await safeQuery(queryInterface, `DELETE FROM government_structure_permission_groups`);
 
-  console.log("  Deleting government_structure_branding ...");
+  console.log("  Deleting branding_settings ...");
+  await safeQuery(queryInterface, `DELETE FROM branding_settings`);
   await safeQuery(queryInterface, `DELETE FROM government_structure_branding`);
+
+  console.log("  Updating roles to remove government_structure_id FK ...");
+  await safeQuery(queryInterface, `UPDATE roles SET government_structure_id = NULL`);
 
   console.log("  Deleting government_structures ...");
   await safeQuery(queryInterface, `DELETE FROM government_structures`);
