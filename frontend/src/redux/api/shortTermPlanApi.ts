@@ -4,7 +4,9 @@ import type {
   ShortTermKpi,
   ShortTermKpiAssignment,
   ShortTermFrequency,
+  ShortTermEvaluationMode,
   ShortTermSubmissionType,
+  ShortTermDashboardAnalytics,
 } from "../types/shortTermPlan";
 import type { CalendarSystem } from "@/utils/calendarUtils";
 
@@ -32,6 +34,18 @@ export const shortTermPlanApi = baseApi.injectEndpoints({
       }),
       transformResponse: (res: { data: ShortTermPlan }) => res.data,
       providesTags: (_res, _err, arg) => [{ type: "ShortTermPlan", id: arg.planId }],
+    }),
+
+    getShortTermAnalytics: builder.query<
+      ShortTermDashboardAnalytics,
+      { planId?: string; government_structure_id?: string } | void
+    >({
+      query: (params) => ({
+        url: "/short-term-plans/analytics",
+        params: params || undefined,
+      }),
+      transformResponse: (res: { data: ShortTermDashboardAnalytics }) => res.data,
+      providesTags: ["ShortTermPlan"],
     }),
 
     createShortTermPlan: builder.mutation<
@@ -64,6 +78,7 @@ export const shortTermPlanApi = baseApi.injectEndpoints({
         title: string;
         unit: string;
         total_target?: number | null;
+        evaluation_mode?: ShortTermEvaluationMode;
         target_mode?: "cumulative" | "milestone" | "continuous";
         reporting_frequency?: ShortTermFrequency;
         allow_narrative_only_updates?: boolean;
@@ -72,6 +87,27 @@ export const shortTermPlanApi = baseApi.injectEndpoints({
       query: ({ planId, ...body }) => ({
         url: `/short-term-plans/${planId}/kpis`,
         method: "POST",
+        body,
+      }),
+      transformResponse: (res: { data: ShortTermKpi }) => res.data,
+      invalidatesTags: (_res, _err, arg) => ["ShortTermPlan", { type: "ShortTermPlan", id: arg.planId }],
+    }),
+
+    updateShortTermKpi: builder.mutation<
+      ShortTermKpi,
+      {
+        kpiId: string;
+        planId: string;
+        title?: string;
+        unit?: string;
+        total_target?: number | null;
+        evaluation_mode?: ShortTermEvaluationMode;
+        reporting_frequency?: ShortTermFrequency;
+      }
+    >({
+      query: ({ kpiId, planId: _planId, ...body }) => ({
+        url: `/short-term-plans/kpis/${kpiId}`,
+        method: "PUT",
         body,
       }),
       transformResponse: (res: { data: ShortTermKpi }) => res.data,
@@ -88,6 +124,7 @@ export const shortTermPlanApi = baseApi.injectEndpoints({
         assigned_user_id?: string | null;
         assignee_label?: string;
         allocated_target?: number | null;
+        evaluation_mode_override?: ShortTermEvaluationMode | null;
         period_targets?: Record<string, number | string>;
         reporting_frequency_override?: ShortTermFrequency | null;
       }
@@ -95,6 +132,26 @@ export const shortTermPlanApi = baseApi.injectEndpoints({
       query: ({ kpiId, planId: _planId, ...body }) => ({
         url: `/short-term-plans/kpis/${kpiId}/assign`,
         method: "POST",
+        body,
+      }),
+      transformResponse: (res: { data: ShortTermKpiAssignment }) => res.data,
+      invalidatesTags: (_res, _err, arg) => ["ShortTermPlan", { type: "ShortTermPlan", id: arg.planId }],
+    }),
+
+    updateShortTermAssignment: builder.mutation<
+      ShortTermKpiAssignment,
+      {
+        assignmentId: string;
+        planId: string;
+        allocated_target?: number | null;
+        evaluation_mode_override?: ShortTermEvaluationMode | null;
+        reporting_frequency_override?: ShortTermFrequency | null;
+        period_targets?: Record<string, number | string>;
+      }
+    >({
+      query: ({ assignmentId, planId: _planId, ...body }) => ({
+        url: `/short-term-plans/assignments/${assignmentId}`,
+        method: "PUT",
         body,
       }),
       transformResponse: (res: { data: ShortTermKpiAssignment }) => res.data,
@@ -126,8 +183,11 @@ export const shortTermPlanApi = baseApi.injectEndpoints({
 export const {
   useGetShortTermPlansQuery,
   useGetShortTermPlanDetailQuery,
+  useGetShortTermAnalyticsQuery,
   useCreateShortTermPlanMutation,
   useAddShortTermKpiMutation,
+  useUpdateShortTermKpiMutation,
   useAssignShortTermKpiMutation,
+  useUpdateShortTermAssignmentMutation,
   useSubmitShortTermReportMutation,
 } = shortTermPlanApi;

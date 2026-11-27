@@ -1,6 +1,7 @@
 import type { CalendarSystem } from "@/utils/calendarUtils";
 
 export type ShortTermFrequency = "monthly" | "weekly" | "daily";
+export type ShortTermEvaluationMode = "number" | "percentage" | "frequency";
 export type ShortTermSubmissionType = "narrative_only" | "actual_and_narrative";
 
 export interface ShortTermPlan {
@@ -58,6 +59,7 @@ export interface ShortTermKpiAssignment {
   assigned_user_id?: string | null;
   assignee_label?: string | null;
   allocated_target?: number | null;
+  evaluation_mode_override?: ShortTermEvaluationMode | null;
   period_targets: Record<string, number | string>;
   reporting_frequency_override?: ShortTermFrequency | null;
   effective_frequency?: ShortTermFrequency;
@@ -71,6 +73,7 @@ export interface ShortTermKpiAssignment {
     numeric_reports_count: number;
     narrative_only_count: number;
     allocated_target: number | null;
+    effective_evaluation_mode?: ShortTermEvaluationMode;
     overall_actual: number | null;
     overall_achievement_percent: number | null;
   };
@@ -83,6 +86,7 @@ export interface ShortTermKpi {
   title: string;
   unit: string;
   total_target: number | null;
+  evaluation_mode: ShortTermEvaluationMode;
   target_mode: "cumulative" | "milestone" | "continuous";
   reporting_frequency: ShortTermFrequency;
   requires_numeric: boolean;
@@ -90,4 +94,51 @@ export interface ShortTermKpi {
   allow_narrative_only_updates: boolean;
   order_index: number;
   assignments?: ShortTermKpiAssignment[];
+}
+
+export interface ShortTermDashboardAnalytics {
+  overview: {
+    total_plans: number;
+    total_kpis: number;
+    total_assignments: number;
+    total_reports: number;
+    numeric_reports: number;
+    narrative_only_reports: number;
+    avg_achievement_percent: number;
+    evaluation_mode_breakdown: Record<ShortTermEvaluationMode, number>;
+  };
+  bySector: Array<{
+    government_structure_id: string;
+    sector_name: string;
+    kpi_count: number;
+    assignment_count: number;
+    total_reports: number;
+    numeric_reports: number;
+    narrative_only_reports: number;
+    avg_achievement_percent: number;
+  }>;
+  byAssignee: Array<{
+    assignee_key: string;
+    assignee_name: string;
+    assignee_type: string;
+    sector_name: string;
+    assigned_kpis: number;
+    total_reports: number;
+    numeric_reports: number;
+    narrative_only_reports: number;
+    avg_achievement_percent: number;
+  }>;
+  kpiProgress: Array<{
+    short_term_kpi_id: string;
+    code: string;
+    title: string;
+    sector_name: string;
+    unit: string;
+    evaluation_mode: ShortTermEvaluationMode;
+    reporting_frequency: ShortTermFrequency;
+    total_target: number | null;
+    achieved_actual: number | null;
+    achievement_percent: number | null;
+    reports_count: number;
+  }>;
 }

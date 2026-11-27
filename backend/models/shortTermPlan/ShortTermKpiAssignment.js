@@ -42,6 +42,7 @@ module.exports = (sequelize, DataTypes) => {
       assigned_user_id: { type: DataTypes.UUID, allowNull: true },
       assignee_label: { type: DataTypes.STRING(255), allowNull: true },
       allocated_target: { type: DataTypes.FLOAT, allowNull: true },
+      evaluation_mode_override: { type: DataTypes.STRING(30), allowNull: true },
       period_targets: { type: DataTypes.JSONB, allowNull: false, defaultValue: {} },
       reporting_frequency_override: { type: DataTypes.STRING(30), allowNull: true },
       status: { type: DataTypes.STRING(30), allowNull: false, defaultValue: "active" },

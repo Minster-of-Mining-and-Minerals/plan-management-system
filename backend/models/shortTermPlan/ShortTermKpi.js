@@ -34,6 +34,7 @@ module.exports = (sequelize, DataTypes) => {
       title: { type: DataTypes.TEXT, allowNull: false },
       unit: { type: DataTypes.STRING(80), allowNull: false, defaultValue: "Number" },
       total_target: { type: DataTypes.FLOAT, allowNull: true },
+      evaluation_mode: { type: DataTypes.STRING(30), allowNull: false, defaultValue: "number" },
       target_mode: { type: DataTypes.STRING(30), allowNull: false, defaultValue: "cumulative" },
       reporting_frequency: { type: DataTypes.STRING(30), allowNull: false, defaultValue: "weekly" },
       requires_numeric: { type: DataTypes.BOOLEAN, allowNull: false, defaultValue: true },

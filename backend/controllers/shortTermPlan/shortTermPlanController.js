@@ -56,11 +56,41 @@ async function submitPeriodReport(req, res) {
   }
 }
 
+async function updateKpi(req, res) {
+  try {
+    const data = await shortTermPlanService.updateKpi(req.params.kpiId, req.body);
+    return res.status(200).json({ success: true, data });
+  } catch (err) {
+    return res.status(err.status || 500).json({ success: false, message: err.message });
+  }
+}
+
+async function updateAssignment(req, res) {
+  try {
+    const data = await shortTermPlanService.updateAssignment(req.params.assignmentId, req.body);
+    return res.status(200).json({ success: true, data });
+  } catch (err) {
+    return res.status(err.status || 500).json({ success: false, message: err.message });
+  }
+}
+
+async function getDashboardAnalytics(req, res) {
+  try {
+    const data = await shortTermPlanService.getDashboardAnalytics(req.query);
+    return res.status(200).json({ success: true, data });
+  } catch (err) {
+    return res.status(err.status || 500).json({ success: false, message: err.message });
+  }
+}
+
 module.exports = {
   listPlans,
   createPlan,
   getPlanDetail,
   addKpi,
+  updateKpi,
   assignKpi,
+  updateAssignment,
   submitPeriodReport,
+  getDashboardAnalytics,
 };

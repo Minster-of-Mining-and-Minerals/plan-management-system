@@ -11,11 +11,18 @@ const {
 } = require("./calendarUtils");
 
 const VALID_FREQUENCIES = ["monthly", "weekly", "daily"];
+const VALID_EVALUATION_MODES = ["number", "percentage", "frequency"];
 
 function normalizeFrequency(freq) {
   const f = String(freq || "weekly").trim().toLowerCase();
   if (VALID_FREQUENCIES.includes(f)) return f;
   return "weekly";
+}
+
+function normalizeEvaluationMode(mode) {
+  const m = String(mode || "number").trim().toLowerCase();
+  if (VALID_EVALUATION_MODES.includes(m)) return m;
+  return "number";
 }
 
 /**
@@ -182,9 +189,15 @@ function summarizeAssignmentProgress(kpi, assignment, divisions, reports = []) {
   });
 
   const allocatedTarget = assignment.allocated_target ?? kpi.total_target ?? null;
+  const evalMode = normalizeEvaluationMode(
+    assignment.evaluation_mode_override ||
+      kpi.evaluation_mode ||
+      (kpi.target_mode === "continuous" ? "percentage" : "number")
+  );
+
   let overallActual = numericActualSum;
-  if (kpi.target_mode === "continuous" && latestNumericActual !== null) {
-    overallActual = latestNumericActual;
+  if (evalMode === "percentage" || kpi.target_mode === "continuous") {
+    if (latestNumericActual !== null) overallActual = latestNumericActual;
   }
 
   const overallAchievementPercent =
@@ -200,6 +213,7 @@ function summarizeAssignmentProgress(kpi, assignment, divisions, reports = []) {
       numeric_reports_count: numericReportsCount,
       narrative_only_count: narrativeOnlyCount,
       allocated_target: allocatedTarget,
+      effective_evaluation_mode: evalMode,
       overall_actual: numericReportsCount > 0 ? overallActual : null,
       overall_achievement_percent: overallAchievementPercent,
     },
@@ -208,7 +222,9 @@ function summarizeAssignmentProgress(kpi, assignment, divisions, reports = []) {
 
 module.exports = {
   VALID_FREQUENCIES,
+  VALID_EVALUATION_MODES,
   normalizeFrequency,
+  normalizeEvaluationMode,
   generateShortTermDivisions,
   summarizeAssignmentProgress,
 };
