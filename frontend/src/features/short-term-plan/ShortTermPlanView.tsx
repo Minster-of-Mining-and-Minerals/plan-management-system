@@ -1,11 +1,15 @@
 "use client";
 
 import React, { useMemo, useState } from "react";
+import { useSearchParams } from "next/navigation";
+import { ColumnDef } from "@tanstack/react-table";
 import {
   useGetShortTermPlansQuery,
   useGetShortTermPlanDetailQuery,
   useCreateShortTermPlanMutation,
   useAddShortTermKpiMutation,
+  useUpdateShortTermKpiMutation,
+  useDeleteShortTermKpiMutation,
   useAssignShortTermKpiMutation,
 } from "@/redux/api/shortTermPlanApi";
 import { useGetGovernmentStructuresQuery } from "@/redux/api/governmentStructureApi";
@@ -16,21 +20,14 @@ import type {
   ShortTermFrequency,
   ShortTermEvaluationMode,
 } from "@/redux/types/shortTermPlan";
-import { Card, CardContent } from "@/components/ui/card";
+import { DataTable } from "@/features/template/component/tableList/DataTable";
+import { TableLayout } from "@/features/template/component/tableList/TableLayout";
+import type { FilterField, ActionButton } from "@/types/tableLayout";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
 import {
   Dialog,
   DialogContent,
@@ -47,23 +44,16 @@ import {
 } from "@/components/ui/select";
 import { CalendarSystemSelector } from "@/components/ui/calendar-system-selector";
 import { DualCalendarDatePicker } from "@/components/ui/dual-calendar-date-picker";
-import { CalendarDateDisplay } from "@/components/ui/calendar-date-display";
 import type { CalendarSystem } from "@/utils/calendarUtils";
 import { ShortTermKpiDetailModal } from "./ShortTermKpiDetailModal";
-import { ShortTermDashboardTab } from "./ShortTermDashboardTab";
-import {
-  Plus,
-  Share2,
-  Search,
-  BarChart3,
-  ListChecks,
-  Eye,
-  ChevronLeft,
-  ChevronRight,
-} from "lucide-react";
+import { actionFeedback } from "@/components/action-feedback";
+import { Plus, Share2, Eye, Edit, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 
 export function ShortTermPlanView() {
+  const searchParams = useSearchParams();
+  const searchQuery = (searchParams.get("search") || "").trim().toLowerCase();
+
   const [sectorFilter, setSectorFilter] = useState<string>("all");
   const { data: plans = [], isLoading: isLoadingPlans } = useGetShortTermPlansQuery(
     sectorFilter !== "all" ? { government_structure_id: sectorFilter } : undefined
@@ -77,7 +67,12 @@ export function ShortTermPlanView() {
     return plans[0]?.short_term_plan_id || "";
   }, [selectedPlanId, plans]);
 
-  const { data: planDetail, isLoading: isLoadingDetail } = useGetShortTermPlanDetailQuery(
+  const {
+    data: planDetail,
+    isLoading: isLoadingDetail,
+    isError: isDetailError,
+    refetch: refetchDetail,
+  } = useGetShortTermPlanDetailQuery(
     { planId: activePlanId },
     { skip: !activePlanId }
   );
@@ -88,16 +83,15 @@ export function ShortTermPlanView() {
 
   const [createPlan, { isLoading: isCreatingPlan }] = useCreateShortTermPlanMutation();
   const [addKpi, { isLoading: isAddingKpi }] = useAddShortTermKpiMutation();
+  const [updateKpi, { isLoading: isUpdatingKpi }] = useUpdateShortTermKpiMutation();
+  const [deleteKpi] = useDeleteShortTermKpiMutation();
   const [assignKpi, { isLoading: isAssigning }] = useAssignShortTermKpiMutation();
 
-  // Table Filters & Pagination
-  const [searchQuery, setSearchQuery] = useState("");
+  // Table Filters
   const [frequencyFilter, setFrequencyFilter] = useState<string>("all");
   const [evalModeFilter, setEvalModeFilter] = useState<string>("all");
-  const [page, setPage] = useState(1);
-  const [pageSize, setPageSize] = useState(10);
 
-  // KPI Detail Modal (contains Reporting Frequency & Reporting Section inside)
+  // KPI Detail Modal (Reporting Frequency & Reporting Section inside)
   const [detailKpiId, setDetailKpiId] = useState<string | null>(null);
   const detailKpi = useMemo(
     () => (planDetail?.kpis || []).find((k) => k.short_term_kpi_id === detailKpiId) || null,
@@ -117,8 +111,9 @@ export function ShortTermPlanView() {
     default_frequency: "weekly" as ShortTermFrequency,
   });
 
-  // Add KPI Dialog
-  const [isAddKpiOpen, setIsAddKpiOpen] = useState(false);
+  // Add / Edit KPI Dialog
+  const [isKpiModalOpen, setIsKpiModalOpen] = useState(false);
+  const [editingKpi, setEditingKpi] = useState<ShortTermKpi | null>(null);
   const [kpiForm, setKpiForm] = useState({
     code: "",
     title: "",
@@ -144,39 +139,111 @@ export function ShortTermPlanView() {
 
   const allKpis = planDetail?.kpis || [];
   const filteredKpis = useMemo(() => {
-    const q = searchQuery.trim().toLowerCase();
     return allKpis.filter((kpi) => {
       if (frequencyFilter !== "all" && kpi.reporting_frequency !== frequencyFilter) return false;
       const mode = kpi.evaluation_mode || "number";
       if (evalModeFilter !== "all" && mode !== evalModeFilter) return false;
-      if (q) {
+      if (searchQuery) {
         const assigneeText = (kpi.assignments || [])
           .map((a) => `${a.department?.name || ""} ${a.assignedUser?.full_name || ""} ${a.assignee_label || ""}`)
           .join(" ")
           .toLowerCase();
         const matches =
-          kpi.code.toLowerCase().includes(q) ||
-          kpi.title.toLowerCase().includes(q) ||
-          assigneeText.includes(q);
+          kpi.code.toLowerCase().includes(searchQuery) ||
+          kpi.title.toLowerCase().includes(searchQuery) ||
+          assigneeText.includes(searchQuery);
         if (!matches) return false;
       }
       return true;
     });
   }, [allKpis, frequencyFilter, evalModeFilter, searchQuery]);
 
-  const totalFiltered = filteredKpis.length;
-  const totalPages = Math.max(1, Math.ceil(totalFiltered / pageSize));
-  const safePage = Math.min(page, totalPages);
-  const paginatedKpis = useMemo(() => {
-    const startIdx = (safePage - 1) * pageSize;
-    return filteredKpis.slice(startIdx, startIdx + pageSize);
-  }, [filteredKpis, safePage, pageSize]);
-
   const filteredDepts = useMemo(() => {
     const sectorId = assignForm.government_structure_id || planDetail?.government_structure_id;
     if (!sectorId) return internalDepts;
     return internalDepts.filter((d) => d.government_structure_id === sectorId);
   }, [internalDepts, assignForm.government_structure_id, planDetail?.government_structure_id]);
+
+  const openCreateKpi = () => {
+    setEditingKpi(null);
+    setKpiForm({
+      code: "",
+      title: "",
+      unit: "Number",
+      total_target: "",
+      evaluation_mode: "number",
+      target_mode: "cumulative",
+      reporting_frequency: planDetail?.default_frequency || "weekly",
+      allow_narrative_only_updates: true,
+    });
+    setIsKpiModalOpen(true);
+  };
+
+  const openEditKpi = (kpi: ShortTermKpi) => {
+    setEditingKpi(kpi);
+    setKpiForm({
+      code: kpi.code,
+      title: kpi.title,
+      unit: kpi.unit,
+      total_target: kpi.total_target !== null && kpi.total_target !== undefined ? String(kpi.total_target) : "",
+      evaluation_mode: kpi.evaluation_mode || "number",
+      target_mode: kpi.target_mode || "cumulative",
+      reporting_frequency: kpi.reporting_frequency || "weekly",
+      allow_narrative_only_updates: kpi.allow_narrative_only_updates,
+    });
+    setIsKpiModalOpen(true);
+  };
+
+  const handleDeleteKpi = async (kpi: ShortTermKpi) => {
+    if (!planDetail) return;
+    const confirmed = await actionFeedback.confirm(
+      `Delete KPI "${kpi.code}" and all its assignments/reports?`,
+      { destructive: true }
+    );
+    if (!confirmed) return;
+    try {
+      await deleteKpi({ kpiId: kpi.short_term_kpi_id, planId: planDetail.short_term_plan_id }).unwrap();
+      toast.success(`KPI ${kpi.code} deleted`);
+    } catch (err: any) {
+      toast.error(err?.data?.message || "Failed to delete KPI");
+    }
+  };
+
+  const handleSaveKpi = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!activePlanId) return;
+    try {
+      if (editingKpi) {
+        await updateKpi({
+          kpiId: editingKpi.short_term_kpi_id,
+          planId: activePlanId,
+          code: kpiForm.code,
+          title: kpiForm.title,
+          unit: kpiForm.unit,
+          total_target: kpiForm.total_target ? Number(kpiForm.total_target) : null,
+          evaluation_mode: kpiForm.evaluation_mode,
+          reporting_frequency: kpiForm.reporting_frequency,
+        }).unwrap();
+        toast.success("Short-term KPI updated");
+      } else {
+        await addKpi({
+          planId: activePlanId,
+          code: kpiForm.code,
+          title: kpiForm.title,
+          unit: kpiForm.unit,
+          total_target: kpiForm.total_target ? Number(kpiForm.total_target) : null,
+          evaluation_mode: kpiForm.evaluation_mode,
+          target_mode: kpiForm.target_mode,
+          reporting_frequency: kpiForm.reporting_frequency,
+          allow_narrative_only_updates: kpiForm.allow_narrative_only_updates,
+        }).unwrap();
+        toast.success("Short-term KPI added");
+      }
+      setIsKpiModalOpen(false);
+    } catch (err: any) {
+      toast.error(err?.data?.message || "Failed to save KPI");
+    }
+  };
 
   const handleCreatePlan = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -190,38 +257,6 @@ export function ShortTermPlanView() {
       setIsCreatePlanOpen(false);
     } catch (err: any) {
       toast.error(err?.data?.message || "Failed to create short-term plan");
-    }
-  };
-
-  const handleAddKpi = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!activePlanId) return;
-    try {
-      await addKpi({
-        planId: activePlanId,
-        code: kpiForm.code,
-        title: kpiForm.title,
-        unit: kpiForm.unit,
-        total_target: kpiForm.total_target ? Number(kpiForm.total_target) : null,
-        evaluation_mode: kpiForm.evaluation_mode,
-        target_mode: kpiForm.target_mode,
-        reporting_frequency: kpiForm.reporting_frequency,
-        allow_narrative_only_updates: kpiForm.allow_narrative_only_updates,
-      }).unwrap();
-      toast.success("Short-term KPI added");
-      setIsAddKpiOpen(false);
-      setKpiForm({
-        code: "",
-        title: "",
-        unit: "Number",
-        total_target: "",
-        evaluation_mode: "number",
-        target_mode: "cumulative",
-        reporting_frequency: "weekly",
-        allow_narrative_only_updates: true,
-      });
-    } catch (err: any) {
-      toast.error(err?.data?.message || "Failed to add KPI");
     }
   };
 
@@ -252,327 +287,255 @@ export function ShortTermPlanView() {
     }
   };
 
-  const startEntry = totalFiltered === 0 ? 0 : (safePage - 1) * pageSize + 1;
-  const endEntry = Math.min(safePage * pageSize, totalFiltered);
+  const filters: FilterField[] = useMemo(
+    () => [
+      {
+        key: "sector",
+        label: "Sector",
+        type: "select",
+        value: sectorFilter,
+        onChange: (val) => {
+          setSectorFilter(val);
+          setSelectedPlanId("");
+        },
+        options: [
+          { value: "all", label: "All Sectors" },
+          ...sectors.map((s) => ({
+            value: s.government_structure_id,
+            label: s.name,
+          })),
+        ],
+      },
+      {
+        key: "plan",
+        label: "Short-Term Plan",
+        type: "select",
+        value: activePlanId || "all",
+        onChange: (val) => setSelectedPlanId(val === "all" ? "" : val),
+        options:
+          plans.length > 0
+            ? plans.map((p) => ({
+                value: p.short_term_plan_id,
+                label: `${p.title} (${p.calendar_system})`,
+              }))
+            : [{ value: "all", label: isLoadingPlans ? "Loading plans..." : "No Plans" }],
+      },
+      {
+        key: "frequency",
+        label: "Frequency",
+        type: "select",
+        value: frequencyFilter,
+        onChange: setFrequencyFilter,
+        options: [
+          { value: "all", label: "All Frequencies" },
+          { value: "monthly", label: "Monthly" },
+          { value: "weekly", label: "Weekly" },
+          { value: "daily", label: "Daily" },
+        ],
+      },
+      {
+        key: "evaluation_mode",
+        label: "Evaluation Mode",
+        type: "select",
+        value: evalModeFilter,
+        onChange: setEvalModeFilter,
+        options: [
+          { value: "all", label: "All Modes" },
+          { value: "number", label: "Number" },
+          { value: "percentage", label: "Percentage (%)" },
+          { value: "frequency", label: "Frequency" },
+        ],
+      },
+    ],
+    [sectorFilter, sectors, activePlanId, plans, isLoadingPlans, frequencyFilter, evalModeFilter]
+  );
+
+  const actions: ActionButton[] = [
+    {
+      label: "New Plan",
+      icon: <Plus className="h-4 w-4" />,
+      variant: "outline",
+      onClick: () => setIsCreatePlanOpen(true),
+    },
+    ...(planDetail
+      ? [
+          {
+            label: "Add KPI",
+            icon: <Plus className="h-4 w-4" />,
+            variant: "default" as const,
+            onClick: openCreateKpi,
+          },
+        ]
+      : []),
+  ];
+
+  const columns: ColumnDef<ShortTermKpi>[] = [
+    {
+      accessorKey: "code",
+      header: "Code",
+      cell: ({ row }) => (
+        <span className="font-mono text-xs font-medium text-primary">
+          {row.original.code}
+        </span>
+      ),
+    },
+    {
+      accessorKey: "title",
+      header: "KPI Title",
+      cell: ({ row }) => (
+        <div className="max-w-md text-xs font-medium text-slate-900 line-clamp-2">
+          {row.original.title}
+        </div>
+      ),
+    },
+    {
+      id: "target_eval",
+      header: "Target & Evaluation Mode",
+      cell: ({ row }) => {
+        const kpi = row.original;
+        return (
+          <div className="text-xs">
+            <span className="font-semibold text-slate-800">{kpi.total_target ?? "—"}</span>{" "}
+            <span className="text-slate-500">({kpi.unit})</span>
+            <div>
+              <Badge variant="outline" className="capitalize text-[10px] mt-0.5">
+                {kpi.evaluation_mode || "number"}
+              </Badge>
+            </div>
+          </div>
+        );
+      },
+    },
+    {
+      accessorKey: "reporting_frequency",
+      header: "Frequency",
+      cell: ({ row }) => (
+        <Badge variant="secondary" className="capitalize text-[11px]">
+          {row.original.reporting_frequency}
+        </Badge>
+      ),
+    },
+    {
+      id: "assignee",
+      header: "Assigned Dept / User",
+      cell: ({ row }) => {
+        const asgs = row.original.assignments || [];
+        const first = asgs[0];
+        const label =
+          first?.department?.name ||
+          first?.assignedUser?.full_name ||
+          first?.assignee_label ||
+          "Unassigned";
+        return (
+          <div className="text-xs max-w-[200px]">
+            <div className="truncate" title={label}>{label}</div>
+            {asgs.length > 1 && (
+              <span className="text-[10px] text-primary">+{asgs.length - 1} more</span>
+            )}
+          </div>
+        );
+      },
+    },
+    {
+      id: "achievement",
+      header: "Achievement",
+      cell: ({ row }) => {
+        const summary = row.original.assignments?.[0]?.progress_summary;
+        if (summary?.overall_achievement_percent !== null && summary?.overall_achievement_percent !== undefined) {
+          return <Badge className="bg-emerald-600 text-white">{summary.overall_achievement_percent}%</Badge>;
+        }
+        return (
+          <span className="text-xs text-slate-400">
+            {summary?.reported_count ? `${summary.reported_count} updates` : "Pending"}
+          </span>
+        );
+      },
+    },
+    {
+      id: "actions",
+      header: () => <div className="text-right">Actions</div>,
+      cell: ({ row }) => {
+        const kpi = row.original;
+        return (
+          <div className="flex items-center justify-end gap-1">
+            <Button
+              size="icon"
+              variant="ghost"
+              className="h-8 w-8"
+              title="View & Report"
+              onClick={() => setDetailKpiId(kpi.short_term_kpi_id)}
+            >
+              <Eye className="h-4 w-4 text-slate-600" />
+            </Button>
+            <Button
+              size="icon"
+              variant="ghost"
+              className="h-8 w-8"
+              title="Edit KPI"
+              onClick={() => openEditKpi(kpi)}
+            >
+              <Edit className="h-4 w-4 text-blue-600" />
+            </Button>
+            <Button
+              size="icon"
+              variant="ghost"
+              className="h-8 w-8"
+              title="Assign to Dept / User"
+              onClick={() => {
+                setAssigningKpi(kpi);
+                setAssignForm({
+                  government_structure_id: planDetail?.government_structure_id || "",
+                  internal_structure_id: "",
+                  assigned_user_id: "",
+                  assignee_label: "",
+                  allocated_target: kpi.total_target ? String(kpi.total_target) : "",
+                  evaluation_mode_override: "",
+                  reporting_frequency_override: "",
+                });
+              }}
+            >
+              <Share2 className="h-4 w-4 text-emerald-600" />
+            </Button>
+            <Button
+              size="icon"
+              variant="ghost"
+              className="h-8 w-8"
+              title="Delete KPI"
+              onClick={() => handleDeleteKpi(kpi)}
+            >
+              <Trash2 className="h-4 w-4 text-red-600" />
+            </Button>
+          </div>
+        );
+      },
+    },
+  ];
 
   return (
-    <div className="space-y-6 p-6">
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight text-slate-900">
-            Internal Short-Term Planning &amp; KPI Reporting
-          </h1>
-          <p className="text-sm text-slate-500 mt-0.5">
-            Sector-cascaded short-term plans (3 / 5 months) with target evaluation modes (Number, Percentage, Frequency) and click-through KPI reporting.
-          </p>
-        </div>
-        <Button onClick={() => setIsCreatePlanOpen(true)} className="gap-1.5">
-          <Plus className="h-4 w-4" />
-          New Short-Term Plan
-        </Button>
-      </div>
-
-      {/* Sector Filter + Plan Selector */}
-      <Card>
-        <CardContent className="p-4 grid grid-cols-1 md:grid-cols-12 gap-3 items-end">
-          <div className="md:col-span-3">
-            <Label className="text-xs text-slate-500">Filter by Sector</Label>
-            <Select
-              value={sectorFilter}
-              onValueChange={(v) => {
-                setSectorFilter(v);
-                setSelectedPlanId("");
-                setPage(1);
-              }}
-            >
-              <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Internal Sectors</SelectItem>
-                {sectors.map((s) => (
-                  <SelectItem key={s.government_structure_id} value={s.government_structure_id}>
-                    {s.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-
-          <div className="md:col-span-5">
-            <Label className="text-xs text-slate-500">Short-Term Plan</Label>
-            <Select
-              value={activePlanId}
-              onValueChange={(v) => {
-                setSelectedPlanId(v);
-                setPage(1);
-              }}
-            >
-              <SelectTrigger className="mt-1">
-                <SelectValue placeholder={isLoadingPlans ? "Loading plans..." : "Select a Short-Term Plan"} />
-              </SelectTrigger>
-              <SelectContent>
-                {plans.map((p) => (
-                  <SelectItem key={p.short_term_plan_id} value={p.short_term_plan_id}>
-                    {p.title} ({p.calendar_system})
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-
-          <div className="md:col-span-4 flex flex-wrap items-center justify-between md:justify-end gap-2">
-            {planDetail && (
-              <div className="text-xs text-slate-600 flex items-center gap-1.5">
-                <Badge variant="outline">{planDetail.calendar_system}</Badge>
-                <CalendarDateDisplay
-                  date={planDetail.start_date}
-                  endDate={planDetail.end_date}
-                  calendarSystem={planDetail.calendar_system}
-                />
-              </div>
-            )}
-            {planDetail && (
-              <Button variant="outline" size="sm" onClick={() => setIsAddKpiOpen(true)} className="gap-1.5">
-                <Plus className="h-4 w-4" />
-                Add KPI
-              </Button>
-            )}
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Main Tabs: Tabular KPIs vs Dashboard Analytics */}
-      <Tabs defaultValue="kpis" className="space-y-4">
-        <TabsList>
-          <TabsTrigger value="kpis" className="gap-1.5">
-            <ListChecks className="h-4 w-4" />
-            KPI Catalog &amp; Reporting ({totalFiltered})
-          </TabsTrigger>
-          <TabsTrigger value="analytics" className="gap-1.5">
-            <BarChart3 className="h-4 w-4" />
-            Dashboard Analytics
-          </TabsTrigger>
-        </TabsList>
-
-        <TabsContent value="kpis" className="space-y-4">
-          {/* Table Filter Controls */}
-          <Card>
-            <CardContent className="p-4 space-y-4">
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                <div className="relative">
-                  <Search className="h-4 w-4 text-slate-400 absolute left-2.5 top-2.5" />
-                  <Input
-                    value={searchQuery}
-                    onChange={(e) => {
-                      setSearchQuery(e.target.value);
-                      setPage(1);
-                    }}
-                    placeholder="Search KPI code, title, or assignee..."
-                    className="pl-8 h-9 text-xs"
-                  />
-                </div>
-                <Select
-                  value={frequencyFilter}
-                  onValueChange={(v) => {
-                    setFrequencyFilter(v);
-                    setPage(1);
-                  }}
-                >
-                  <SelectTrigger className="h-9 text-xs"><SelectValue placeholder="Frequency" /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">All Frequencies</SelectItem>
-                    <SelectItem value="monthly">Monthly</SelectItem>
-                    <SelectItem value="weekly">Weekly</SelectItem>
-                    <SelectItem value="daily">Daily</SelectItem>
-                  </SelectContent>
-                </Select>
-                <Select
-                  value={evalModeFilter}
-                  onValueChange={(v) => {
-                    setEvalModeFilter(v);
-                    setPage(1);
-                  }}
-                >
-                  <SelectTrigger className="h-9 text-xs"><SelectValue placeholder="Evaluation Mode" /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">All Evaluation Modes</SelectItem>
-                    <SelectItem value="number">Number</SelectItem>
-                    <SelectItem value="percentage">Percentage (%)</SelectItem>
-                    <SelectItem value="frequency">Frequency</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-
-              {/* KPI Table */}
-              {isLoadingDetail ? (
-                <div className="py-10 text-center text-sm text-slate-500">Loading KPIs...</div>
-              ) : (
-                <div className="rounded-md border overflow-x-auto">
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead className="w-[120px]">Code</TableHead>
-                        <TableHead>KPI Title</TableHead>
-                        <TableHead>Target &amp; Eval Mode</TableHead>
-                        <TableHead>Frequency</TableHead>
-                        <TableHead>Assigned Dept / User</TableHead>
-                        <TableHead className="text-right">Achievement</TableHead>
-                        <TableHead className="text-right">Actions</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {paginatedKpis.length === 0 ? (
-                        <TableRow>
-                          <TableCell colSpan={7} className="text-center text-xs text-slate-500 py-8">
-                            No KPIs match the current filters.
-                          </TableCell>
-                        </TableRow>
-                      ) : (
-                        paginatedKpis.map((kpi) => {
-                          const firstAsg = kpi.assignments?.[0];
-                          const summary = firstAsg?.progress_summary;
-                          const assigneeLabel =
-                            firstAsg?.department?.name ||
-                            firstAsg?.assignedUser?.full_name ||
-                            firstAsg?.assignee_label ||
-                            "Unassigned";
-                          const extraCount = (kpi.assignments?.length || 0) - 1;
-
-                          return (
-                            <TableRow
-                              key={kpi.short_term_kpi_id}
-                              className="cursor-pointer hover:bg-slate-50"
-                              onClick={() => setDetailKpiId(kpi.short_term_kpi_id)}
-                            >
-                              <TableCell className="font-mono text-xs font-medium">{kpi.code}</TableCell>
-                              <TableCell className="text-xs max-w-md">
-                                <div className="line-clamp-2 font-medium text-slate-900">{kpi.title}</div>
-                              </TableCell>
-                              <TableCell className="text-xs">
-                                <div className="font-semibold text-slate-800">
-                                  {kpi.total_target ?? "—"} <span className="font-normal text-slate-500">({kpi.unit})</span>
-                                </div>
-                                <Badge variant="outline" className="capitalize text-[10px] mt-0.5">
-                                  {kpi.evaluation_mode || "number"}
-                                </Badge>
-                              </TableCell>
-                              <TableCell>
-                                <Badge variant="secondary" className="capitalize text-[11px]">
-                                  {kpi.reporting_frequency}
-                                </Badge>
-                              </TableCell>
-                              <TableCell className="text-xs text-slate-700 max-w-[200px]">
-                                <div className="truncate" title={assigneeLabel}>{assigneeLabel}</div>
-                                {extraCount > 0 && (
-                                  <span className="text-[10px] text-primary">+{extraCount} more</span>
-                                )}
-                              </TableCell>
-                              <TableCell className="text-right text-xs">
-                                {summary?.overall_achievement_percent !== null && summary?.overall_achievement_percent !== undefined ? (
-                                  <Badge className="bg-emerald-600 text-white">
-                                    {summary.overall_achievement_percent}%
-                                  </Badge>
-                                ) : (
-                                  <span className="text-slate-400">
-                                    {summary?.reported_count ? `${summary.reported_count} updates` : "No reports"}
-                                  </span>
-                                )}
-                              </TableCell>
-                              <TableCell className="text-right" onClick={(e) => e.stopPropagation()}>
-                                <div className="inline-flex items-center gap-1">
-                                  <Button
-                                    size="sm"
-                                    variant="outline"
-                                    className="h-7 text-xs gap-1"
-                                    onClick={() => setDetailKpiId(kpi.short_term_kpi_id)}
-                                  >
-                                    <Eye className="h-3 w-3" />
-                                    Report
-                                  </Button>
-                                  <Button
-                                    size="sm"
-                                    variant="ghost"
-                                    className="h-7 text-xs gap-1"
-                                    onClick={() => {
-                                      setAssigningKpi(kpi);
-                                      setAssignForm({
-                                        government_structure_id: planDetail?.government_structure_id || "",
-                                        internal_structure_id: "",
-                                        assigned_user_id: "",
-                                        assignee_label: "",
-                                        allocated_target: kpi.total_target ? String(kpi.total_target) : "",
-                                        evaluation_mode_override: "",
-                                        reporting_frequency_override: "",
-                                      });
-                                    }}
-                                  >
-                                    <Share2 className="h-3 w-3" />
-                                  </Button>
-                                </div>
-                              </TableCell>
-                            </TableRow>
-                          );
-                        })
-                      )}
-                    </TableBody>
-                  </Table>
-                </div>
-              )}
-
-              {/* Pagination with Filtered Total Count */}
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-1 text-xs text-slate-600">
-                <div>
-                  Showing <strong>{startEntry}–{endEntry}</strong> of <strong>{totalFiltered}</strong>{" "}
-                  {totalFiltered !== allKpis.length ? `(filtered from ${allKpis.length} total)` : "KPIs"}
-                </div>
-                <div className="flex items-center gap-2">
-                  <Select
-                    value={String(pageSize)}
-                    onValueChange={(v) => {
-                      setPageSize(Number(v));
-                      setPage(1);
-                    }}
-                  >
-                    <SelectTrigger className="h-8 w-[100px] text-xs"><SelectValue /></SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="10">10 / page</SelectItem>
-                      <SelectItem value="25">25 / page</SelectItem>
-                      <SelectItem value="50">50 / page</SelectItem>
-                    </SelectContent>
-                  </Select>
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    className="h-8 px-2"
-                    disabled={safePage <= 1}
-                    onClick={() => setPage((p) => Math.max(1, p - 1))}
-                  >
-                    <ChevronLeft className="h-4 w-4" />
-                  </Button>
-                  <span className="px-1">
-                    Page <strong>{safePage}</strong> of <strong>{totalPages}</strong>
-                  </span>
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    className="h-8 px-2"
-                    disabled={safePage >= totalPages}
-                    onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
-                  >
-                    <ChevronRight className="h-4 w-4" />
-                  </Button>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        <TabsContent value="analytics">
-          <ShortTermDashboardTab
-            planId={activePlanId || undefined}
-            sectorId={sectorFilter !== "all" ? sectorFilter : undefined}
-          />
-        </TabsContent>
-      </Tabs>
+    <div className="space-y-4">
+      <TableLayout
+        title="Short-Term Plan KPIs"
+        description={
+          planDetail
+            ? `${planDetail.title} (${planDetail.calendar_system}) — Total ${filteredKpis.length} KPI(s)`
+            : "Manage short-term operational KPIs, target evaluation modes, cascading assignments, and reporting."
+        }
+        actions={actions}
+        filters={filters}
+        filterColumnsPerRow={2}
+        showSearch={true}
+      >
+        <DataTable
+          columns={columns}
+          data={filteredKpis}
+          isLoading={isLoadingPlans || isLoadingDetail}
+          isError={isDetailError}
+          errorMessage="Failed to load short-term KPIs."
+          onRetry={refetchDetail}
+          resetKey={`${sectorFilter}-${activePlanId}-${frequencyFilter}-${evalModeFilter}-${searchQuery}`}
+          defaultPageSize={10}
+        />
+      </TableLayout>
 
       {/* KPI Detail & Reporting Modal */}
       {planDetail && (
@@ -665,11 +628,13 @@ export function ShortTermPlanView() {
         </DialogContent>
       </Dialog>
 
-      {/* Add KPI Dialog */}
-      <Dialog open={isAddKpiOpen} onOpenChange={setIsAddKpiOpen}>
-        <DialogContent className="sm:max-w-[520px]">
-          <DialogHeader><DialogTitle>Add Short-Term KPI</DialogTitle></DialogHeader>
-          <form onSubmit={handleAddKpi} className="space-y-3">
+      {/* Add / Edit KPI Dialog */}
+      <Dialog open={isKpiModalOpen} onOpenChange={setIsKpiModalOpen}>
+        <DialogContent className="sm:max-w-[540px]">
+          <DialogHeader>
+            <DialogTitle>{editingKpi ? `Edit KPI (${editingKpi.code})` : "Add Short-Term KPI"}</DialogTitle>
+          </DialogHeader>
+          <form onSubmit={handleSaveKpi} className="space-y-3">
             <div className="grid grid-cols-2 gap-3">
               <div>
                 <Label>KPI Code *</Label>
@@ -713,8 +678,10 @@ export function ShortTermPlanView() {
               </div>
             </div>
             <DialogFooter>
-              <Button type="button" variant="outline" onClick={() => setIsAddKpiOpen(false)}>Cancel</Button>
-              <Button type="submit" disabled={isAddingKpi}>Save KPI</Button>
+              <Button type="button" variant="outline" onClick={() => setIsKpiModalOpen(false)}>Cancel</Button>
+              <Button type="submit" disabled={isAddingKpi || isUpdatingKpi}>
+                {editingKpi ? "Update KPI" : "Save KPI"}
+              </Button>
             </DialogFooter>
           </form>
         </DialogContent>

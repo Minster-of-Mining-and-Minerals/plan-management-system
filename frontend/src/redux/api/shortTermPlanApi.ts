@@ -98,6 +98,7 @@ export const shortTermPlanApi = baseApi.injectEndpoints({
       {
         kpiId: string;
         planId: string;
+        code?: string;
         title?: string;
         unit?: string;
         total_target?: number | null;
@@ -111,6 +112,17 @@ export const shortTermPlanApi = baseApi.injectEndpoints({
         body,
       }),
       transformResponse: (res: { data: ShortTermKpi }) => res.data,
+      invalidatesTags: (_res, _err, arg) => ["ShortTermPlan", { type: "ShortTermPlan", id: arg.planId }],
+    }),
+
+    deleteShortTermKpi: builder.mutation<
+      { success: boolean; message: string },
+      { kpiId: string; planId: string }
+    >({
+      query: ({ kpiId }) => ({
+        url: `/short-term-plans/kpis/${kpiId}`,
+        method: "DELETE",
+      }),
       invalidatesTags: (_res, _err, arg) => ["ShortTermPlan", { type: "ShortTermPlan", id: arg.planId }],
     }),
 
@@ -187,6 +199,7 @@ export const {
   useCreateShortTermPlanMutation,
   useAddShortTermKpiMutation,
   useUpdateShortTermKpiMutation,
+  useDeleteShortTermKpiMutation,
   useAssignShortTermKpiMutation,
   useUpdateShortTermAssignmentMutation,
   useSubmitShortTermReportMutation,

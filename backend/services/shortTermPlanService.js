@@ -341,6 +341,7 @@ class ShortTermPlanService {
     const kpi = await ShortTermKpi.findByPk(kpiId);
     if (!kpi) throw Object.assign(new Error("Short-term KPI not found"), { status: 404 });
 
+    if (data.code !== undefined) kpi.code = String(data.code).trim().toUpperCase();
     if (data.title !== undefined) kpi.title = String(data.title).trim();
     if (data.unit !== undefined) kpi.unit = String(data.unit).trim();
     if (data.total_target !== undefined) {
@@ -358,6 +359,13 @@ class ShortTermPlanService {
     }
     await kpi.save();
     return kpi;
+  }
+
+  async deleteKpi(kpiId) {
+    const kpi = await ShortTermKpi.findByPk(kpiId);
+    if (!kpi) throw Object.assign(new Error("Short-term KPI not found"), { status: 404 });
+    await kpi.destroy();
+    return { success: true, message: "Short-term KPI deleted" };
   }
 
   async updateAssignment(assignmentId, data) {

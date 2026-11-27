@@ -65,6 +65,15 @@ async function updateKpi(req, res) {
   }
 }
 
+async function deleteKpi(req, res) {
+  try {
+    const data = await shortTermPlanService.deleteKpi(req.params.kpiId);
+    return res.status(200).json(data);
+  } catch (err) {
+    return res.status(err.status || 500).json({ success: false, message: err.message });
+  }
+}
+
 async function updateAssignment(req, res) {
   try {
     const data = await shortTermPlanService.updateAssignment(req.params.assignmentId, req.body);
@@ -89,6 +98,7 @@ module.exports = {
   getPlanDetail,
   addKpi,
   updateKpi,
+  deleteKpi,
   assignKpi,
   updateAssignment,
   submitPeriodReport,

@@ -323,6 +323,30 @@ export const PRIVATE_CATEGORIZED_NAVIGATION: NavCategory[] = [
           "PLANS:UPDATE",
           "NATIONAL_REPORTING:READ_REQUIREMENT",
         ],
+        children: [
+          {
+            title: "Dashboard",
+            url: "/short-term-plan/dashboard",
+            icon: LayoutDashboard,
+            anyPermissions: [
+              "PLANS:READ",
+              "PLANS:CREATE",
+              "PLANS:UPDATE",
+              "NATIONAL_REPORTING:READ_REQUIREMENT",
+            ],
+          },
+          {
+            title: "KPI List",
+            url: "/short-term-plan",
+            icon: ListTree,
+            anyPermissions: [
+              "PLANS:READ",
+              "PLANS:CREATE",
+              "PLANS:UPDATE",
+              "NATIONAL_REPORTING:READ_REQUIREMENT",
+            ],
+          },
+        ],
       },
       {
         title: "Issue Management",

@@ -13,6 +13,7 @@ router.post("/", shortTermPlanController.createPlan);
 router.get("/:planId", shortTermPlanController.getPlanDetail);
 router.post("/:planId/kpis", shortTermPlanController.addKpi);
 router.put("/kpis/:kpiId", shortTermPlanController.updateKpi);
+router.delete("/kpis/:kpiId", shortTermPlanController.deleteKpi);
 router.post("/kpis/:kpiId/assign", shortTermPlanController.assignKpi);
 router.put("/assignments/:assignmentId", shortTermPlanController.updateAssignment);
 router.post("/assignments/:assignmentId/reports", shortTermPlanController.submitPeriodReport);
