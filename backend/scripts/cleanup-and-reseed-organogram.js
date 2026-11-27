@@ -269,6 +269,11 @@ async function run() {
     { momId: MOM_SECTOR_ID }
   );
 
+  // Rename sectors to standard display names
+  await safeQuery(queryInterface, `UPDATE government_structures SET name = 'Ministry of Mines' WHERE government_structure_id = '10000000-0000-4000-8000-000000000004'`);
+  await safeQuery(queryInterface, `UPDATE government_structures SET name = 'Ethiopian Geological Institute (GIE)' WHERE government_structure_id = '10000000-0000-4000-8000-000000000005'`);
+  await safeQuery(queryInterface, `UPDATE government_structures SET name = 'Mining Industry Development Institute (MIDI)' WHERE government_structure_id = '10000000-0000-4000-8000-000000000006'`);
+
   // ── Re-seed short-term plans ──────────────────────────────────────────────
   console.log("\n[3/3] Seeding 100-Day Short-Term Plans referencing new organogram...");
   await seed100DayShortTermPlan();
