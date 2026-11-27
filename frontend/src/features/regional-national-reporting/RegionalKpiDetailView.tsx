@@ -579,6 +579,10 @@ export function RegionalKpiDetailView({
                         <PeriodCountdownProgressBar
                           startDate={period.start_date}
                           endDate={period.end_date}
+                          phaseStartDate={period.phase_start_date}
+                          phaseEndDate={period.phase_end_date}
+                          isInGracePeriod={period.is_in_grace_period}
+                          lockState={period.lock_state}
                           status={isReported ? "published" : period.status}
                           compact={true}
                         />
@@ -588,22 +592,31 @@ export function RegionalKpiDetailView({
                               <Unlock className="h-2.5 w-2.5" />
                               Admin Override
                             </Badge>
+                          ) : period.lock_state === "grace_period" || period.is_in_grace_period ? (
+                            <Badge className="bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300 text-[9px] px-1.5 py-0 flex items-center gap-1 font-semibold">
+                              <Clock className="h-2.5 w-2.5" />
+                              Grace Period Active
+                            </Badge>
                           ) : period.is_locked ? (
                             <Badge className="bg-rose-100 text-rose-800 dark:bg-rose-950 dark:text-rose-300 text-[9px] px-1.5 py-0 flex items-center gap-1">
                               <Lock className="h-2.5 w-2.5" />
-                              {period.lock_state === "upcoming" ? "Upcoming" : "Window Locked"}
+                              {period.lock_state === "upcoming_phase" || period.lock_state === "upcoming" ? "Upcoming Phase" : "Window Locked"}
                             </Badge>
                           ) : (
-                            <Badge className="bg-emerald-50 text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-300 text-[9px] px-1.5 py-0 flex items-center gap-1">
+                            <Badge className="bg-emerald-50 text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-300 text-[9px] px-1.5 py-0 flex items-center gap-1 font-semibold">
                               <Clock className="h-2.5 w-2.5" />
-                              Window Open
+                              Reporting Open
                             </Badge>
                           )}
-                          {period.deadline_date && (
+                          {period.phase_end_date ? (
+                            <span className="text-[10px] text-slate-400">
+                              (Due: {period.phase_end_date})
+                            </span>
+                          ) : period.deadline_date ? (
                             <span className="text-[10px] text-slate-400">
                               (Due: {period.deadline_date})
                             </span>
-                          )}
+                          ) : null}
                         </div>
                       </div>
                     </td>

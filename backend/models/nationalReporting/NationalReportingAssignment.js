@@ -89,6 +89,11 @@ module.exports = (sequelize, DataTypes) => {
         allowNull: true,
         defaultValue: {},
       },
+      reporting_phase_override: {
+        type: DataTypes.JSONB,
+        allowNull: true,
+        defaultValue: {},
+      },
       assigned_by: {
         type: DataTypes.UUID,
         allowNull: true,

@@ -380,7 +380,7 @@ class RegionalNationalReportingService {
 
       const generatedPeriods = generateReportingPeriods(startDate, endDate, frequency);
 
-      // 2. Map period-specific submission records
+      // 2. Map period-specific submission records and compute reporting phase locks
       const publishedRecords = item.publishedRecords || [];
       const lockOverrides = item.lock_overrides || {};
       const deadlineDays =
@@ -388,6 +388,39 @@ class RegionalNationalReportingService {
         req.submission_deadline_days ||
         req.validation_rules?.submission_deadline_days ||
         15;
+
+      // Phase config resolution: Assignment override vs Global baseline config
+      let effectivePhaseConfig = null;
+      if (item.reporting_phase_override && item.reporting_phase_override.is_custom) {
+        effectivePhaseConfig = {
+          open_days_before: Number(item.reporting_phase_override.open_days_before ?? 5),
+          close_days_after: Number(item.reporting_phase_override.close_days_after ?? 5),
+          allow_grace_period: item.reporting_phase_override.allow_grace_period !== false,
+          phase_description: item.reporting_phase_override.phase_description || "Custom Assignment Window",
+        };
+      } else if (NationalReportingPeriodConfig) {
+        try {
+          // Check if frequency has global phase configuration
+          const freqKey = String(frequency).toLowerCase().replace(/[\s\-]/g, "_");
+          // Lazy cache / read
+          if (!this._periodConfigCache) this._periodConfigCache = {};
+          let globalCfg = this._periodConfigCache[freqKey];
+          if (!globalCfg) {
+            globalCfg = await NationalReportingPeriodConfig.findOne({ where: { frequency: freqKey } });
+            if (globalCfg) this._periodConfigCache[freqKey] = globalCfg;
+          }
+          if (globalCfg) {
+            effectivePhaseConfig = {
+              open_days_before: Number(globalCfg.reporting_phase_open_days_before ?? 5),
+              close_days_after: Number(globalCfg.reporting_phase_close_days_after ?? 5),
+              allow_grace_period: globalCfg.allow_grace_period !== false,
+              phase_description: globalCfg.phase_description || globalCfg.display_title,
+            };
+          }
+        } catch (err) {
+          console.warn("[WARN] Could not resolve global period config for frequency:", frequency, err.message);
+        }
+      }
 
       const recurringPeriods = generatedPeriods.map((p) => {
         const periodObj = { ...p };
@@ -408,12 +441,16 @@ class RegionalNationalReportingService {
           period: p,
           lockOverride: activeOverride,
           deadlineDays,
+          phaseConfig: effectivePhaseConfig,
         });
 
         periodObj.is_locked = periodLock.is_locked;
         periodObj.lock_state = periodLock.lock_state;
         periodObj.lock_reason = periodLock.lock_reason;
         periodObj.deadline_date = periodLock.deadline_date;
+        periodObj.phase_start_date = periodLock.phase_start_date;
+        periodObj.phase_end_date = periodLock.phase_end_date;
+        periodObj.is_in_grace_period = periodLock.is_in_grace_period;
         periodObj.is_manually_unlocked = periodLock.is_manually_unlocked;
         periodObj.lock_override = periodLock.lock_override;
 
@@ -1250,10 +1287,36 @@ class RegionalNationalReportingService {
         (targetPeriod.division_label ? lockOverrides[targetPeriod.division_label] : null) ||
         null;
 
+      let effectivePhaseConfig = null;
+      if (assignment.reporting_phase_override && assignment.reporting_phase_override.is_custom) {
+        effectivePhaseConfig = {
+          open_days_before: Number(assignment.reporting_phase_override.open_days_before ?? 5),
+          close_days_after: Number(assignment.reporting_phase_override.close_days_after ?? 5),
+          allow_grace_period: assignment.reporting_phase_override.allow_grace_period !== false,
+          phase_description: assignment.reporting_phase_override.phase_description || "Custom Assignment Window",
+        };
+      } else if (NationalReportingPeriodConfig) {
+        try {
+          const freqKey = String(frequency).toLowerCase().replace(/[\s\-]/g, "_");
+          const globalCfg = await NationalReportingPeriodConfig.findOne({ where: { frequency: freqKey } });
+          if (globalCfg) {
+            effectivePhaseConfig = {
+              open_days_before: Number(globalCfg.reporting_phase_open_days_before ?? 5),
+              close_days_after: Number(globalCfg.reporting_phase_close_days_after ?? 5),
+              allow_grace_period: globalCfg.allow_grace_period !== false,
+              phase_description: globalCfg.phase_description || globalCfg.display_title,
+            };
+          }
+        } catch (err) {
+          console.warn("[WARN] Could not resolve global period config for frequency:", frequency, err.message);
+        }
+      }
+
       const periodLock = computePeriodLockStatus({
         period: targetPeriod,
         lockOverride: activeOverride,
         deadlineDays,
+        phaseConfig: effectivePhaseConfig,
       });
 
       if (periodLock.is_locked && !isFederalOverride) {

@@ -495,6 +495,9 @@ class NationalReportingService {
     if (updateData.effective_end_date !== undefined) {
       assignment.effective_end_date = updateData.effective_end_date ? updateData.effective_end_date : null;
     }
+    if (updateData.reporting_phase_override !== undefined) {
+      assignment.reporting_phase_override = updateData.reporting_phase_override;
+    }
 
     await assignment.save();
     return assignment;
@@ -553,6 +556,20 @@ class NationalReportingService {
     if (filters.region_id) where.region_id = filters.region_id;
     if (filters.status) where.status = filters.status;
 
+    // Load period frequency configurations for reporting phase resolution
+    let periodConfigs = [];
+    if (NationalReportingPeriodConfig) {
+      try {
+        periodConfigs = await NationalReportingPeriodConfig.findAll();
+      } catch (err) {
+        console.warn("[WARN] Could not load NationalReportingPeriodConfig:", err.message);
+      }
+    }
+    const configByFreq = {};
+    periodConfigs.forEach((cfg) => {
+      if (cfg.frequency) configByFreq[cfg.frequency.toLowerCase()] = cfg;
+    });
+
     const assignments = await NationalReportingAssignment.findAll({
       where,
       include: [
@@ -595,6 +612,27 @@ class NationalReportingService {
       const publishedRecords = item.publishedRecords || [];
       const lockOverrides = item.lock_overrides || {};
 
+      // Resolve phase configuration: check assignment override first, then global config for frequency
+      const freqKey = String(frequency).toLowerCase().replace(/[\s\-]/g, "_");
+      const globalFreqConfig = configByFreq[freqKey] || null;
+      let effectivePhaseConfig = null;
+
+      if (item.reporting_phase_override && item.reporting_phase_override.is_custom) {
+        effectivePhaseConfig = {
+          open_days_before: Number(item.reporting_phase_override.open_days_before ?? 5),
+          close_days_after: Number(item.reporting_phase_override.close_days_after ?? 5),
+          allow_grace_period: item.reporting_phase_override.allow_grace_period !== false,
+          phase_description: item.reporting_phase_override.phase_description || "Custom Assignment Window",
+        };
+      } else if (globalFreqConfig) {
+        effectivePhaseConfig = {
+          open_days_before: Number(globalFreqConfig.reporting_phase_open_days_before ?? 5),
+          close_days_after: Number(globalFreqConfig.reporting_phase_close_days_after ?? 5),
+          allow_grace_period: globalFreqConfig.allow_grace_period !== false,
+          phase_description: globalFreqConfig.phase_description || globalFreqConfig.display_title,
+        };
+      }
+
       const recurringPeriods = generatedPeriods.map((p) => {
         const periodObj = { ...p };
         const matchingRecord = publishedRecords.find(
@@ -613,12 +651,16 @@ class NationalReportingService {
         const periodLock = computePeriodLockStatus({
           period: p,
           lockOverride: activeOverride,
+          phaseConfig: effectivePhaseConfig,
         });
 
         periodObj.is_locked = periodLock.is_locked;
         periodObj.lock_state = periodLock.lock_state;
         periodObj.lock_reason = periodLock.lock_reason;
         periodObj.deadline_date = periodLock.deadline_date;
+        periodObj.phase_start_date = periodLock.phase_start_date;
+        periodObj.phase_end_date = periodLock.phase_end_date;
+        periodObj.is_in_grace_period = periodLock.is_in_grace_period;
         periodObj.is_manually_unlocked = periodLock.is_manually_unlocked;
         periodObj.lock_override = periodLock.lock_override;
 
@@ -635,6 +677,7 @@ class NationalReportingService {
 
       item.recurringPeriods = recurringPeriods;
       item.annualRange = { startDate, endDate };
+      item.effectivePhaseConfig = effectivePhaseConfig;
       return item;
     });
   }
@@ -1395,11 +1438,32 @@ class NationalReportingService {
   }
 
   /**
-   * Update or create period division custom names for a reporting frequency
+   * Update or create period division custom names and reporting phase rules for a reporting frequency
    */
-  async updatePeriodConfig(frequency, divisions, userId) {
-    if (!frequency || !Array.isArray(divisions)) {
-      const err = new Error("frequency and divisions array are required");
+  async updatePeriodConfig(payload, userId) {
+    // Support both legacy signature (frequency, divisions, userId) and object payload
+    let frequency;
+    let divisions;
+    let openDaysBefore;
+    let closeDaysAfter;
+    let allowGracePeriod;
+    let phaseDescription;
+
+    if (typeof payload === "string") {
+      frequency = payload;
+      divisions = arguments[1];
+      userId = arguments[2];
+    } else if (payload && typeof payload === "object") {
+      frequency = payload.frequency;
+      divisions = payload.divisions;
+      openDaysBefore = payload.reporting_phase_open_days_before !== undefined ? Number(payload.reporting_phase_open_days_before) : undefined;
+      closeDaysAfter = payload.reporting_phase_close_days_after !== undefined ? Number(payload.reporting_phase_close_days_after) : undefined;
+      allowGracePeriod = payload.allow_grace_period !== undefined ? Boolean(payload.allow_grace_period) : undefined;
+      phaseDescription = payload.phase_description !== undefined ? payload.phase_description : undefined;
+    }
+
+    if (!frequency) {
+      const err = new Error("frequency is required");
       err.status = 400;
       throw err;
     }
@@ -1418,10 +1482,18 @@ class NationalReportingService {
       quarterly: "Quarterly Reporting Divisions",
       semi_annually: "Semi-Annual Reporting Divisions",
       annually: "Annual Reporting Division",
+      daily: "Daily Reporting",
+      weekly: "Weekly Reporting",
     };
 
     if (record) {
-      record.divisions = divisions;
+      if (Array.isArray(divisions)) {
+        record.divisions = divisions;
+      }
+      if (openDaysBefore !== undefined) record.reporting_phase_open_days_before = openDaysBefore;
+      if (closeDaysAfter !== undefined) record.reporting_phase_close_days_after = closeDaysAfter;
+      if (allowGracePeriod !== undefined) record.allow_grace_period = allowGracePeriod;
+      if (phaseDescription !== undefined) record.phase_description = phaseDescription;
       record.updated_by = userId || null;
       await record.save();
       return record;
@@ -1429,8 +1501,12 @@ class NationalReportingService {
       record = await NationalReportingPeriodConfig.create({
         frequency: cleanFreq,
         display_title: titleMap[cleanFreq] || `${frequency} Reporting Divisions`,
-        division_count: divisions.length,
-        divisions,
+        division_count: Array.isArray(divisions) ? divisions.length : 0,
+        divisions: Array.isArray(divisions) ? divisions : [],
+        reporting_phase_open_days_before: openDaysBefore !== undefined ? openDaysBefore : 5,
+        reporting_phase_close_days_after: closeDaysAfter !== undefined ? closeDaysAfter : 5,
+        allow_grace_period: allowGracePeriod !== undefined ? allowGracePeriod : true,
+        phase_description: phaseDescription || null,
         updated_by: userId || null,
       });
       return record;
@@ -1439,6 +1515,9 @@ class NationalReportingService {
     return {
       frequency: cleanFreq,
       divisions,
+      reporting_phase_open_days_before: openDaysBefore,
+      reporting_phase_close_days_after: closeDaysAfter,
+      allow_grace_period: allowGracePeriod,
     };
   }
 }

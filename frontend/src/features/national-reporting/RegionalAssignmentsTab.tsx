@@ -62,6 +62,10 @@ export function RegionalAssignmentsTab() {
   const [annualTargetDraft, setAnnualTargetDraft] = useState<string>("");
   const [isMandatoryDraft, setIsMandatoryDraft] = useState(true);
   const [notesDraft, setNotesDraft] = useState("");
+  const [isCustomPhaseDraft, setIsCustomPhaseDraft] = useState(false);
+  const [customOpenDaysBeforeDraft, setCustomOpenDaysBeforeDraft] = useState("5");
+  const [customCloseDaysAfterDraft, setCustomCloseDaysAfterDraft] = useState("5");
+  const [customPhaseNotesDraft, setCustomPhaseNotesDraft] = useState("");
   const [configuringRegion, setConfiguringRegion] = useState<{
     regionId: string;
     regionName: string;
@@ -96,11 +100,39 @@ export function RegionalAssignmentsTab() {
     setAnnualTargetDraft(a.annual_target != null ? String(a.annual_target) : "");
     setIsMandatoryDraft(a.is_mandatory);
     setNotesDraft(a.notes || "");
+    const phaseOverride = a.reporting_phase_override;
+    if (phaseOverride && phaseOverride.is_custom) {
+      setIsCustomPhaseDraft(true);
+      setCustomOpenDaysBeforeDraft(String(phaseOverride.open_days_before ?? 5));
+      setCustomCloseDaysAfterDraft(String(phaseOverride.close_days_after ?? 5));
+      setCustomPhaseNotesDraft(phaseOverride.phase_description || phaseOverride.notes || "");
+    } else {
+      setIsCustomPhaseDraft(false);
+      setCustomOpenDaysBeforeDraft("5");
+      setCustomCloseDaysAfterDraft("5");
+      setCustomPhaseNotesDraft("");
+    }
   };
 
   const handleSaveEdit = async () => {
     if (!editingAssignment) return;
     try {
+      const reportingPhaseOverride = isCustomPhaseDraft
+        ? {
+            is_custom: true,
+            open_days_before: Number(customOpenDaysBeforeDraft) || 0,
+            close_days_after: Number(customCloseDaysAfterDraft) || 0,
+            allow_grace_period: true,
+            phase_description: customPhaseNotesDraft || "Custom Assignment Window",
+          }
+        : {
+            is_custom: false,
+            open_days_before: 5,
+            close_days_after: 5,
+            allow_grace_period: true,
+            phase_description: "",
+          };
+
       await updateAssignment({
         assignmentId: editingAssignment.assignment_id,
         data: {
@@ -108,6 +140,7 @@ export function RegionalAssignmentsTab() {
           annual_target: annualTargetDraft ? Number(annualTargetDraft) : null,
           is_mandatory: isMandatoryDraft,
           notes: notesDraft,
+          reporting_phase_override: reportingPhaseOverride,
         },
       }).unwrap();
       toast.success("Assignment updated successfully");
@@ -543,6 +576,70 @@ export function RegionalAssignmentsTab() {
                   rows={2}
                   className="mt-1"
                 />
+              </div>
+
+              {/* Reporting Phase Submission Window Override */}
+              <div className="border-t border-slate-200 dark:border-slate-800 pt-3 space-y-3">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <Label className="text-xs font-bold text-slate-900 dark:text-slate-100 flex items-center gap-1.5">
+                      <CalendarRange className="h-3.5 w-3.5 text-emerald-600" />
+                      <span>Custom Reporting Phase Override</span>
+                    </Label>
+                    <p className="text-[10px] text-slate-500">
+                      Override the global schedule window specifically for this regional assignment.
+                    </p>
+                  </div>
+                  <Switch
+                    checked={isCustomPhaseDraft}
+                    onCheckedChange={setIsCustomPhaseDraft}
+                  />
+                </div>
+
+                {isCustomPhaseDraft && (
+                  <div className="p-3 bg-emerald-50/50 dark:bg-emerald-950/20 border border-emerald-200 dark:border-emerald-900/40 rounded-lg space-y-2.5">
+                    <div className="grid grid-cols-2 gap-2.5">
+                      <div>
+                        <Label className="text-[11px] font-semibold text-slate-700 dark:text-slate-300">
+                          Opens (Days Before End)
+                        </Label>
+                        <Input
+                          type="number"
+                          min="0"
+                          max="60"
+                          value={customOpenDaysBeforeDraft}
+                          onChange={(e) => setCustomOpenDaysBeforeDraft(e.target.value)}
+                          className="h-7 text-xs font-mono font-bold mt-1"
+                        />
+                      </div>
+                      <div>
+                        <Label className="text-[11px] font-semibold text-slate-700 dark:text-slate-300">
+                          Grace Period (Days After End)
+                        </Label>
+                        <Input
+                          type="number"
+                          min="0"
+                          max="60"
+                          value={customCloseDaysAfterDraft}
+                          onChange={(e) => setCustomCloseDaysAfterDraft(e.target.value)}
+                          className="h-7 text-xs font-mono font-bold mt-1"
+                        />
+                      </div>
+                    </div>
+                    <div>
+                      <Label className="text-[11px] font-semibold text-slate-700 dark:text-slate-300">
+                        Override Reason / Notes
+                      </Label>
+                      <Input
+                        type="text"
+                        placeholder="e.g. Extended buffer requested for remote field verification"
+                        value={customPhaseNotesDraft}
+                        onChange={(e) => setCustomPhaseNotesDraft(e.target.value)}
+                        className="h-7 text-xs mt-1"
+                      />
+                    </div>
+                  </div>
+                )}
               </div>
 
               <DialogFooter className="pt-2">

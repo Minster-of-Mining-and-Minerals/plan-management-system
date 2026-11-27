@@ -428,15 +428,28 @@ async function getPeriodConfigs(req, res) {
 
 async function updatePeriodConfigs(req, res) {
   try {
-    const { frequency, divisions } = req.body;
-    const updated = await nationalReportingService.updatePeriodConfig(
+    const {
       frequency,
       divisions,
+      reporting_phase_open_days_before,
+      reporting_phase_close_days_after,
+      allow_grace_period,
+      phase_description,
+    } = req.body;
+    const updated = await nationalReportingService.updatePeriodConfig(
+      {
+        frequency,
+        divisions,
+        reporting_phase_open_days_before,
+        reporting_phase_close_days_after,
+        allow_grace_period,
+        phase_description,
+      },
       req.user?.user_id
     );
     return res.status(200).json({
       success: true,
-      message: `Period custom names for ${frequency} updated successfully.`,
+      message: `Period configuration for ${frequency} updated successfully.`,
       data: updated,
     });
   } catch (error) {

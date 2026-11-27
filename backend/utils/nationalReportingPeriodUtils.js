@@ -171,24 +171,65 @@ function generateReportingPeriods(startDateStr, endDateStr, frequency) {
 }
 
 /**
- * Compute the lock status of a reporting period based on date window, deadline days, and administrative overrides.
+ * Compute the lock status of a reporting period based on date window, reporting phase rules, deadline days, and administrative overrides.
  *
- * Strict Rule: Any past period (today > period.end_date) and any future period (today < period.start_date)
- * is locked. A period is naturally open ONLY when today lies between start_date and end_date.
- * On-demand administrative overrides can open any period for a specified timeframe (e.g. 5, 10, 15 days),
- * after which it automatically locks itself.
+ * Reporting Phase Architecture:
+ * - Operating Phase: Period operating range (start_date to end_date). Data generation in progress.
+ * - Reporting Phase Window:
+ *     Opens: end_date - open_days_before (e.g. Day 25 for a 30-day monthly period)
+ *     Closes: end_date + close_days_after (e.g. Day 30 + 5 days grace period = Day 35)
+ * - Before Phase: Locked as 'upcoming_phase' (Operating ongoing, reporting opens on phase start)
+ * - During Phase: Open as 'reporting_open' (active period) or 'grace_period' (grace buffer)
+ * - After Phase: Locked as 'closed_deadline_passed' (Reporting window expired)
+ * - Administrative Override: Grants on-demand temporary unlock.
  *
  * @param {Object} params
  * @param {Object} params.period - Period object with { period_label, start_date, end_date }
  * @param {Object} [params.lockOverride] - Optional admin override object for this period { is_unlocked, reason, unlocked_until, unlocked_by, unlocked_at }
- * @param {number} [params.deadlineDays=0] - Deadline days (if any)
- * @returns {Object} { is_locked, lock_state, lock_reason, deadline_date, is_manually_unlocked, lock_override }
+ * @param {number} [params.deadlineDays=0] - Deadline days (fallback buffer)
+ * @param {Object} [params.phaseConfig] - Optional reporting phase configuration { open_days_before, close_days_after, allow_grace_period }
+ * @returns {Object} { is_locked, lock_state, lock_reason, deadline_date, reporting_phase_start, reporting_phase_end, is_in_grace_period, is_manually_unlocked, lock_override }
  */
-function computePeriodLockStatus({ period, lockOverride, deadlineDays = 0 }) {
+function computePeriodLockStatus({ period, lockOverride, deadlineDays = 0, phaseConfig = null }) {
   const todayStr = formatDate(new Date());
   const now = new Date();
 
-  // 1. Check administrative overrides first
+  // 1. Resolve phase parameters
+  let openDaysBefore = 5;
+  let closeDaysAfter = 5;
+  let allowGrace = true;
+
+  if (phaseConfig) {
+    if (phaseConfig.open_days_before !== undefined && phaseConfig.open_days_before !== null) {
+      openDaysBefore = Math.max(0, parseInt(phaseConfig.open_days_before, 10));
+    }
+    if (phaseConfig.close_days_after !== undefined && phaseConfig.close_days_after !== null) {
+      closeDaysAfter = Math.max(0, parseInt(phaseConfig.close_days_after, 10));
+    } else if (deadlineDays > 0) {
+      closeDaysAfter = deadlineDays;
+    }
+    if (phaseConfig.allow_grace_period !== undefined) {
+      allowGrace = Boolean(phaseConfig.allow_grace_period);
+    }
+  } else if (deadlineDays > 0) {
+    closeDaysAfter = deadlineDays;
+    openDaysBefore = 0;
+  }
+
+  // Calculate reporting phase boundaries
+  const endDt = new Date(period.end_date);
+  const startDt = new Date(period.start_date);
+
+  let phaseStartDt = new Date(endDt.getTime() - openDaysBefore * 86400000);
+  if (phaseStartDt < startDt) {
+    phaseStartDt = startDt;
+  }
+  const phaseStartStr = formatDate(phaseStartDt);
+
+  const phaseEndDt = new Date(endDt.getTime() + (allowGrace ? closeDaysAfter : 0) * 86400000);
+  const phaseEndStr = formatDate(phaseEndDt);
+
+  // 2. Check administrative overrides first
   if (lockOverride && typeof lockOverride.is_unlocked === "boolean") {
     if (lockOverride.is_unlocked) {
       // Check if temporary unlocked_until has expired
@@ -205,6 +246,9 @@ function computePeriodLockStatus({ period, lockOverride, deadlineDays = 0 }) {
             lock_state: "closed_deadline_passed",
             lock_reason: `Admin on-demand unlock window expired on ${formatDate(unlockedUntilDate)}`,
             deadline_date: formatDate(unlockedUntilDate),
+            reporting_phase_start: phaseStartStr,
+            reporting_phase_end: formatDate(unlockedUntilDate),
+            is_in_grace_period: false,
             is_manually_unlocked: false,
             lock_override: lockOverride,
           };
@@ -215,6 +259,9 @@ function computePeriodLockStatus({ period, lockOverride, deadlineDays = 0 }) {
           lock_state: "unlocked_override",
           lock_reason: lockOverride.reason || `Open on demand: administratively unlocked until ${formatDate(unlockedUntilDate)}`,
           deadline_date: formatDate(unlockedUntilDate),
+          reporting_phase_start: phaseStartStr,
+          reporting_phase_end: formatDate(unlockedUntilDate),
+          is_in_grace_period: false,
           is_manually_unlocked: true,
           lock_override: lockOverride,
         };
@@ -224,7 +271,10 @@ function computePeriodLockStatus({ period, lockOverride, deadlineDays = 0 }) {
         is_locked: false,
         lock_state: "unlocked_override",
         lock_reason: lockOverride.reason || "Administratively unlocked on demand by Federal Administrator",
-        deadline_date: period.end_date,
+        deadline_date: phaseEndStr,
+        reporting_phase_start: phaseStartStr,
+        reporting_phase_end: phaseEndStr,
+        is_in_grace_period: false,
         is_manually_unlocked: true,
         lock_override: lockOverride,
       };
@@ -233,44 +283,71 @@ function computePeriodLockStatus({ period, lockOverride, deadlineDays = 0 }) {
         is_locked: true,
         lock_state: "manually_locked",
         lock_reason: lockOverride.reason || "Administratively locked by Federal Administrator",
-        deadline_date: period.end_date,
+        deadline_date: phaseEndStr,
+        reporting_phase_start: phaseStartStr,
+        reporting_phase_end: phaseEndStr,
+        is_in_grace_period: false,
         is_manually_unlocked: false,
         lock_override: lockOverride,
       };
     }
   }
 
-  // 2. Natural timeline evaluation:
-  // Strict rule: Any future period (today < start_date) is locked
-  if (todayStr < period.start_date) {
+  // 3. Natural reporting phase timeline evaluation:
+  // State A: Operating ongoing, reporting phase has not yet opened
+  if (todayStr < phaseStartStr) {
     return {
       is_locked: true,
-      lock_state: "upcoming",
-      lock_reason: `Future period: Reporting window opens on ${period.start_date}`,
-      deadline_date: period.end_date,
+      lock_state: "upcoming_phase",
+      lock_reason: `Operating period ongoing. Reporting window opens on ${phaseStartStr}.`,
+      deadline_date: phaseEndStr,
+      reporting_phase_start: phaseStartStr,
+      reporting_phase_end: phaseEndStr,
+      is_in_grace_period: false,
       is_manually_unlocked: false,
       lock_override: null,
     };
   }
 
-  // Strict rule: Any past period (today > end_date) is locked
-  if (todayStr > period.end_date) {
+  // State B: Active reporting window before operating period ends
+  if (todayStr <= period.end_date) {
     return {
-      is_locked: true,
-      lock_state: "closed_deadline_passed",
-      lock_reason: `Past period: Reporting window closed on ${period.end_date}. Request admin unlock to report.`,
-      deadline_date: period.end_date,
+      is_locked: false,
+      lock_state: "reporting_open",
+      lock_reason: `Active reporting window: Open until ${phaseEndStr}.`,
+      deadline_date: phaseEndStr,
+      reporting_phase_start: phaseStartStr,
+      reporting_phase_end: phaseEndStr,
+      is_in_grace_period: false,
       is_manually_unlocked: false,
       lock_override: null,
     };
   }
 
-  // Today lies between start_date and end_date: Active Open!
+  // State C: Operating period concluded, but active in Grace Submission buffer
+  if (todayStr <= phaseEndStr) {
+    return {
+      is_locked: false,
+      lock_state: "grace_period",
+      lock_reason: `Period concluded. Grace submission window active until ${phaseEndStr}.`,
+      deadline_date: phaseEndStr,
+      reporting_phase_start: phaseStartStr,
+      reporting_phase_end: phaseEndStr,
+      is_in_grace_period: true,
+      is_manually_unlocked: false,
+      lock_override: null,
+    };
+  }
+
+  // State D: Grace deadline passed -> Locked
   return {
-    is_locked: false,
-    lock_state: "open",
-    lock_reason: `Current active reporting period: Open until ${period.end_date}`,
-    deadline_date: period.end_date,
+    is_locked: true,
+    lock_state: "closed_deadline_passed",
+    lock_reason: `Reporting window closed on ${phaseEndStr}. Request administrative unlock to submit.`,
+    deadline_date: phaseEndStr,
+    reporting_phase_start: phaseStartStr,
+    reporting_phase_end: phaseEndStr,
+    is_in_grace_period: false,
     is_manually_unlocked: false,
     lock_override: null,
   };

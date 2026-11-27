@@ -61,9 +61,12 @@ export interface ReportingPeriod {
   submission_method?: "node_mapping" | "form_based" | string | null;
   narrative?: string | null;
   is_locked?: boolean;
-  lock_state?: "open" | "upcoming" | "closed_deadline_passed" | "unlocked_override" | "manually_locked" | string;
+  lock_state?: "open" | "upcoming" | "closed_deadline_passed" | "unlocked_override" | "manually_locked" | "upcoming_phase" | "reporting_open" | "grace_period" | string;
   lock_reason?: string | null;
   deadline_date?: string | null;
+  phase_start_date?: string | null;
+  phase_end_date?: string | null;
+  is_in_grace_period?: boolean;
   is_manually_unlocked?: boolean;
   lock_override?: {
     is_unlocked: boolean;
@@ -96,6 +99,20 @@ export interface NationalReportingAssignment {
     unlocked_by?: string | null;
     unlocked_at?: string | null;
   }> | null;
+  reporting_phase_override?: {
+    is_custom: boolean;
+    open_days_before: number;
+    close_days_after: number;
+    allow_grace_period?: boolean;
+    phase_description?: string;
+    notes?: string;
+  } | null;
+  effectivePhaseConfig?: {
+    open_days_before: number;
+    close_days_after: number;
+    allow_grace_period?: boolean;
+    phase_description?: string;
+  } | null;
   assigned_by?: string | null;
   assigned_at: string;
   requirement?: NationalReportingRequirement;
@@ -466,15 +483,23 @@ export interface PeriodDivisionConfig {
 
 export interface NationalReportingPeriodConfig {
   config_id?: string;
-  frequency: "monthly" | "quarterly" | "semi_annually" | "annually" | string;
+  frequency: "monthly" | "quarterly" | "semi_annually" | "annually" | "daily" | "weekly" | string;
   display_title: string;
   division_count: number;
   divisions: PeriodDivisionConfig[];
+  reporting_phase_open_days_before?: number;
+  reporting_phase_close_days_after?: number;
+  allow_grace_period?: boolean;
+  phase_description?: string;
   updated_at?: string;
 }
 
 export interface UpdatePeriodConfigPayload {
   frequency: string;
-  divisions: PeriodDivisionConfig[];
+  divisions?: PeriodDivisionConfig[];
+  reporting_phase_open_days_before?: number;
+  reporting_phase_close_days_after?: number;
+  allow_grace_period?: boolean;
+  phase_description?: string;
 }
 

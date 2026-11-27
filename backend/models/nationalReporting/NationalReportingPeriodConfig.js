@@ -37,6 +37,25 @@ module.exports = (sequelize, DataTypes) => {
         allowNull: false,
         defaultValue: [],
       },
+      reporting_phase_open_days_before: {
+        type: DataTypes.INTEGER,
+        allowNull: false,
+        defaultValue: 5,
+      },
+      reporting_phase_close_days_after: {
+        type: DataTypes.INTEGER,
+        allowNull: false,
+        defaultValue: 5,
+      },
+      allow_grace_period: {
+        type: DataTypes.BOOLEAN,
+        allowNull: false,
+        defaultValue: true,
+      },
+      phase_description: {
+        type: DataTypes.STRING(255),
+        allowNull: true,
+      },
       updated_by: {
         type: DataTypes.UUID,
         allowNull: true,

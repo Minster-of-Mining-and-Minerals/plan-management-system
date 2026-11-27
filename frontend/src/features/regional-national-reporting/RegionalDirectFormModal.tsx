@@ -176,14 +176,14 @@ export function RegionalDirectFormModal({
         if (latestPub.narrative) existingNarrative = latestPub.narrative;
       }
 
-      // 3. Resolve Lock & Timeline Window Status
+      // 3. Resolve Lock & Timeline Window Status (respecting phase dates from assignment.recurringPeriods if present)
       const override =
         lockOverrides[label] ||
         lockOverrides[label.toUpperCase()] ||
         (divMatch ? lockOverrides[divMatch.monthLabel] : null) ||
         null;
 
-      let lockState: "active_open" | "unlocked_on_demand" | "deadline_passed" | "future" | "manually_locked" = "active_open";
+      let lockState: "active_open" | "unlocked_on_demand" | "deadline_passed" | "future" | "manually_locked" | "grace_period" = "active_open";
       let statusBadgeLabel = "Active Window";
       let statusColor = "bg-emerald-100 text-emerald-800 border-emerald-300 dark:bg-emerald-950 dark:text-emerald-300";
 
@@ -213,18 +213,41 @@ export function RegionalDirectFormModal({
           statusBadgeLabel = "Locked by Admin";
           statusColor = "bg-rose-100 text-rose-800 border-rose-300 dark:bg-rose-950 dark:text-rose-300";
         }
+      } else if (p.is_locked !== undefined) {
+        // Direct resolution from computePeriodLockStatus returned by backend
+        if (p.is_locked) {
+          if (p.lock_state === "upcoming_phase" || p.lock_state === "upcoming") {
+            lockState = "future";
+            statusBadgeLabel = `Upcoming Window (Opens ${p.phase_start_date || sDate})`;
+            statusColor = "bg-slate-100 text-slate-700 border-slate-300 dark:bg-slate-800 dark:text-slate-300";
+          } else {
+            lockState = "deadline_passed";
+            statusBadgeLabel = `Window Closed (${p.phase_end_date || p.deadline_date || eDate})`;
+            statusColor = "bg-rose-100 text-rose-800 border-rose-300 dark:bg-rose-950 dark:text-rose-300";
+          }
+        } else if (p.lock_state === "grace_period" || p.is_in_grace_period) {
+          lockState = "grace_period";
+          statusBadgeLabel = `Grace Period Active (Open until ${p.phase_end_date || eDate})`;
+          statusColor = "bg-amber-100 text-amber-800 border-amber-300 dark:bg-amber-950 dark:text-amber-300 font-semibold";
+        } else {
+          lockState = "active_open";
+          statusBadgeLabel = `Reporting Window Open (Until ${p.phase_end_date || eDate})`;
+          statusColor = "bg-emerald-100 text-emerald-800 border-emerald-300 dark:bg-emerald-950 dark:text-emerald-300 font-semibold";
+        }
       } else {
-        if (sDate && todayStr < sDate) {
+        const effectivePhaseStart = p.phase_start_date || sDate;
+        const effectivePhaseEnd = p.phase_end_date || eDate;
+        if (effectivePhaseStart && todayStr < effectivePhaseStart) {
           lockState = "future";
-          statusBadgeLabel = `Future Period (Opens ${sDate})`;
+          statusBadgeLabel = `Upcoming Window (Opens ${effectivePhaseStart})`;
           statusColor = "bg-slate-100 text-slate-700 border-slate-300 dark:bg-slate-800 dark:text-slate-300";
-        } else if (eDate && todayStr > eDate) {
+        } else if (effectivePhaseEnd && todayStr > effectivePhaseEnd) {
           lockState = "deadline_passed";
-          statusBadgeLabel = `Deadline Passed (Closed ${eDate})`;
+          statusBadgeLabel = `Deadline Passed (Closed ${effectivePhaseEnd})`;
           statusColor = "bg-amber-100 text-amber-800 border-amber-300 dark:bg-amber-950 dark:text-amber-300";
         } else {
           lockState = "active_open";
-          statusBadgeLabel = `Active Window (Open until ${eDate || "end"})`;
+          statusBadgeLabel = `Active Window (Open until ${effectivePhaseEnd || "end"})`;
           statusColor = "bg-emerald-100 text-emerald-800 border-emerald-300 dark:bg-emerald-950 dark:text-emerald-300";
         }
       }

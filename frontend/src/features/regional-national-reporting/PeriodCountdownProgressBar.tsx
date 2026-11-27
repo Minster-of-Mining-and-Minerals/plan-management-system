@@ -1,13 +1,17 @@
 "use client";
 
 import React, { useMemo } from "react";
-import { Clock, CheckCircle2, AlertTriangle, Calendar } from "lucide-react";
+import { Clock, CheckCircle2, AlertTriangle, Calendar, Hourglass, ShieldCheck, Lock } from "lucide-react";
 
 interface Props {
   startDate?: string | null;
   endDate?: string | null;
   status?: string | null;
   compact?: boolean;
+  phaseStartDate?: string | null;
+  phaseEndDate?: string | null;
+  isInGracePeriod?: boolean;
+  lockState?: string | null;
 }
 
 export function PeriodCountdownProgressBar({
@@ -15,6 +19,10 @@ export function PeriodCountdownProgressBar({
   endDate,
   status,
   compact = false,
+  phaseStartDate,
+  phaseEndDate,
+  isInGracePeriod,
+  lockState,
 }: Props) {
   const isPublished = status === "published";
 
@@ -26,6 +34,7 @@ export function PeriodCountdownProgressBar({
     isOverdue,
     daysLeft,
     totalDays,
+    phaseBadgeText,
   } = useMemo(() => {
     if (isPublished) {
       return {
@@ -36,10 +45,14 @@ export function PeriodCountdownProgressBar({
         isOverdue: false,
         daysLeft: 0,
         totalDays: 0,
+        phaseBadgeText: null,
       };
     }
 
-    if (!startDate || !endDate) {
+    const effectiveOpenDate = phaseStartDate || startDate;
+    const effectiveDeadlineDate = phaseEndDate || endDate;
+
+    if (!effectiveOpenDate || !effectiveDeadlineDate) {
       return {
         progressPercent: 0,
         statusText: "Standard Reporting Window",
@@ -48,79 +61,85 @@ export function PeriodCountdownProgressBar({
         isOverdue: false,
         daysLeft: null,
         totalDays: null,
+        phaseBadgeText: null,
       };
     }
 
-    const start = new Date(startDate).getTime();
-    const end = new Date(endDate).getTime();
+    const openTime = new Date(effectiveOpenDate).getTime();
+    const deadlineTime = new Date(effectiveDeadlineDate).getTime();
     const now = Date.now();
 
-    const totalDuration = end - start;
-    if (totalDuration <= 0) {
-      return {
-        progressPercent: 100,
-        statusText: "Window ended",
-        colorVariant: "overdue",
-        isUrgent: true,
-        isOverdue: true,
-        daysLeft: 0,
-        totalDays: 1,
-      };
-    }
-
     const msPerDay = 1000 * 60 * 60 * 24;
-    const totalDaysCount = Math.ceil(totalDuration / msPerDay);
+    const totalDuration = deadlineTime - openTime;
+    const totalDaysCount = Math.max(1, Math.ceil(totalDuration / msPerDay));
 
-    if (now < start) {
-      const daysUntilOpen = Math.ceil((start - now) / msPerDay);
+    // 1. Before phase opens: Period operating, reporting window upcoming
+    if (now < openTime) {
+      const daysUntilOpen = Math.ceil((openTime - now) / msPerDay);
       return {
         progressPercent: 0,
-        statusText: `Opens in ${daysUntilOpen} ${daysUntilOpen === 1 ? "day" : "days"}`,
+        statusText: `Reporting opens in ${daysUntilOpen}d (${effectiveOpenDate})`,
         colorVariant: "upcoming",
         isUrgent: false,
         isOverdue: false,
         daysLeft: totalDaysCount,
         totalDays: totalDaysCount,
+        phaseBadgeText: "Upcoming Phase",
       };
     }
 
-    if (now > end) {
-      const daysOverdue = Math.ceil((now - end) / msPerDay);
+    // 2. Past final grace deadline: Closed / Deadline passed
+    if (now > deadlineTime) {
+      const daysOverdue = Math.ceil((now - deadlineTime) / msPerDay);
       return {
         progressPercent: 100,
-        statusText: `Deadline passed (${daysOverdue}d ago)`,
+        statusText: `Closed ${daysOverdue}d ago (Due: ${effectiveDeadlineDate})`,
         colorVariant: "overdue",
         isUrgent: true,
         isOverdue: true,
         daysLeft: 0,
         totalDays: totalDaysCount,
+        phaseBadgeText: "Deadline Passed",
       };
     }
 
-    // Active window
-    const elapsed = now - start;
-    const remaining = end - now;
+    // 3. Active Window: Check if in grace period vs normal phase
+    const elapsed = now - openTime;
+    const remaining = deadlineTime - now;
     const remainingDays = Math.ceil(remaining / msPerDay);
-    const percentElapsed = Math.min(100, Math.max(0, Math.round((elapsed / totalDuration) * 100)));
-    const percentTimeLeft = 100 - percentElapsed;
+    const percentElapsed = Math.min(100, Math.max(0, Math.round((elapsed / Math.max(1, totalDuration)) * 100)));
+
+    if (isInGracePeriod || lockState === "grace_period") {
+      return {
+        progressPercent: percentElapsed,
+        statusText: `Grace Window: ${remainingDays}d left (Due: ${effectiveDeadlineDate})`,
+        colorVariant: "warning",
+        isUrgent: remainingDays <= 2,
+        isOverdue: false,
+        daysLeft: remainingDays,
+        totalDays: totalDaysCount,
+        phaseBadgeText: "Grace Period",
+      };
+    }
 
     let variant: "safe" | "warning" | "urgent" = "safe";
-    if (percentTimeLeft < 20 || remainingDays <= 5) {
+    if (remainingDays <= 3) {
       variant = "urgent";
-    } else if (percentTimeLeft <= 50) {
+    } else if (remainingDays <= 7) {
       variant = "warning";
     }
 
     return {
       progressPercent: percentElapsed,
-      statusText: `${remainingDays} ${remainingDays === 1 ? "day" : "days"} left (${remainingDays}/${totalDaysCount}d)`,
+      statusText: `Reporting Open: ${remainingDays}d left (Due: ${effectiveDeadlineDate})`,
       colorVariant: variant,
       isUrgent: variant === "urgent",
       isOverdue: false,
       daysLeft: remainingDays,
       totalDays: totalDaysCount,
+      phaseBadgeText: "Window Open",
     };
-  }, [startDate, endDate, status, isPublished]);
+  }, [startDate, endDate, phaseStartDate, phaseEndDate, isInGracePeriod, lockState, status, isPublished]);
 
   // Styling maps
   const barColor =
@@ -150,13 +169,17 @@ export function PeriodCountdownProgressBar({
       : "text-slate-500";
 
   return (
-    <div className={`space-y-1 ${compact ? "w-32" : "w-44"}`}>
+    <div className={`space-y-1 ${compact ? "w-36" : "w-48"}`}>
       <div className="flex items-center justify-between text-[10px] leading-tight">
         <span className={`flex items-center gap-1 ${textColor}`}>
           {isPublished ? (
             <CheckCircle2 className="h-3 w-3 text-emerald-600 shrink-0" />
           ) : isOverdue ? (
             <AlertTriangle className="h-3 w-3 text-red-600 shrink-0" />
+          ) : colorVariant === "warning" ? (
+            <Hourglass className="h-3 w-3 text-amber-600 shrink-0" />
+          ) : colorVariant === "upcoming" ? (
+            <Lock className="h-3 w-3 text-slate-400 shrink-0" />
           ) : (
             <Clock className="h-3 w-3 shrink-0" />
           )}
