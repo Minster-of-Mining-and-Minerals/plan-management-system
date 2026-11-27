@@ -595,7 +595,7 @@ class NationalReportingService {
             {
               model: User,
               as: "publishedByUser",
-              attributes: ["user_id", "full_name", "email", "role", "phone_number"],
+              attributes: ["user_id", "full_name", "email", "phone_number"],
             },
           ],
         },
@@ -674,7 +674,6 @@ class NationalReportingService {
                 user_id: matchingRecord.publishedByUser.user_id,
                 full_name: matchingRecord.publishedByUser.full_name,
                 email: matchingRecord.publishedByUser.email,
-                role: matchingRecord.publishedByUser.role,
                 phone_number: matchingRecord.publishedByUser.phone_number,
               }
             : matchingRecord.snapshot_data?.submitter || null;
@@ -724,12 +723,12 @@ class NationalReportingService {
         {
           model: User,
           as: "publishedByUser",
-          attributes: ["user_id", "full_name", "email", "role", "phone_number"],
+          attributes: ["user_id", "full_name", "email", "phone_number"],
         },
         {
           model: User,
           as: "validatedByUser",
-          attributes: ["user_id", "full_name", "email", "role", "phone_number"],
+          attributes: ["user_id", "full_name", "email", "phone_number"],
         },
       ],
       order: [
@@ -756,12 +755,12 @@ class NationalReportingService {
         {
           model: User,
           as: "publishedByUser",
-          attributes: ["user_id", "full_name", "email", "role", "phone_number"],
+          attributes: ["user_id", "full_name", "email", "phone_number"],
         },
         {
           model: User,
           as: "validatedByUser",
-          attributes: ["user_id", "full_name", "email", "role", "phone_number"],
+          attributes: ["user_id", "full_name", "email", "phone_number"],
         },
       ],
     });

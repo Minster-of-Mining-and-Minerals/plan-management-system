@@ -331,7 +331,7 @@ class RegionalNationalReportingService {
             {
               model: User,
               as: "publishedByUser",
-              attributes: ["user_id", "full_name", "email", "role", "phone_number"],
+              attributes: ["user_id", "full_name", "email", "phone_number"],
             },
           ],
           order: [["published_at", "DESC"]],
@@ -493,7 +493,6 @@ class RegionalNationalReportingService {
                 user_id: matchingRecord.publishedByUser.user_id,
                 full_name: matchingRecord.publishedByUser.full_name,
                 email: matchingRecord.publishedByUser.email,
-                role: matchingRecord.publishedByUser.role,
                 phone_number: matchingRecord.publishedByUser.phone_number,
               }
             : matchingRecord.snapshot_data?.submitter || null;
@@ -1427,7 +1426,7 @@ class RegionalNationalReportingService {
     if (userId) {
       try {
         submitterUser = await User.findByPk(userId, {
-          attributes: ["user_id", "full_name", "email", "phone_number", "role"],
+          attributes: ["user_id", "full_name", "email", "phone_number"],
         });
       } catch (err) {
         console.warn("[WARN] Could not load submitter User:", err.message);
@@ -1457,7 +1456,6 @@ class RegionalNationalReportingService {
             userId: submitterUser.user_id,
             fullName: submitterUser.full_name,
             email: submitterUser.email,
-            role: submitterUser.role,
             phoneNumber: submitterUser.phone_number,
           }
         : {
