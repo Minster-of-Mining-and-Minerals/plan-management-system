@@ -1,5 +1,11 @@
 import { format, parseISO } from "date-fns";
 import type { PlanVersion, AnnualTargetAllocation } from "@/redux/types/plan";
+import {
+  type CalendarSystem,
+  computeCalendarPlanningEndDate,
+  formatDateRangeByCalendar,
+  normalizeCalendarSystem,
+} from "./calendarUtils";
 
 export function toDateOnlyString(date: Date): string {
   return format(date, "yyyy-MM-dd");
@@ -11,8 +17,12 @@ function daysInMonth(year: number, month: number): number {
 
 export function computePlanningEndDate(
   startDateStr: string,
-  durationYears: number
+  durationYears: number,
+  calendarSystem: CalendarSystem = "GC"
 ): string {
+  if (normalizeCalendarSystem(calendarSystem) === "EC") {
+    return computeCalendarPlanningEndDate(startDateStr, durationYears, "EC");
+  }
   const start = parseISO(startDateStr);
   const year = start.getFullYear();
   const month = start.getMonth() + 1;
@@ -36,13 +46,23 @@ export function formatPlanningPeriod(
     PlanVersion,
     | "planning_start_date"
     | "planning_end_date"
+    | "calendar_system"
     | "start_year"
     | "end_year"
     | "start_month"
     | "end_month"
   >
 ): string {
+  const cal = normalizeCalendarSystem(version.calendar_system ?? "GC");
   if (version.planning_start_date && version.planning_end_date) {
+    if (cal === "EC") {
+      return formatDateRangeByCalendar(
+        version.planning_start_date,
+        version.planning_end_date,
+        "EC",
+        { showSuffix: true }
+      );
+    }
     return `${formatDateLabel(version.planning_start_date)} – ${formatDateLabel(version.planning_end_date)}`;
   }
 

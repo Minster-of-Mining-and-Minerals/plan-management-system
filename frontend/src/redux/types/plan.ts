@@ -33,6 +33,7 @@ export interface PlanVersion {
     draft_name: string;
     planning_start_date: string;
     planning_end_date: string;
+    calendar_system?: "GC" | "EC";
     start_year: number;
     start_month: number;
     end_year: number;
@@ -156,6 +157,7 @@ export interface CreatePlanVersionPayload {
     government_structure_id: string;
     based_on_version_id?: string | null;
     plan_rule_id?: string | null;
+    calendar_system?: "GC" | "EC";
 }
 
 export interface DuplicatePlanDraftPayload {
@@ -172,6 +174,7 @@ export interface UpdatePlanVersionPayload {
     government_structure_id?: string;
     based_on_version_id?: string | null;
     plan_rule_id?: string | null;
+    calendar_system?: "GC" | "EC";
 }
 
 export interface UpdatePlanVersionStatusPayload {

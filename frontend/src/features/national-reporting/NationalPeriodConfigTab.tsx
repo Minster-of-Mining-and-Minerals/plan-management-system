@@ -32,6 +32,8 @@ import {
   ArrowRight,
 } from "lucide-react";
 import { toast } from "sonner";
+import { CalendarSystemSelector } from "@/components/ui/calendar-system-selector";
+import type { CalendarSystem } from "@/utils/calendarUtils";
 
 const ETHIOPIAN_MONTH_NAMES = [
   "Hamle (ሐምሌ)",
@@ -68,6 +70,7 @@ interface FrequencyPhaseState {
   closeDaysAfter: number;
   allowGracePeriod: boolean;
   phaseDescription: string;
+  calendarSystem?: CalendarSystem;
 }
 
 const DEFAULT_PHASE_RULES: Record<string, FrequencyPhaseState> = {
@@ -100,6 +103,7 @@ export function NationalPeriodConfigTab() {
           closeDaysAfter: c.reporting_phase_close_days_after !== undefined && c.reporting_phase_close_days_after !== null ? c.reporting_phase_close_days_after : def.closeDaysAfter,
           allowGracePeriod: c.allow_grace_period !== undefined && c.allow_grace_period !== null ? c.allow_grace_period : def.allowGracePeriod,
           phaseDescription: c.phase_description || def.phaseDescription,
+          calendarSystem: ((c as any).calendar_system as CalendarSystem) || "GC",
         };
       });
       setEditedDivisions(stateMap);
@@ -256,7 +260,8 @@ export function NationalPeriodConfigTab() {
         reporting_phase_close_days_after: Number(currentPhase.closeDaysAfter),
         allow_grace_period: Boolean(currentPhase.allowGracePeriod),
         phase_description: currentPhase.phaseDescription,
-      }).unwrap();
+        calendar_system: currentPhase.calendarSystem || "GC",
+      } as any).unwrap();
       toast.success(
         `Period rules & names for ${activeFrequency.replace(/_/g, " ")} saved successfully`
       );
@@ -459,6 +464,25 @@ export function NationalPeriodConfigTab() {
                 <Badge variant="outline" className="text-emerald-700 bg-emerald-50 dark:bg-emerald-950 text-[10px] border-emerald-300 font-mono">
                   Active Baseline Rule
                 </Badge>
+                <CalendarSystemSelector
+                  size="sm"
+                  value={phaseSettings[activeFrequency]?.calendarSystem || "GC"}
+                  onChange={(cal) =>
+                    setPhaseSettings((prev) => ({
+                      ...prev,
+                      [activeFrequency]: {
+                        ...(prev[activeFrequency] || {
+                          openDaysBefore: DEFAULT_PHASE_RULES[activeFrequency]?.openDaysBefore ?? 5,
+                          closeDaysAfter: DEFAULT_PHASE_RULES[activeFrequency]?.closeDaysAfter ?? 5,
+                          allowGracePeriod: DEFAULT_PHASE_RULES[activeFrequency]?.allowGracePeriod ?? true,
+                          phaseDescription: DEFAULT_PHASE_RULES[activeFrequency]?.phaseDescription ?? "",
+                          calendarSystem: "GC",
+                        }),
+                        calendarSystem: cal,
+                      },
+                    }))
+                  }
+                />
               </div>
               <CardDescription className="text-xs mt-1">
                 Standard System Default for {activeFrequency.replace(/_/g, " ")}:{" "}

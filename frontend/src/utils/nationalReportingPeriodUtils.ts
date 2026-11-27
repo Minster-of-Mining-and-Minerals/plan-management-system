@@ -3,6 +3,11 @@
  */
 
 import { ReportingPeriod } from "@/redux/types/nationalReporting";
+import {
+  type CalendarSystem,
+  calculateCalendarAnnualEndDate,
+  generateCalendarPeriods,
+} from "./calendarUtils";
 
 function pad(num: number): string {
   return String(num).padStart(2, "0");
@@ -15,14 +20,12 @@ export function formatDate(date: Date): string {
 /**
  * Calculate full-year end date given an annual start date (1 full year minus 1 day)
  */
-export function calculateAnnualEndDate(startDateStr: string): string {
+export function calculateAnnualEndDate(
+  startDateStr: string,
+  calendarSystem: CalendarSystem = "GC"
+): string {
   if (!startDateStr) return "";
-  const d = new Date(startDateStr);
-  if (isNaN(d.getTime())) return "";
-
-  d.setFullYear(d.getFullYear() + 1);
-  d.setDate(d.getDate() - 1);
-  return formatDate(d);
+  return calculateCalendarAnnualEndDate(startDateStr, calendarSystem);
 }
 
 /**
@@ -75,96 +78,10 @@ export function getExpectedPeriodCount(frequency: string): number {
 export function generateReportingPeriods(
   startDateStr: string,
   endDateStr: string,
-  frequency: string
+  frequency: string,
+  calendarSystem: CalendarSystem = "GC"
 ): ReportingPeriod[] {
   if (!startDateStr || !endDateStr) return [];
-  const start = new Date(startDateStr);
-  const end = new Date(endDateStr);
-
-  if (isNaN(start.getTime()) || isNaN(end.getTime()) || start >= end) {
-    return [];
-  }
-
-  const freq = String(frequency || "quarterly").toLowerCase().replace(/[\s\-]/g, "_");
-  const count = getExpectedPeriodCount(freq);
-
-  let prefix = "Q";
-  let stepMonths = 3;
-  if (count === 12) {
-    prefix = "Month";
-    stepMonths = 1;
-  } else if (count === 2) {
-    prefix = "Semester";
-    stepMonths = 6;
-  } else if (count === 1) {
-    prefix = "Annual";
-    stepMonths = 12;
-  }
-
-  const isFirstOfMonth = start.getDate() === 1;
-  const periods: ReportingPeriod[] = [];
-
-  if (isFirstOfMonth && count > 1) {
-    let currStart = new Date(start.getTime());
-    for (let i = 0; i < count; i++) {
-      const pStart = new Date(currStart.getTime());
-      let pEnd: Date;
-
-      if (i === count - 1) {
-        pEnd = new Date(end.getTime());
-      } else {
-        const next = new Date(currStart.getTime());
-        next.setMonth(next.getMonth() + stepMonths);
-        next.setDate(next.getDate() - 1);
-        pEnd = next > end ? new Date(end.getTime()) : next;
-
-        const nextStart = new Date(pEnd.getTime());
-        nextStart.setDate(nextStart.getDate() + 1);
-        currStart = nextStart;
-      }
-
-      let label = prefix === "Q" ? `Q${i + 1}` : `${prefix} ${i + 1}`;
-      if (prefix === "Annual") label = "Annual";
-
-      const pStartStr = formatDate(pStart);
-      const pEndStr = formatDate(pEnd);
-
-      periods.push({
-        period_index: i + 1,
-        period_label: label,
-        start_date: pStartStr,
-        end_date: pEndStr,
-        name: `${label} (${pStartStr} to ${pEndStr})`,
-      });
-    }
-  } else {
-    const totalMs = end.getTime() - start.getTime() + 86400000;
-    const totalDays = Math.round(totalMs / 86400000);
-
-    for (let i = 0; i < count; i++) {
-      const startDayOffset = Math.round((i * totalDays) / count);
-      const endDayOffset =
-        i === count - 1 ? totalDays - 1 : Math.round(((i + 1) * totalDays) / count) - 1;
-
-      const pStart = new Date(start.getTime() + startDayOffset * 86400000);
-      const pEnd = new Date(start.getTime() + endDayOffset * 86400000);
-
-      let label = prefix === "Q" ? `Q${i + 1}` : `${prefix} ${i + 1}`;
-      if (prefix === "Annual") label = "Annual";
-
-      const pStartStr = formatDate(pStart);
-      const pEndStr = formatDate(pEnd);
-
-      periods.push({
-        period_index: i + 1,
-        period_label: label,
-        start_date: pStartStr,
-        end_date: pEndStr,
-        name: `${label} (${pStartStr} to ${pEndStr})`,
-      });
-    }
-  }
-
-  return periods;
+  return generateCalendarPeriods(startDateStr, endDateStr, frequency, calendarSystem) as ReportingPeriod[];
 }
 

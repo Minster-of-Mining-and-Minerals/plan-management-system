@@ -56,6 +56,11 @@ module.exports = (sequelize, DataTypes) => {
         type: DataTypes.STRING(255),
         allowNull: true,
       },
+      calendar_system: {
+        type: DataTypes.STRING(10),
+        allowNull: false,
+        defaultValue: "GC",
+      },
       updated_by: {
         type: DataTypes.UUID,
         allowNull: true,

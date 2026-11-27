@@ -98,6 +98,11 @@ module.exports = (sequelize, DataTypes) => {
         allowNull: false,
         defaultValue: [],
       },
+      calendar_system: {
+        type: DataTypes.STRING(10),
+        allowNull: false,
+        defaultValue: "GC",
+      },
       owned_by_plan_version_id: {
         type: DataTypes.UUID,
         allowNull: true,

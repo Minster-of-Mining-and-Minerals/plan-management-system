@@ -30,6 +30,11 @@ const {
     hasBeenPublishedForReview,
     isMasterReviewCompleted,
 } = require("../utils/planReviewUtils");
+const {
+    normalizeCalendarSystem,
+    enumerateCalendarAnnualSlices,
+    generateCalendarPeriods,
+} = require("../utils/calendarUtils");
 
 function enumeratePlanningYears(master) {
     const years = [];
@@ -561,10 +566,13 @@ async function finalizeDraft(masterVersionId) {
         );
 
         const annualVersions = [];
+        const masterCalendar = normalizeCalendarSystem(master.calendar_system ?? "GC");
+        const annualSlices = enumerateCalendarAnnualSlices(master, masterCalendar);
 
-        for (let i = 0; i < years.length; i += 1) {
-            const planningYear = years[i];
-            const sequenceIndex = i + 1;
+        for (let i = 0; i < annualSlices.length; i += 1) {
+            const slice = annualSlices[i];
+            const planningYear = slice.planning_year;
+            const sequenceIndex = slice.sequence_index;
 
             const annualVersion = await PlanVersion.create(
                 {
@@ -573,13 +581,14 @@ async function finalizeDraft(masterVersionId) {
                     parent_plan_version_id: master.plan_version_id,
                     planning_year: planningYear,
                     sequence_index: sequenceIndex,
-                    draft_name: `${master.draft_name} — Year ${sequenceIndex} (${planningYear})`,
-                    planning_start_date: `${planningYear}-${String(master.start_month).padStart(2, "0")}-01`,
-                    planning_end_date: `${planningYear}-${String(master.start_month).padStart(2, "0")}-01`,
-                    start_year: planningYear,
-                    end_year: planningYear,
-                    start_month: master.start_month,
-                    end_month: master.end_month,
+                    draft_name: `${master.draft_name} — Year ${sequenceIndex} (${planningYear}${masterCalendar === "EC" ? " EC" : ""})`,
+                    planning_start_date: slice.planning_start_date,
+                    planning_end_date: slice.planning_end_date,
+                    calendar_system: masterCalendar,
+                    start_year: slice.start_year,
+                    end_year: slice.end_year,
+                    start_month: slice.start_month,
+                    end_month: slice.end_month,
                     planning_duration_years: 1,
                     year: planningYear,
                     version_number: sequenceIndex,
@@ -1128,32 +1137,59 @@ async function generateExecutionPeriods(annualVersionId, transaction, options = 
         return { success: false, message: "Execution periods already exist for this annual version" };
     }
 
-    let periodLabels = [];
-    if (subdivisionMode) {
-        if (subdivisionMode === "custom") {
-            const normalized = normalizeCustomPeriods(customPeriods);
-            if (!normalized.valid) {
-                return { success: false, message: normalized.message };
-            }
-            periodLabels = normalized.periods.map((p) => p.label);
-        } else {
-            periodLabels = resolvePeriodLabelsForMode(subdivisionMode, customPeriods);
+    const config = await getEffectivePlanningConfigForPlanVersion(annualVersion, transaction);
+    const effectiveMode = subdivisionMode || config?.breakdown_mode || "quarterly";
+    const calendarSystem = normalizeCalendarSystem(
+        annualVersion.calendar_system ?? config?.calendar_system ?? "GC"
+    );
+
+    let periodSpecs = [];
+    if (effectiveMode === "custom") {
+        const customList = subdivisionMode ? customPeriods : config?.custom_periods;
+        const normalized = normalizeCustomPeriods(customList);
+        if (!normalized.valid) {
+            return { success: false, message: normalized.message };
         }
-    } else {
-        const config = await getEffectivePlanningConfigForPlanVersion(annualVersion, transaction);
-        periodLabels = resolvePeriodLabels(config);
+        periodSpecs = normalized.periods.map((p, idx) => ({
+            period_index: idx + 1,
+            period_label: p.label,
+            start_date: annualVersion.planning_start_date,
+            end_date: annualVersion.planning_end_date,
+        }));
+    } else if (annualVersion.planning_start_date && annualVersion.planning_end_date) {
+        const freq = effectiveMode === "semi_annual" ? "semi_annually" : effectiveMode;
+        const generated = generateCalendarPeriods(
+            annualVersion.planning_start_date,
+            annualVersion.planning_end_date,
+            freq,
+            calendarSystem
+        );
+        if (generated.length > 0) {
+            periodSpecs = generated;
+        }
     }
 
-    if (periodLabels.length === 0) {
+    if (periodSpecs.length === 0) {
+        const labels = resolvePeriodLabelsForMode(effectiveMode, customPeriods, calendarSystem);
+        periodSpecs = labels.map((label, idx) => ({
+            period_index: idx + 1,
+            period_label: label,
+            start_date: annualVersion.planning_start_date,
+            end_date: annualVersion.planning_end_date,
+        }));
+    }
+
+    if (periodSpecs.length === 0) {
         return { success: false, message: "No execution periods configured for the selected subdivision" };
     }
 
     const executionPeriods = [];
     const planningYear = annualVersion.planning_year ?? annualVersion.start_year;
 
-    for (let i = 0; i < periodLabels.length; i += 1) {
+    for (let i = 0; i < periodSpecs.length; i += 1) {
+        const spec = periodSpecs[i];
         const sequenceIndex = i + 1;
-        const periodLabel = periodLabels[i];
+        const periodLabel = spec.period_label;
 
         const periodVersion = await PlanVersion.create(
             {
@@ -1164,8 +1200,9 @@ async function generateExecutionPeriods(annualVersionId, transaction, options = 
                 planning_year: planningYear,
                 sequence_index: sequenceIndex,
                 draft_name: `${annualVersion.draft_name} — ${periodLabel}`,
-                planning_start_date: annualVersion.planning_start_date,
-                planning_end_date: annualVersion.planning_end_date,
+                planning_start_date: spec.start_date || annualVersion.planning_start_date,
+                planning_end_date: spec.end_date || annualVersion.planning_end_date,
+                calendar_system: calendarSystem,
                 start_year: planningYear,
                 end_year: planningYear,
                 start_month: annualVersion.start_month,

@@ -151,6 +151,11 @@ module.exports = (sequelize, DataTypes) => {
         type: DataTypes.DATEONLY,
         allowNull: true,
       },
+      calendar_system: {
+        type: DataTypes.STRING(10),
+        allowNull: false,
+        defaultValue: "GC",
+      },
       is_locked: {
         type: DataTypes.BOOLEAN,
         defaultValue: false,

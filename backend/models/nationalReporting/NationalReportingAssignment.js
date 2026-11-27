@@ -66,6 +66,11 @@ module.exports = (sequelize, DataTypes) => {
         type: DataTypes.STRING(50),
         allowNull: true,
       },
+      calendar_system_override: {
+        type: DataTypes.STRING(10),
+        allowNull: true,
+        defaultValue: null,
+      },
       annual_target: {
         type: DataTypes.FLOAT,
         allowNull: true,

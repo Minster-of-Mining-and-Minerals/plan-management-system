@@ -60,6 +60,10 @@ import {
   validateAnnualDateRange,
   generateReportingPeriods,
 } from "@/utils/nationalReportingPeriodUtils";
+import { CalendarSystemSelector } from "@/components/ui/calendar-system-selector";
+import { DualCalendarDatePicker } from "@/components/ui/dual-calendar-date-picker";
+import { CalendarDateDisplay } from "@/components/ui/calendar-date-display";
+import type { CalendarSystem } from "@/utils/calendarUtils";
 
 export function NationalRequirementsTab() {
   const searchParams = useSearchParams();
@@ -132,6 +136,7 @@ export function NationalRequirementsTab() {
     requires_evidence: false,
     effective_start_date: "",
     effective_end_date: "",
+    calendar_system: "GC" as CalendarSystem,
     is_active: true,
   });
 
@@ -158,6 +163,7 @@ export function NationalRequirementsTab() {
       requires_evidence: false,
       effective_start_date: defaultStart,
       effective_end_date: defaultEnd,
+      calendar_system: "GC",
       is_active: true,
     });
     setEditingReq(null);
@@ -179,6 +185,7 @@ export function NationalRequirementsTab() {
       requires_evidence: req.requires_evidence,
       effective_start_date: req.effective_start_date || "",
       effective_end_date: req.effective_end_date || "",
+      calendar_system: (req.calendar_system as CalendarSystem) || "GC",
       is_active: req.is_active,
     });
     setIsCreateOpen(true);
@@ -189,7 +196,8 @@ export function NationalRequirementsTab() {
       ? generateReportingPeriods(
           formData.effective_start_date,
           formData.effective_end_date,
-          formData.frequency
+          formData.frequency,
+          formData.calendar_system
         )
       : [];
 
@@ -458,9 +466,12 @@ export function NationalRequirementsTab() {
             {req.effective_start_date && req.effective_end_date ? (
               <div className="text-[11px] font-mono text-emerald-700 dark:text-emerald-400 flex items-center gap-1">
                 <Calendar className="h-3 w-3 shrink-0" />
-                <span>
-                  {req.effective_start_date} ~ {req.effective_end_date}
-                </span>
+                <CalendarDateDisplay
+                  date={req.effective_start_date}
+                  endDate={req.effective_end_date}
+                  calendarSystem={(req.calendar_system as CalendarSystem) || "GC"}
+                  showSuffix={true}
+                />
               </div>
             ) : (
               <div className="text-[10px] text-slate-400 italic">
@@ -932,52 +943,65 @@ export function NationalRequirementsTab() {
                   Annual Reporting Cycle & Date Selection
                 </span>
               </div>
-              <p className="text-xs text-slate-500">
-                Configure the annual start date and end date. The reporting cycle does not have to match January–December. Periods will be derived continuously across this annual range.
-              </p>
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 pt-1 pb-1">
+                <p className="text-xs text-slate-500">
+                  Configure the calendar system and annual start/end dates. Periods are derived continuously across this annual range.
+                </p>
+                <CalendarSystemSelector
+                  value={formData.calendar_system}
+                  onChange={(cal) => {
+                    const autoEnd = formData.effective_start_date
+                      ? calculateAnnualEndDate(formData.effective_start_date, cal)
+                      : formData.effective_end_date;
+                    setFormData({
+                      ...formData,
+                      calendar_system: cal,
+                      effective_end_date: autoEnd || formData.effective_end_date,
+                    });
+                  }}
+                  size="sm"
+                />
+              </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-1">
                 <div>
                   <Label htmlFor="req-start-date" className="text-xs font-medium">
-                    Annual Start Date *
+                    Annual Start Date ({formData.calendar_system}) *
                   </Label>
-                  <Input
-                    id="req-start-date"
-                    type="date"
-                    value={formData.effective_start_date}
-                    onChange={(e) => {
-                      const newStart = e.target.value;
-                      const autoEnd = calculateAnnualEndDate(newStart);
-                      setFormData({
-                        ...formData,
-                        effective_start_date: newStart,
-                        effective_end_date: autoEnd || formData.effective_end_date,
-                      });
-                    }}
-                    required
-                    className="mt-1"
-                  />
+                  <div className="mt-1">
+                    <DualCalendarDatePicker
+                      value={formData.effective_start_date}
+                      calendarSystem={formData.calendar_system}
+                      onChange={(newStart) => {
+                        const autoEnd = calculateAnnualEndDate(newStart, formData.calendar_system);
+                        setFormData({
+                          ...formData,
+                          effective_start_date: newStart,
+                          effective_end_date: autoEnd || formData.effective_end_date,
+                        });
+                      }}
+                    />
+                  </div>
                   <p className="text-[11px] text-slate-400 mt-0.5">
-                    Selecting start date automatically computes standard 1-year end date.
+                    Selecting start date automatically computes 1-year end date in {formData.calendar_system}.
                   </p>
                 </div>
 
                 <div>
                   <Label htmlFor="req-end-date" className="text-xs font-medium">
-                    Annual End Date *
+                    Annual End Date ({formData.calendar_system}) *
                   </Label>
-                  <Input
-                    id="req-end-date"
-                    type="date"
-                    value={formData.effective_end_date}
-                    onChange={(e) =>
-                      setFormData({ ...formData, effective_end_date: e.target.value })
-                    }
-                    required
-                    className="mt-1"
-                  />
+                  <div className="mt-1">
+                    <DualCalendarDatePicker
+                      value={formData.effective_end_date}
+                      calendarSystem={formData.calendar_system}
+                      onChange={(newEnd) =>
+                        setFormData({ ...formData, effective_end_date: newEnd })
+                      }
+                    />
+                  </div>
                   <p className="text-[11px] text-slate-400 mt-0.5">
-                    End of the full annual reporting window (~365 days).
+                    End of the full annual reporting window (~365/366 days).
                   </p>
                 </div>
               </div>

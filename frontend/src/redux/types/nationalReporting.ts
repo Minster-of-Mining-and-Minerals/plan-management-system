@@ -15,6 +15,7 @@ export interface NationalReportingRequirement {
   validation_rules?: Record<string, any> | null;
   effective_start_date?: string | null;
   effective_end_date?: string | null;
+  calendar_system?: "GC" | "EC";
   submission_deadline_days?: number | null;
   is_active: boolean;
   version_number: number;

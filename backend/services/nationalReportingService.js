@@ -9,6 +9,11 @@ const {
   computePeriodLockStatus,
   resolveEffectivePhaseConfig,
 } = require("../utils/nationalReportingPeriodUtils");
+const {
+  isValidCalendarSystem,
+  normalizeCalendarSystem,
+  resolveCanonicalDateInput,
+} = require("../utils/calendarUtils");
 
 const {
   NationalReportingRequirement,
@@ -54,11 +59,38 @@ class NationalReportingService {
       if (userExists) validUserId = userId;
     }
 
+    if (data.calendar_system !== undefined && !isValidCalendarSystem(data.calendar_system)) {
+      const err = new Error("Invalid calendar_system. Must be 'GC' or 'EC'.");
+      err.status = 400;
+      throw err;
+    }
+    const calendarSystem = normalizeCalendarSystem(data.calendar_system || "GC");
+    const inputCalendar = normalizeCalendarSystem(data.input_calendar_system || "GC");
+
     let startDate = data.effective_start_date ? String(data.effective_start_date).trim() : null;
     let endDate = data.effective_end_date ? String(data.effective_end_date).trim() : null;
 
+    if (startDate && inputCalendar === "EC") {
+      const resStart = resolveCanonicalDateInput(startDate, "EC");
+      if (!resStart.valid) {
+        const err = new Error(resStart.message);
+        err.status = 400;
+        throw err;
+      }
+      startDate = resStart.canonicalDate;
+    }
+    if (endDate && inputCalendar === "EC") {
+      const resEnd = resolveCanonicalDateInput(endDate, "EC");
+      if (!resEnd.valid) {
+        const err = new Error(resEnd.message);
+        err.status = 400;
+        throw err;
+      }
+      endDate = resEnd.canonicalDate;
+    }
+
     if (startDate && !endDate) {
-      endDate = calculateAnnualEndDate(startDate);
+      endDate = calculateAnnualEndDate(startDate, calendarSystem);
     }
 
     if (startDate && endDate) {
@@ -84,6 +116,7 @@ class NationalReportingService {
       validation_rules: typeof data.validation_rules === "string" ? JSON.parse(data.validation_rules) : (data.validation_rules || {}),
       effective_start_date: startDate,
       effective_end_date: endDate,
+      calendar_system: calendarSystem,
       is_active: data.is_active !== undefined ? !!data.is_active : true,
       version_number: 1,
       created_by: validUserId,
@@ -130,8 +163,19 @@ class NationalReportingService {
     if (data.validation_rules !== undefined) {
       requirement.validation_rules = typeof data.validation_rules === "string" ? JSON.parse(data.validation_rules) : (data.validation_rules || {});
     }
+    if (data.calendar_system !== undefined) {
+      if (!isValidCalendarSystem(data.calendar_system)) {
+        const err = new Error("Invalid calendar_system. Must be 'GC' or 'EC'.");
+        err.status = 400;
+        throw err;
+      }
+      requirement.calendar_system = normalizeCalendarSystem(data.calendar_system);
+    }
+    const calendarSystem = normalizeCalendarSystem(requirement.calendar_system || "GC");
+    const inputCalendar = normalizeCalendarSystem(data.input_calendar_system || "GC");
+
     if (data.effective_start_date !== undefined || data.effective_end_date !== undefined) {
-      const newStart =
+      let newStart =
         data.effective_start_date !== undefined
           ? (data.effective_start_date ? String(data.effective_start_date).trim() : null)
           : requirement.effective_start_date;
@@ -140,8 +184,27 @@ class NationalReportingService {
           ? (data.effective_end_date ? String(data.effective_end_date).trim() : null)
           : requirement.effective_end_date;
 
+      if (newStart && data.effective_start_date !== undefined && inputCalendar === "EC") {
+        const resStart = resolveCanonicalDateInput(newStart, "EC");
+        if (!resStart.valid) {
+          const err = new Error(resStart.message);
+          err.status = 400;
+          throw err;
+        }
+        newStart = resStart.canonicalDate;
+      }
+      if (newEnd && data.effective_end_date !== undefined && inputCalendar === "EC") {
+        const resEnd = resolveCanonicalDateInput(newEnd, "EC");
+        if (!resEnd.valid) {
+          const err = new Error(resEnd.message);
+          err.status = 400;
+          throw err;
+        }
+        newEnd = resEnd.canonicalDate;
+      }
+
       if (newStart && !newEnd) {
-        newEnd = calculateAnnualEndDate(newStart);
+        newEnd = calculateAnnualEndDate(newStart, calendarSystem);
       }
 
       if (newStart && newEnd) {
@@ -256,7 +319,8 @@ class NationalReportingService {
       item.periods = generateReportingPeriods(
         item.effective_start_date,
         item.effective_end_date,
-        item.frequency
+        item.frequency,
+        normalizeCalendarSystem(item.calendar_system || "GC")
       );
       return item;
     });
@@ -311,7 +375,8 @@ class NationalReportingService {
     item.periods = generateReportingPeriods(
       item.effective_start_date,
       item.effective_end_date,
-      item.frequency
+      item.frequency,
+      normalizeCalendarSystem(item.calendar_system || "GC")
     );
     return item;
   }
@@ -606,6 +671,13 @@ class NationalReportingService {
     return assignments.map((assignment) => {
       const item = assignment.toJSON();
       const req = item.requirement || {};
+      const frequency = item.frequency_override || req.frequency || "monthly";
+      const freqKey = String(frequency).toLowerCase().replace(/[\s\-]/g, "_");
+      const effectiveCalendar = normalizeCalendarSystem(
+        item.calendar_system_override || req.calendar_system || configByFreq[freqKey]?.calendar_system || "GC"
+      );
+      item.effective_calendar_system = effectiveCalendar;
+
       const startDate =
         item.effective_start_date ||
         req.effective_start_date ||
@@ -613,10 +685,9 @@ class NationalReportingService {
       const endDate =
         item.effective_end_date ||
         req.effective_end_date ||
-        calculateAnnualEndDate(startDate);
-      const frequency = item.frequency_override || req.frequency || "monthly";
+        calculateAnnualEndDate(startDate, effectiveCalendar);
 
-      const generatedPeriods = generateReportingPeriods(startDate, endDate, frequency);
+      const generatedPeriods = generateReportingPeriods(startDate, endDate, frequency, effectiveCalendar);
       const publishedRecords = item.publishedRecords || [];
       const lockOverrides = item.lock_overrides || {};
 
@@ -917,8 +988,11 @@ class NationalReportingService {
       const endDate = assignment.effective_end_date || req.effective_end_date;
       const freq = assignment.frequency_override || req.frequency || "quarterly";
       if (!startDate || !endDate) continue;
+      const effectiveCalendar = normalizeCalendarSystem(
+        assignment.calendar_system_override || req.calendar_system || "GC"
+      );
 
-      const periods = generateReportingPeriods(startDate, endDate, freq);
+      const periods = generateReportingPeriods(startDate, endDate, freq, effectiveCalendar);
       const lockOverrides = assignment.lock_overrides || {};
       const deadlineDays = req.submission_deadline_days != null ? Number(req.submission_deadline_days) : 15;
 
@@ -1455,6 +1529,7 @@ class NationalReportingService {
     let closeDaysAfter;
     let allowGracePeriod;
     let phaseDescription;
+    let calendarSystem;
 
     if (typeof payload === "string") {
       frequency = payload;
@@ -1467,6 +1542,7 @@ class NationalReportingService {
       closeDaysAfter = payload.reporting_phase_close_days_after !== undefined ? Number(payload.reporting_phase_close_days_after) : undefined;
       allowGracePeriod = payload.allow_grace_period !== undefined ? Boolean(payload.allow_grace_period) : undefined;
       phaseDescription = payload.phase_description !== undefined ? payload.phase_description : undefined;
+      calendarSystem = payload.calendar_system !== undefined ? normalizeCalendarSystem(payload.calendar_system) : undefined;
     }
 
     if (!frequency) {
@@ -1501,6 +1577,7 @@ class NationalReportingService {
       if (closeDaysAfter !== undefined) record.reporting_phase_close_days_after = closeDaysAfter;
       if (allowGracePeriod !== undefined) record.allow_grace_period = allowGracePeriod;
       if (phaseDescription !== undefined) record.phase_description = phaseDescription;
+      if (calendarSystem !== undefined) record.calendar_system = calendarSystem;
       record.updated_by = userId || null;
       await record.save();
       return record;
@@ -1514,6 +1591,7 @@ class NationalReportingService {
         reporting_phase_close_days_after: closeDaysAfter !== undefined ? closeDaysAfter : 5,
         allow_grace_period: allowGracePeriod !== undefined ? allowGracePeriod : true,
         phase_description: phaseDescription || null,
+        calendar_system: calendarSystem || "GC",
         updated_by: userId || null,
       });
       return record;

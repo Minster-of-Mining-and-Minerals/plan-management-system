@@ -6,6 +6,7 @@ import { actionFeedback } from "@/components/action-feedback";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { CalendarSystemSelector } from "@/components/ui/calendar-system-selector";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { TableTabBar } from "@/components/common/TableTabBar";
 import {
@@ -237,6 +238,7 @@ export default function PlanningConfigurationPage() {
         end_year_label: form.end_year_label.trim(),
         target_units: normalizedUnits,
         breakdown_mode: form.breakdown_mode,
+        calendar_system: form.calendar_system ?? "GC",
         custom_periods:
           form.breakdown_mode === "custom"
             ? (form.custom_periods ?? [])
@@ -526,6 +528,20 @@ export default function PlanningConfigurationPage() {
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 rounded-xl border border-slate-200 bg-slate-50/70 p-4">
+              <div>
+                <p className="text-sm font-semibold text-gray-900">Calendar System</p>
+                <p className="text-xs text-muted-foreground">
+                  Choose whether planning periods, dates, and monthly breakdowns use Gregorian (GC) or Ethiopian (EC) calendar.
+                </p>
+              </div>
+              <CalendarSystemSelector
+                value={form.calendar_system ?? "GC"}
+                onChange={(cal) => setField("calendar_system", cal)}
+                disabled={formDisabled}
+              />
+            </div>
+
             <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
               {(
                 [

@@ -2,6 +2,13 @@
 
 const { v4: uuidv4 } = require("uuid");
 const { PlanningConfiguration } = require("../models");
+const {
+  isValidCalendarSystem,
+  normalizeCalendarSystem,
+  validateDateForCalendar,
+  computeCalendarPlanningPeriodEnd,
+  ETHIOPIAN_MONTH_NAMES_EN,
+} = require("../utils/calendarUtils");
 
 const DEFAULT_PLANNING_CONFIG_ID = "90000000-0000-4000-8000-000000000001";
 
@@ -26,6 +33,7 @@ const DEFAULT_PLANNING_CONFIG = {
   ],
   breakdown_mode: "quarterly",
   custom_periods: [],
+  calendar_system: "GC",
 };
 
 const QUARTERLY_PERIOD_LABELS = ["Q1", "Q2", "Q3", "Q4"];
@@ -79,14 +87,18 @@ function normalizeCustomPeriods(periods) {
 
 function resolvePeriodLabels(config) {
   const mode = config?.breakdown_mode ?? DEFAULT_PLANNING_CONFIG.breakdown_mode;
-  return resolvePeriodLabelsForMode(mode, config?.custom_periods ?? []);
+  const calendarSystem = normalizeCalendarSystem(config?.calendar_system ?? "GC");
+  return resolvePeriodLabelsForMode(mode, config?.custom_periods ?? [], calendarSystem);
 }
 
-function resolvePeriodLabelsForMode(mode, customPeriods = []) {
+function resolvePeriodLabelsForMode(mode, customPeriods = [], calendarSystem = "GC") {
   if (mode === "semi_annual") {
     return [...SEMI_ANNUAL_PERIOD_LABELS];
   }
   if (mode === "monthly") {
+    if (normalizeCalendarSystem(calendarSystem) === "EC") {
+      return [...ETHIOPIAN_MONTH_NAMES_EN];
+    }
     return [...MONTHLY_PERIOD_LABELS];
   }
   if (mode === "custom") {
@@ -216,6 +228,7 @@ function pickPlanningConfigPayload(record) {
     target_units: plain.target_units ?? DEFAULT_PLANNING_CONFIG.target_units,
     breakdown_mode: plain.breakdown_mode ?? DEFAULT_PLANNING_CONFIG.breakdown_mode,
     custom_periods: plain.custom_periods ?? DEFAULT_PLANNING_CONFIG.custom_periods,
+    calendar_system: normalizeCalendarSystem(plain.calendar_system ?? DEFAULT_PLANNING_CONFIG.calendar_system),
     updated_at: plain.updated_at,
   };
 }
@@ -340,6 +353,16 @@ async function applyPlanningConfigUpdates(record, body, transaction = null) {
     }
   }
 
+  let nextCalendarSystem = normalizeCalendarSystem(record.calendar_system ?? "GC");
+  if (body.calendar_system !== undefined) {
+    if (!isValidCalendarSystem(body.calendar_system)) {
+      const error = new Error("Invalid calendar system. Must be 'GC' or 'EC'.");
+      error.status = 400;
+      throw error;
+    }
+    nextCalendarSystem = normalizeCalendarSystem(body.calendar_system);
+  }
+
   await record.update(
     {
       min_duration_years: nextMin,
@@ -356,6 +379,7 @@ async function applyPlanningConfigUpdates(record, body, transaction = null) {
       target_units: nextTargetUnits,
       breakdown_mode: nextBreakdownMode,
       custom_periods: nextCustomPeriods,
+      calendar_system: nextCalendarSystem,
     },
     { transaction }
   );
@@ -392,6 +416,7 @@ async function upsertSectorPlanningConfig(governmentStructureId, body, transacti
         target_units: globalPlain.target_units,
         breakdown_mode: globalPlain.breakdown_mode,
         custom_periods: globalPlain.custom_periods,
+        calendar_system: globalPlain.calendar_system ?? "GC",
         created_at: now,
         updated_at: now,
       },
@@ -419,6 +444,7 @@ async function restoreGlobalPlanningConfig(transaction = null) {
       target_units: DEFAULT_PLANNING_CONFIG.target_units,
       breakdown_mode: DEFAULT_PLANNING_CONFIG.breakdown_mode,
       custom_periods: DEFAULT_PLANNING_CONFIG.custom_periods,
+      calendar_system: DEFAULT_PLANNING_CONFIG.calendar_system,
     },
     { transaction }
   );
@@ -472,7 +498,11 @@ function parseDateOnly(value) {
   return { year, month, day };
 }
 
-function computePlanningPeriodEnd(startDate, durationYears) {
+function computePlanningPeriodEnd(startDate, durationYears, calendarSystem = "GC") {
+  const cal = normalizeCalendarSystem(calendarSystem);
+  if (cal === "EC") {
+    return computeCalendarPlanningPeriodEnd(startDate, durationYears, "EC");
+  }
   const parsed = parseDateOnly(startDate);
   if (!parsed) return null;
 
@@ -480,6 +510,7 @@ function computePlanningPeriodEnd(startDate, durationYears) {
   const endDay = Math.min(parsed.day, daysInMonth(endYear, parsed.month));
 
   return {
+    calendar_system: "GC",
     planning_end_date: toDateOnlyString(endYear, parsed.month, endDay),
     end_year: endYear,
     end_month: parsed.month,
@@ -488,13 +519,15 @@ function computePlanningPeriodEnd(startDate, durationYears) {
   };
 }
 
-function validatePlanningStartDate(startDate) {
-  const parsed = parseDateOnly(startDate);
-  if (!parsed) {
-    return "Planning start date must be a valid date (YYYY-MM-DD).";
+function validatePlanningStartDate(startDate, calendarSystem = "GC") {
+  const cal = normalizeCalendarSystem(calendarSystem);
+  const check = validateDateForCalendar(startDate, cal);
+  if (!check.valid) {
+    return check.message || `Planning start date must be a valid ${cal} date (YYYY-MM-DD).`;
   }
-  if (parsed.year < 2000 || parsed.year > 2100) {
-    return "Planning start year must be between 2000 and 2100.";
+  const { year } = check.normalized;
+  if (year < 1990 || year > 2100) {
+    return `Planning start year must be between 1990 and 2100.`;
   }
   return null;
 }
@@ -508,14 +541,16 @@ function validatePlanningDuration(durationYears, config) {
   return null;
 }
 
-function validateYearRange(startYear, endYear, endMonth = 12) {
-  if (startYear < 2000 || startYear > 2100) {
-    return "Start year must be between 2000 and 2100.";
+function validateYearRange(startYear, endYear, endMonth = 12, calendarSystem = "GC") {
+  const cal = normalizeCalendarSystem(calendarSystem);
+  const maxMonth = cal === "EC" ? 13 : 12;
+  if (startYear < 1990 || startYear > 2100) {
+    return "Start year must be between 1990 and 2100.";
   }
   if (endYear < startYear) {
     return "End year cannot be before start year.";
   }
-  if (endYear > 2100 || (endYear === 2100 && endMonth > 12)) {
+  if (endYear > 2100 || (endYear === 2100 && endMonth > maxMonth)) {
     return "Planning end date must be at most 2100.";
   }
   return null;

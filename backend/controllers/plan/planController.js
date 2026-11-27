@@ -64,6 +64,11 @@ const {
     resolveExecutionHierarchyVersionId,
 } = require("../../services/planExecutionGateService");
 const {
+    isValidCalendarSystem,
+    normalizeCalendarSystem,
+    resolveCanonicalDateInput,
+} = require("../../utils/calendarUtils");
+const {
     getEffectivePlanningConfigForStructure,
     computePlanningPeriodEnd,
     validatePlanningStartDate,
@@ -178,11 +183,29 @@ const createPlanVersion = async (req, res) => {
             t
         );
 
-        const planningStartDate = resolvePlanningStartDate(req.body);
-        const startDateError = validatePlanningStartDate(planningStartDate);
-        if (startDateError) {
+        const rawCalendar = req.body.calendar_system ?? config.calendar_system ?? "GC";
+        if (req.body.calendar_system !== undefined && !isValidCalendarSystem(req.body.calendar_system)) {
             await t.rollback();
-            return res.status(400).json({ success: false, message: startDateError });
+            return res.status(400).json({ success: false, message: "Invalid calendar_system. Must be 'GC' or 'EC'." });
+        }
+        const calendarSystem = normalizeCalendarSystem(rawCalendar);
+        const inputCalendarSystem = normalizeCalendarSystem(req.body.input_calendar_system ?? "GC");
+
+        const rawStartDate = resolvePlanningStartDate(req.body);
+        let planningStartDate = rawStartDate;
+        if (inputCalendarSystem === "EC") {
+            const resolvedInput = resolveCanonicalDateInput(rawStartDate, "EC");
+            if (!resolvedInput.valid) {
+                await t.rollback();
+                return res.status(400).json({ success: false, message: resolvedInput.message });
+            }
+            planningStartDate = resolvedInput.canonicalDate;
+        } else {
+            const startDateError = validatePlanningStartDate(planningStartDate, "GC");
+            if (startDateError) {
+                await t.rollback();
+                return res.status(400).json({ success: false, message: startDateError });
+            }
         }
 
         const durationYears = planning_duration_years;
@@ -193,8 +216,8 @@ const createPlanVersion = async (req, res) => {
             return res.status(400).json({ success: false, message: durationError });
         }
 
-        const period = computePlanningPeriodEnd(planningStartDate, durationYears);
-        const rangeError = validateYearRange(period.start_year, period.end_year, period.end_month);
+        const period = computePlanningPeriodEnd(planningStartDate, durationYears, calendarSystem);
+        const rangeError = validateYearRange(period.start_year, period.end_year, period.end_month, calendarSystem);
         if (rangeError) {
             await t.rollback();
             return res.status(400).json({ success: false, message: rangeError });
@@ -266,6 +289,7 @@ const createPlanVersion = async (req, res) => {
                 draft_name,
                 planning_start_date: planningStartDate,
                 planning_end_date: period.planning_end_date,
+                calendar_system: calendarSystem,
                 start_year: period.start_year,
                 start_month: period.start_month,
                 end_year: period.end_year,
@@ -746,7 +770,17 @@ const updatePlanVersion = async (req, res) => {
 
         const updates = { ...body };
 
-        const planningStartDate =
+        const calendarSystem = normalizeCalendarSystem(
+            updates.calendar_system ?? planVersion.calendar_system ?? config.calendar_system ?? "GC"
+        );
+        if (updates.calendar_system !== undefined && !isValidCalendarSystem(updates.calendar_system)) {
+            await t.rollback();
+            return res.status(400).json({ success: false, message: "Invalid calendar_system. Must be 'GC' or 'EC'." });
+        }
+        const inputCalendarSystem = normalizeCalendarSystem(updates.input_calendar_system ?? "GC");
+        delete updates.input_calendar_system;
+
+        let planningStartDate =
             updates.planning_start_date ??
             (updates.start_year !== undefined
                 ? `${updates.start_year}-01-01`
@@ -757,12 +791,22 @@ const updatePlanVersion = async (req, res) => {
         if (
             updates.planning_start_date !== undefined ||
             updates.start_year !== undefined ||
-            updates.planning_duration_years !== undefined
+            updates.planning_duration_years !== undefined ||
+            updates.calendar_system !== undefined
         ) {
-            const startDateError = validatePlanningStartDate(planningStartDate);
-            if (startDateError) {
-                await t.rollback();
-                return res.status(400).json({ success: false, message: startDateError });
+            if (inputCalendarSystem === "EC" && updates.planning_start_date !== undefined) {
+                const resolvedInput = resolveCanonicalDateInput(planningStartDate, "EC");
+                if (!resolvedInput.valid) {
+                    await t.rollback();
+                    return res.status(400).json({ success: false, message: resolvedInput.message });
+                }
+                planningStartDate = resolvedInput.canonicalDate;
+            } else {
+                const startDateError = validatePlanningStartDate(planningStartDate, "GC");
+                if (startDateError) {
+                    await t.rollback();
+                    return res.status(400).json({ success: false, message: startDateError });
+                }
             }
 
             const durationError = validatePlanningDuration(durationYears, config);
@@ -771,17 +815,19 @@ const updatePlanVersion = async (req, res) => {
                 return res.status(400).json({ success: false, message: durationError });
             }
 
-            const period = computePlanningPeriodEnd(planningStartDate, durationYears);
+            const period = computePlanningPeriodEnd(planningStartDate, durationYears, calendarSystem);
             const rangeError = validateYearRange(
                 period.start_year,
                 period.end_year,
-                period.end_month
+                period.end_month,
+                calendarSystem
             );
             if (rangeError) {
                 await t.rollback();
                 return res.status(400).json({ success: false, message: rangeError });
             }
 
+            updates.calendar_system = calendarSystem;
             updates.planning_start_date = planningStartDate;
             updates.planning_end_date = period.planning_end_date;
             updates.start_year = period.start_year;

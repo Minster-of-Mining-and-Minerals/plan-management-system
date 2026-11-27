@@ -16,6 +16,7 @@ const {
   computePeriodLockStatus,
   resolveEffectivePhaseConfig,
 } = require("../utils/nationalReportingPeriodUtils");
+const { normalizeCalendarSystem } = require("../utils/calendarUtils");
 
 const {
   NationalReportingRequirement,
@@ -390,6 +391,13 @@ class RegionalNationalReportingService {
 
       // 1. Generate applicable recurring periods for this requirement and annual date range
       const req = item.requirement || {};
+      const frequency = item.frequency_override || req.frequency || "quarterly";
+      const freqKey = String(frequency).toLowerCase().replace(/[\s\-]/g, "_");
+      const effectiveCalendar = normalizeCalendarSystem(
+        item.calendar_system_override || req.calendar_system || configByFreq[freqKey]?.calendar_system || "GC"
+      );
+      item.effective_calendar_system = effectiveCalendar;
+
       const startDate =
         item.effective_start_date ||
         req.effective_start_date ||
@@ -397,10 +405,9 @@ class RegionalNationalReportingService {
       const endDate =
         item.effective_end_date ||
         req.effective_end_date ||
-        calculateAnnualEndDate(startDate);
-      const frequency = item.frequency_override || req.frequency || "quarterly";
+        calculateAnnualEndDate(startDate, effectiveCalendar);
 
-      const generatedPeriods = generateReportingPeriods(startDate, endDate, frequency);
+      const generatedPeriods = generateReportingPeriods(startDate, endDate, frequency, effectiveCalendar);
 
       // 2. Map period-specific submission records and compute reporting phase locks
       const publishedRecords = item.publishedRecords || [];
@@ -1266,6 +1273,23 @@ class RegionalNationalReportingService {
     const expectedUnit = requirement.expected_unit;
 
     // 2b. Verify Period Lock & Window Status (Lock Enforcement)
+    const frequency = assignment.frequency_override || requirement.frequency || "quarterly";
+    const freqKey = String(frequency).toLowerCase().replace(/[\s\-]/g, "_");
+    let configByFreq = {};
+    if (NationalReportingPeriodConfig) {
+      try {
+        const periodConfigs = await NationalReportingPeriodConfig.findAll();
+        periodConfigs.forEach((c) => {
+          configByFreq[String(c.frequency).toLowerCase().replace(/[\s\-]/g, "_")] = c;
+        });
+      } catch (err) {
+        console.warn("[WARN] Could not preload period configs for submit:", err.message);
+      }
+    }
+    const effectiveCalendar = normalizeCalendarSystem(
+      assignment.calendar_system_override || requirement.calendar_system || configByFreq[freqKey]?.calendar_system || "GC"
+    );
+
     const startDate =
       assignment.effective_start_date ||
       requirement.effective_start_date ||
@@ -1273,9 +1297,8 @@ class RegionalNationalReportingService {
     const endDate =
       assignment.effective_end_date ||
       requirement.effective_end_date ||
-      calculateAnnualEndDate(startDate);
-    const frequency = assignment.frequency_override || requirement.frequency || "quarterly";
-    const generatedPeriods = generateReportingPeriods(startDate, endDate, frequency);
+      calculateAnnualEndDate(startDate, effectiveCalendar);
+    const generatedPeriods = generateReportingPeriods(startDate, endDate, frequency, effectiveCalendar);
     const targetPeriod = generatedPeriods.find(
       (p) => p.period_label.toLowerCase() === String(reportingPeriodLabel).trim().toLowerCase()
     );
@@ -1292,18 +1315,6 @@ class RegionalNationalReportingService {
         lockOverrides[String(targetPeriod.period_label).toUpperCase()] ||
         (targetPeriod.division_label ? lockOverrides[targetPeriod.division_label] : null) ||
         null;
-
-      let configByFreq = {};
-      if (NationalReportingPeriodConfig) {
-        try {
-          const periodConfigs = await NationalReportingPeriodConfig.findAll();
-          periodConfigs.forEach((c) => {
-            configByFreq[String(c.frequency).toLowerCase().replace(/[\s\-]/g, "_")] = c;
-          });
-        } catch (err) {
-          console.warn("[WARN] Could not preload period configs for submit:", err.message);
-        }
-      }
 
       const effectivePhaseConfig = resolveEffectivePhaseConfig(
         frequency,

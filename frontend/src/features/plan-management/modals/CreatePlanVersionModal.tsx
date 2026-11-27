@@ -47,6 +47,13 @@ import { useGetGovernmentStructuresQuery } from "@/redux/api/governmentStructure
 import { useGetPlanRulesQuery } from "@/redux/api/planRuleApi";
 import { PlanVersion } from "@/redux/types/plan";
 import { PlanningStartDatePicker } from "../components/PlanningStartDatePicker";
+import { CalendarSystemSelector } from "@/components/ui/calendar-system-selector";
+import {
+    type CalendarSystem,
+    formatDateByCalendar,
+    formatDateRangeByCalendar,
+    normalizeCalendarSystem,
+} from "@/utils/calendarUtils";
 import { useEffectivePlanningConfiguration } from "@/hooks/useEffectivePlanningConfiguration";
 import { useGovernmentStructureListParams } from "@/hooks/useGovernmentStructureListParams";
 import { useStructureScope } from "@/hooks/useStructureScope";
@@ -76,6 +83,7 @@ function buildFormSchema(minDuration: number, maxDuration: number) {
         government_structure_id: z.string().uuid(),
         based_on_version_id: z.string().uuid().optional().nullable(),
         plan_rule_id: z.string().uuid().optional().nullable(),
+        calendar_system: z.enum(["GC", "EC"]).optional(),
     });
 }
 
@@ -146,13 +154,15 @@ export function CreatePlanVersionModal({
             government_structure_id: initialStructureId,
             based_on_version_id: null,
             plan_rule_id: null,
+            calendar_system: normalizeCalendarSystem(version?.calendar_system ?? config.calendar_system ?? "GC"),
         },
     });
 
     const startDate = form.watch("planning_start_date");
     const durationYears = form.watch("planning_duration_years");
+    const calendarSystem = normalizeCalendarSystem(form.watch("calendar_system") ?? config.calendar_system ?? "GC");
     const endDate = startDate
-        ? computePlanningEndDate(startDate, Number(durationYears) || 1)
+        ? computePlanningEndDate(startDate, Number(durationYears) || 1, calendarSystem)
         : "";
 
     useEffect(() => {
@@ -172,6 +182,7 @@ export function CreatePlanVersionModal({
                 government_structure_id: version.government_structure_id,
                 based_on_version_id: version.based_on_version_id,
                 plan_rule_id: version.plan_rule_id ?? null,
+                calendar_system: normalizeCalendarSystem(version.calendar_system ?? config.calendar_system ?? "GC"),
             });
         } else {
             form.reset({
@@ -181,9 +192,10 @@ export function CreatePlanVersionModal({
                 government_structure_id: nextStructureId,
                 based_on_version_id: null,
                 plan_rule_id: null,
+                calendar_system: normalizeCalendarSystem(config.calendar_system ?? "GC"),
             });
         }
-    }, [version, form, isOpen, sessionStructureId, config.min_duration_years]);
+    }, [version, form, isOpen, sessionStructureId, config.min_duration_years, config.calendar_system]);
 
     useEffect(() => {
         const currentDuration = Number(form.getValues("planning_duration_years"));
@@ -219,6 +231,7 @@ export function CreatePlanVersionModal({
                         planning_duration_years: values.planning_duration_years,
                         government_structure_id: values.government_structure_id,
                         plan_rule_id: values.plan_rule_id,
+                        calendar_system: calendarSystem,
                     },
                 }).unwrap();
                 actionFeedback.success(`${config.draft_entity_label_singular} updated successfully`);
@@ -230,6 +243,7 @@ export function CreatePlanVersionModal({
                     government_structure_id: values.government_structure_id,
                     based_on_version_id: values.based_on_version_id,
                     plan_rule_id: values.plan_rule_id,
+                    calendar_system: calendarSystem,
                 }).unwrap();
                 actionFeedback.success(`${config.draft_entity_label_singular} created successfully`);
             }
@@ -245,7 +259,7 @@ export function CreatePlanVersionModal({
 
     const periodPreview =
         startDate && endDate
-            ? `${format(parseISO(startDate), "MMM d, yyyy")} – ${format(parseISO(endDate), "MMM d, yyyy")}`
+            ? formatDateRangeByCalendar(startDate, endDate, calendarSystem, { showSuffix: true })
             : "";
 
     return (
@@ -303,6 +317,28 @@ export function CreatePlanVersionModal({
                             )}
                         />
 
+                        <FormField
+                            control={form.control}
+                            name="calendar_system"
+                            render={({ field }) => (
+                                <FormItem>
+                                    <FormLabel>Calendar System</FormLabel>
+                                    <FormControl>
+                                        <div>
+                                            <CalendarSystemSelector
+                                                value={(field.value as CalendarSystem) ?? "GC"}
+                                                onChange={(cal) => field.onChange(cal)}
+                                                size="sm"
+                                            />
+                                        </div>
+                                    </FormControl>
+                                    <FormDescription>
+                                        Select Gregorian (GC) or Ethiopian (EC) calendar for planning dates and periods.
+                                    </FormDescription>
+                                </FormItem>
+                            )}
+                        />
+
                         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                             <FormField
                                 control={form.control}
@@ -314,6 +350,7 @@ export function CreatePlanVersionModal({
                                             <PlanningStartDatePicker
                                                 value={field.value}
                                                 onChange={field.onChange}
+                                                calendarSystem={calendarSystem}
                                                 placeholder="Select start date"
                                             />
                                         </FormControl>
@@ -333,7 +370,7 @@ export function CreatePlanVersionModal({
                                         className="bg-muted"
                                         value={
                                             endDate
-                                                ? format(parseISO(endDate), "PPP")
+                                                ? formatDateByCalendar(endDate, calendarSystem, { showSuffix: true })
                                                 : "Select start date and duration"
                                         }
                                     />

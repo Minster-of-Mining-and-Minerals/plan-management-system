@@ -34,6 +34,7 @@ export interface PlanningConfiguration {
   target_units: TargetUnit[];
   breakdown_mode: BreakdownMode;
   custom_periods: CustomPeriod[];
+  calendar_system?: "GC" | "EC";
   updated_at?: string;
   meta?: PlanningConfigurationMeta;
 }
@@ -77,6 +78,7 @@ export const DEFAULT_PLANNING_CONFIGURATION: PlanningConfiguration = {
   target_units: DEFAULT_TARGET_UNITS,
   breakdown_mode: "quarterly",
   custom_periods: [],
+  calendar_system: "GC",
 };
 
 export function slugifyTargetUnitId(value: string): string {

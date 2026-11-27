@@ -161,6 +161,12 @@ module.exports = (sequelize, DataTypes) => {
                 allowNull: false,
             },
 
+            calendar_system: {
+                type: DataTypes.STRING(10),
+                allowNull: false,
+                defaultValue: "GC",
+            },
+
             start_month: {
                 type: DataTypes.INTEGER,
                 allowNull: false,

@@ -18,6 +18,13 @@ const {
 } = require("../models");
 
 const {
+  isValidCalendarSystem,
+  normalizeCalendarSystem,
+  computeCalendarPlanningPeriodEnd,
+  resolveCanonicalDateInput,
+} = require("../utils/calendarUtils");
+
+const {
   computePerformanceMetrics,
   resolvePerformanceScoringPolicyFromRule,
 } = require("../utils/planPerformanceScoringUtils");
@@ -344,6 +351,7 @@ async function forkRegionalPlanningConfiguration(sourceConfig, regionalPlanVersi
       target_units: plain.target_units,
       breakdown_mode: plain.breakdown_mode,
       custom_periods: plain.custom_periods,
+      calendar_system: normalizeCalendarSystem(plain.calendar_system ?? "GC"),
       owned_by_plan_version_id: regionalPlanVersionId,
       source_regional_planning_config_id: plain.regional_planning_config_id,
     },
@@ -497,6 +505,16 @@ async function updateRegionalPlanningConfig(regionId, payload) {
     }
   }
 
+  let nextCalendarSystem = normalizeCalendarSystem(config.calendar_system ?? "GC");
+  if (payload.calendar_system !== undefined) {
+    if (!isValidCalendarSystem(payload.calendar_system)) {
+      const err = new Error("Invalid calendar_system. Must be 'GC' or 'EC'.");
+      err.status = 400;
+      throw err;
+    }
+    nextCalendarSystem = normalizeCalendarSystem(payload.calendar_system);
+  }
+
   await config.update({
     min_duration_years: nextMin,
     max_duration_years: nextMax,
@@ -531,6 +549,7 @@ async function updateRegionalPlanningConfig(regionId, payload) {
     target_units: nextTargetUnits,
     breakdown_mode: nextBreakdownMode,
     custom_periods: nextCustomPeriods,
+    calendar_system: nextCalendarSystem,
   });
 
   // Synchronize unfinalized master draft plans in this region so newly added units are immediately available
@@ -565,6 +584,16 @@ async function updateRegionalPlanningConfig(regionId, payload) {
 
 async function restoreDefaultRegionalPlanningConfig(regionId) {
   const config = await ensureDefaultRegionalPlanningConfig(regionId);
+  let nextCalendarSystem = normalizeCalendarSystem(config.calendar_system ?? "GC");
+  if (payload.calendar_system !== undefined) {
+    if (!isValidCalendarSystem(payload.calendar_system)) {
+      const err = new Error("Invalid calendar_system. Must be 'GC' or 'EC'.");
+      err.status = 400;
+      throw err;
+    }
+    nextCalendarSystem = normalizeCalendarSystem(payload.calendar_system);
+  }
+
   await config.update({
     min_duration_years: 1,
     max_duration_years: 10,
@@ -1322,19 +1351,46 @@ async function createRegionalPlanDraft(regionId, payload, userId) {
       }
     }
 
-    let startYear;
-    let startMonth = 1;
-    if (payload.planning_start_date) {
-      const dt = new Date(payload.planning_start_date);
-      startYear = dt.getFullYear();
-      startMonth = dt.getMonth() + 1;
-    } else {
-      startYear = parseInt(payload.start_year || new Date().getFullYear(), 10);
-      startMonth = parseInt(payload.start_month || 1, 10);
+    const calendarSystem = normalizeCalendarSystem(
+      payload.calendar_system ?? config.calendar_system ?? "GC"
+    );
+    const inputCalendarSystem = normalizeCalendarSystem(payload.input_calendar_system ?? "GC");
+    const duration = parseInt(payload.planning_duration_years || 5, 10);
+
+    let canonicalStart = payload.planning_start_date;
+    if (canonicalStart && inputCalendarSystem === "EC") {
+      const resolved = resolveCanonicalDateInput(canonicalStart, "EC");
+      if (!resolved.valid) {
+        const err = new Error(resolved.message);
+        err.status = 400;
+        throw err;
+      }
+      canonicalStart = resolved.canonicalDate;
     }
 
-    const duration = parseInt(payload.planning_duration_years || 5, 10);
-    const endYear = startYear + duration - 1;
+    let startYear, endYear, startMonth, endMonth, planningStartDate, planningEndDate;
+    if (canonicalStart && calendarSystem === "EC") {
+      const period = computeCalendarPlanningPeriodEnd(canonicalStart, duration, "EC");
+      startYear = period.start_year;
+      endYear = period.end_year;
+      startMonth = period.start_month;
+      endMonth = period.end_month;
+      planningStartDate = period.planning_start_date;
+      planningEndDate = period.planning_end_date;
+    } else {
+      if (canonicalStart) {
+        const dt = new Date(canonicalStart);
+        startYear = dt.getFullYear();
+        startMonth = dt.getMonth() + 1;
+      } else {
+        startYear = parseInt(payload.start_year || new Date().getFullYear(), 10);
+        startMonth = parseInt(payload.start_month || 1, 10);
+      }
+      endYear = startYear + duration - 1;
+      endMonth = parseInt(payload.end_month || 12, 10);
+      planningStartDate = canonicalStart || `${startYear}-01-01`;
+      planningEndDate = payload.planning_end_date || `${endYear}-12-31`;
+    }
 
     const count = await RegionalPlanVersion.count({
       where: { region_id: regionId, version_kind: "master" },
@@ -1358,10 +1414,11 @@ async function createRegionalPlanDraft(regionId, payload, userId) {
         start_year: startYear,
         end_year: endYear,
         start_month: startMonth,
-        end_month: parseInt(payload.end_month || 12, 10),
+        end_month: endMonth,
         planning_duration_years: duration,
-        planning_start_date: payload.planning_start_date || `${startYear}-01-01`,
-        planning_end_date: payload.planning_end_date || `${endYear}-12-31`,
+        planning_start_date: planningStartDate,
+        planning_end_date: planningEndDate,
+        calendar_system: calendarSystem,
         is_locked: false,
       },
       { transaction: t }
