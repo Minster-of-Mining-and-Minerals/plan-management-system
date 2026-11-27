@@ -25,6 +25,29 @@ function parseNum(val) {
   return Number.isFinite(n) ? n : null;
 }
 
+// ─── Canonical sector IDs for Alternative MoM organogram (2016 E.C.) ─────────
+// These are the IDs seeded by:
+//   20260616000001-seed-alternative-minister-of-mines-structure.js  → MOM_ROOT
+//   20260616000002-seed-alternative-mom-institutes-structure.js     → GIE, MIDI
+const CANONICAL_SECTOR_IDS = {
+  MOM:  "10000000-0000-4000-8000-000000000004", // Alternative Minister of Mines
+  GIE:  "10000000-0000-4000-8000-000000000005", // Ethiopian Geological Institute
+  MIDI: "10000000-0000-4000-8000-000000000006", // Mining Industry Development Institute
+};
+
+// Map Excel sheet names (and common variants) to canonical sector IDs
+function resolveSheetSectorId(sheetName) {
+  const s = sheetName.trim().toLowerCase();
+  if (s.includes("egie") || s.includes("egi") || s.includes("gie") || s.includes("geo")) {
+    return CANONICAL_SECTOR_IDS.GIE;
+  }
+  if (s.includes("midi") || s.includes("mining industry")) {
+    return CANONICAL_SECTOR_IDS.MIDI;
+  }
+  // Default / MoM root for all other sheets
+  return CANONICAL_SECTOR_IDS.MOM;
+}
+
 async function seed100DayShortTermPlan() {
   const planPath = path.join(__dirname, "../short-term-plan/Final 100 day action plan.xls");
   const reportPath = path.join(__dirname, "../short-term-plan/Hidar 2nd week 100 day all sector report.xls");
@@ -32,6 +55,7 @@ async function seed100DayShortTermPlan() {
   const planWb = XLSX.readFile(planPath);
   const reportWb = XLSX.readFile(reportPath);
 
+  // Load all sectors and internal depts (after cleanup these are ONLY the Alt-MoM organogram)
   const sectors = await GovernmentStructure.findAll();
   const internalDepts = await InternalStructure.findAll();
 
@@ -43,10 +67,17 @@ async function seed100DayShortTermPlan() {
   try {
     for (const sheetName of planWb.SheetNames) {
       const cleanSheet = sheetName.trim();
+
+      // Resolve sector using canonical organogram IDs (robust — does not depend on name matching)
+      const sectorId = resolveSheetSectorId(cleanSheet);
       const matchedSector =
+        sectors.find((s) => s.government_structure_id === sectorId) ||
         sectors.find((s) => s.name.toLowerCase().includes(cleanSheet.toLowerCase())) ||
         sectors[0];
-      if (!matchedSector) continue;
+      if (!matchedSector) {
+        console.warn(`  [SKIP] No sector found for sheet "${cleanSheet}"`);
+        continue;
+      }
 
       const planTitle = `${cleanSheet} — 100-Day Action Plan (Hidar – Tir 2019 EC)`;
       let plan = await ShortTermPlan.findOne({ where: { title: planTitle }, transaction: t });
