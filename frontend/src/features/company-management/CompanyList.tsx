@@ -58,7 +58,7 @@ export function CompanyList() {
   const searchParams = useSearchParams();
   const searchQuery = searchParams.get("search") || "";
 
-  const [statusFilter, setStatusFilter] = useState<string>("");
+  const [statusFilter, setStatusFilter] = useState<string>("all");
   const [licenseTypeFilter, setLicenseTypeFilter] = useState<string>("all");
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingCompany, setEditingCompany] = useState<Company | null>(null);
@@ -193,7 +193,8 @@ export function CompanyList() {
 
   const filteredData = useMemo(() => {
     return companies.filter((c) => {
-      if (!matchesActiveInactiveFilter(statusFilter, c.is_active)) return false;
+      const effectiveStatus = statusFilter === "all" ? "" : statusFilter;
+      if (!matchesActiveInactiveFilter(effectiveStatus, c.is_active)) return false;
       if (licenseTypeFilter !== "all") {
         const types = (c.license_types || []).map((t) => t.toLowerCase());
         if (!types.some((t) => t.includes(licenseTypeFilter) || licenseTypeFilter.includes(t))) {
@@ -427,12 +428,12 @@ export function CompanyList() {
         label: "Status",
         type: "select",
         options: [
-          { label: "All Statuses", value: "" },
+          { label: "All Statuses", value: "all" },
           { label: "Active", value: "active" },
           { label: "Inactive", value: "inactive" },
         ],
         value: statusFilter,
-        onChange: (val) => setStatusFilter(String(val || "")),
+        onChange: (val) => setStatusFilter(String(val || "all")),
       },
     ];
   }, [statusFilter, licenseTypeFilter]);

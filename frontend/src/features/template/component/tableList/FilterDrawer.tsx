@@ -58,26 +58,44 @@ export const FilterDrawer: React.FC<FilterDrawerProps> = ({
           </div>
         );
 
-      case "select":
+      case "select": {
+        const hasEmptyOption = field.options?.some((opt) => opt.value === "");
+        const selectValue =
+          field.value === ""
+            ? hasEmptyOption
+              ? "__ALL_OPTION__"
+              : undefined
+            : field.value || (hasEmptyOption ? "__ALL_OPTION__" : undefined);
+
         return (
           <div key={field.key} className="space-y-2">
             <Label htmlFor={field.key}>{field.label}</Label>
-            <Select value={field.value || ""} onValueChange={field.onChange}>
+            <Select
+              value={selectValue}
+              onValueChange={(val) =>
+                field.onChange(val === "__ALL_OPTION__" ? "" : val)
+              }
+            >
               <SelectTrigger>
                 <SelectValue
                   placeholder={field.placeholder || `Select ${field.label}`}
                 />
               </SelectTrigger>
               <SelectContent>
-                {field.options?.map((option) => (
-                  <SelectItem key={option.value} value={option.value}>
-                    {option.label}
-                  </SelectItem>
-                ))}
+                {field.options?.map((option) => {
+                  const itemValue =
+                    option.value === "" ? "__ALL_OPTION__" : option.value;
+                  return (
+                    <SelectItem key={itemValue} value={itemValue}>
+                      {option.label}
+                    </SelectItem>
+                  );
+                })}
               </SelectContent>
             </Select>
           </div>
         );
+      }
 
       case "multiselect": {
         const multiSelectOptions: SelectOption[] =
@@ -265,7 +283,15 @@ export const FilterPopover: React.FC<FilterPopoverProps> = ({
           </div>
         );
 
-      case "select":
+      case "select": {
+        const hasEmptyOption = field.options?.some((opt) => opt.value === "");
+        const selectValue =
+          field.value === ""
+            ? hasEmptyOption
+              ? "__ALL_OPTION__"
+              : undefined
+            : field.value || (hasEmptyOption ? "__ALL_OPTION__" : undefined);
+
         return (
           <div key={field.key} className="space-y-2">
             <Label
@@ -274,22 +300,32 @@ export const FilterPopover: React.FC<FilterPopoverProps> = ({
             >
               {field.label}
             </Label>
-            <Select value={field.value || ""} onValueChange={field.onChange}>
+            <Select
+              value={selectValue}
+              onValueChange={(val) =>
+                field.onChange(val === "__ALL_OPTION__" ? "" : val)
+              }
+            >
               <SelectTrigger className="h-8 text-sm">
                 <SelectValue
                   placeholder={field.placeholder || `Select ${field.label}`}
                 />
               </SelectTrigger>
               <SelectContent>
-                {field.options?.map((option) => (
-                  <SelectItem key={option.value} value={option.value}>
-                    {option.label}
-                  </SelectItem>
-                ))}
+                {field.options?.map((option) => {
+                  const itemValue =
+                    option.value === "" ? "__ALL_OPTION__" : option.value;
+                  return (
+                    <SelectItem key={itemValue} value={itemValue}>
+                      {option.label}
+                    </SelectItem>
+                  );
+                })}
               </SelectContent>
             </Select>
           </div>
         );
+      }
 
       case "multiselect": {
         const multiSelectOptionsPopover: SelectOption[] =
