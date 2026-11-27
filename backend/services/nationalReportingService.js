@@ -590,6 +590,13 @@ class NationalReportingService {
         {
           model: NationalPublishedRecord,
           as: "publishedRecords",
+          include: [
+            {
+              model: User,
+              as: "publishedByUser",
+              attributes: ["user_id", "full_name", "email", "role", "phone_number"],
+            },
+          ],
         },
       ],
       order: [["created_at", "DESC"]],
@@ -670,6 +677,19 @@ class NationalReportingService {
           periodObj.reported_actual = matchingRecord.reported_actual;
           periodObj.achievement_rate = matchingRecord.achievement_percent;
           periodObj.annual_achievement_percent = matchingRecord.annual_achievement_percent;
+          periodObj.publication_reference = matchingRecord.publication_reference;
+          periodObj.published_record_id = matchingRecord.published_record_id;
+          periodObj.published_at = matchingRecord.published_at;
+          periodObj.revision_number = matchingRecord.revision_number;
+          periodObj.publishedByUser = matchingRecord.publishedByUser
+            ? {
+                user_id: matchingRecord.publishedByUser.user_id,
+                full_name: matchingRecord.publishedByUser.full_name,
+                email: matchingRecord.publishedByUser.email,
+                role: matchingRecord.publishedByUser.role,
+                phone_number: matchingRecord.publishedByUser.phone_number,
+              }
+            : matchingRecord.snapshot_data?.submitter || null;
         }
 
         return periodObj;
@@ -716,12 +736,12 @@ class NationalReportingService {
         {
           model: User,
           as: "publishedByUser",
-          attributes: ["user_id", "full_name", "email"],
+          attributes: ["user_id", "full_name", "email", "role", "phone_number"],
         },
         {
           model: User,
           as: "validatedByUser",
-          attributes: ["user_id", "full_name", "email"],
+          attributes: ["user_id", "full_name", "email", "role", "phone_number"],
         },
       ],
       order: [
@@ -748,12 +768,12 @@ class NationalReportingService {
         {
           model: User,
           as: "publishedByUser",
-          attributes: ["user_id", "full_name", "email"],
+          attributes: ["user_id", "full_name", "email", "role", "phone_number"],
         },
         {
           model: User,
           as: "validatedByUser",
-          attributes: ["user_id", "full_name", "email"],
+          attributes: ["user_id", "full_name", "email", "role", "phone_number"],
         },
       ],
     });

@@ -325,6 +325,13 @@ class RegionalNationalReportingService {
           as: "publishedRecords",
           where: { region_id: regionId },
           required: false,
+          include: [
+            {
+              model: User,
+              as: "publishedByUser",
+              attributes: ["user_id", "full_name", "email", "role", "phone_number"],
+            },
+          ],
           order: [["published_at", "DESC"]],
         },
       ],
@@ -490,6 +497,16 @@ class RegionalNationalReportingService {
           periodObj.published_at = matchingRecord.published_at;
           periodObj.submission_method = matchingRecord.submission_method;
           periodObj.narrative = matchingRecord.narrative;
+          periodObj.revision_number = matchingRecord.revision_number;
+          periodObj.publishedByUser = matchingRecord.publishedByUser
+            ? {
+                user_id: matchingRecord.publishedByUser.user_id,
+                full_name: matchingRecord.publishedByUser.full_name,
+                email: matchingRecord.publishedByUser.email,
+                role: matchingRecord.publishedByUser.role,
+                phone_number: matchingRecord.publishedByUser.phone_number,
+              }
+            : matchingRecord.snapshot_data?.submitter || null;
         } else {
           // If not published yet, determine status based on node mapping if available
           if (activeMapping) {
@@ -1422,7 +1439,18 @@ class RegionalNationalReportingService {
     const hex = crypto.randomBytes(3).toString("hex").toUpperCase();
     const publicationReference = `NAT-PUB-FORM-${reportingYear}-${cleanPeriod}-${regionCode}-${hex}`;
 
-    // 6. Snapshot data
+    // 6. Snapshot data with full submitter provenance
+    let submitterUser = null;
+    if (userId) {
+      try {
+        submitterUser = await User.findByPk(userId, {
+          attributes: ["user_id", "full_name", "email", "phone_number", "role"],
+        });
+      } catch (err) {
+        console.warn("[WARN] Could not load submitter User:", err.message);
+      }
+    }
+
     const snapshotData = {
       submissionMethod: "form_based",
       isFederalOverride: Boolean(isFederalOverride),
@@ -1441,6 +1469,19 @@ class RegionalNationalReportingService {
         name: region.name,
         code: region.code,
       },
+      submitter: submitterUser
+        ? {
+            userId: submitterUser.user_id,
+            fullName: submitterUser.full_name,
+            email: submitterUser.email,
+            role: submitterUser.role,
+            phoneNumber: submitterUser.phone_number,
+          }
+        : {
+            userId: userId || null,
+            fullName: "Regional Officer",
+            email: null,
+          },
       values: {
         reportingYear: Number(reportingYear),
         reportingPeriodLabel: String(reportingPeriodLabel).trim(),
@@ -1458,6 +1499,7 @@ class RegionalNationalReportingService {
       narrative: narrative || null,
       evidenceAttachments: evidenceAttachments || [],
       publishedBy: userId || null,
+      publishedAt: new Date().toISOString(),
     };
 
     // 7. Create National Published Record
@@ -1524,7 +1566,21 @@ class RegionalNationalReportingService {
         standardizedTarget,
         standardizedActual,
         standardizedUnit: expectedUnit,
-        achievementPercent,
+        achievementPercent: monthlyAchievementPercent,
+        requirementCode: requirement.code,
+        reportingPeriod: `${reportingPeriodLabel} (${reportingYear})`,
+        submittedBy: submitterUser
+          ? {
+              userId: submitterUser.user_id,
+              fullName: submitterUser.full_name,
+              email: submitterUser.email,
+              role: submitterUser.role,
+            }
+          : {
+              userId: userId || null,
+              fullName: "Regional Officer",
+              email: null,
+            },
         message: "KPI Report published directly via National Reporting Form successfully.",
       },
     };

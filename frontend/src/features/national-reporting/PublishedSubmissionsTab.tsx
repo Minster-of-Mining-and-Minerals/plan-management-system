@@ -520,6 +520,24 @@ export function PublishedSubmissionsTab() {
                   </span>
                 </div>
 
+                {/* Submitter Provenance Metadata */}
+                <div className="flex items-center justify-between border-t border-emerald-100 dark:border-emerald-900/60 pt-2.5">
+                  <span className="text-xs uppercase tracking-wider text-slate-500 font-semibold flex items-center gap-1.5">
+                    <UserCheck className="h-3.5 w-3.5 text-emerald-600" />
+                    Reported By (Submitter)
+                  </span>
+                  <div className="text-right">
+                    <span className="font-bold text-slate-900 dark:text-slate-100 block">
+                      {selectedRecord.publishedByUser?.full_name || (selectedRecord.snapshot_data as any)?.submitter?.fullName || "Regional Authority"}
+                    </span>
+                    {(selectedRecord.publishedByUser?.email || (selectedRecord.snapshot_data as any)?.submitter?.email) && (
+                      <span className="text-[11px] text-slate-500 font-mono block">
+                        {selectedRecord.publishedByUser?.email || (selectedRecord.snapshot_data as any)?.submitter?.email}
+                      </span>
+                    )}
+                  </div>
+                </div>
+
                 <div className="border-t border-emerald-200 dark:border-emerald-800 pt-3 flex items-center justify-between">
                   <span className="text-xs uppercase tracking-wider text-slate-500 font-semibold">
                     Standardized National Value

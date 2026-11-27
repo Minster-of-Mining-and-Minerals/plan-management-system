@@ -160,6 +160,26 @@ export function RegionalPublicationModal({
                     Rev #{publishedReceipt.revisionNumber}
                   </span>
                 </div>
+                {publishedReceipt.submittedBy && (
+                  <div className="col-span-2 pt-2 border-t border-emerald-800/60 mt-1 flex items-center justify-between">
+                    <span className="text-emerald-300 flex items-center gap-1">
+                      <span>Reported by:</span>
+                      <strong className="text-white font-medium">
+                        {publishedReceipt.submittedBy.fullName || publishedReceipt.submittedBy.full_name || "Regional Authority"}
+                      </strong>
+                      {(publishedReceipt.submittedBy.email) && (
+                        <span className="text-emerald-400 text-[11px]">
+                          ({publishedReceipt.submittedBy.email})
+                        </span>
+                      )}
+                    </span>
+                    {publishedReceipt.submittedBy.role && (
+                      <Badge className="bg-emerald-950 text-emerald-300 border border-emerald-700 text-[10px] uppercase font-mono">
+                        {publishedReceipt.submittedBy.role}
+                      </Badge>
+                    )}
+                  </div>
+                )}
               </div>
             </div>
 

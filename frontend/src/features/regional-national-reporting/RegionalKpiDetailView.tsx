@@ -200,7 +200,8 @@ export function RegionalKpiDetailView({
       standardizedValue: `${period.reported_actual !== null ? period.reported_actual : "—"} ${req?.expected_unit}`,
       achievementPercent: `${period.achievement_rate !== null ? period.achievement_rate : "—"}%`,
       publishedAt: period.published_at || new Date().toISOString(),
-      revisionNumber: (period as any).revision_number || 1,
+      revisionNumber: period.revision_number || (period as any).revision_number || 1,
+      submittedBy: period.publishedByUser || null,
     });
     setIsReceiptModalOpen(true);
   };

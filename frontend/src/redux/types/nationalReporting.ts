@@ -60,6 +60,14 @@ export interface ReportingPeriod {
   reporting_method_used?: "node_mapping" | "form_based" | string | null;
   submission_method?: "node_mapping" | "form_based" | string | null;
   narrative?: string | null;
+  revision_number?: number | null;
+  publishedByUser?: {
+    user_id?: string;
+    full_name?: string;
+    email?: string;
+    role?: string;
+    phone_number?: string;
+  } | null;
   is_locked?: boolean;
   lock_state?: "open" | "upcoming" | "closed_deadline_passed" | "unlocked_override" | "manually_locked" | "upcoming_phase" | "reporting_open" | "grace_period" | string;
   lock_reason?: string | null;
@@ -288,11 +296,15 @@ export interface NationalPublishedRecord {
     user_id: string;
     full_name: string;
     email: string;
+    role?: string;
+    phone_number?: string;
   };
   validatedByUser?: {
     user_id: string;
     full_name: string;
     email: string;
+    role?: string;
+    phone_number?: string;
   };
 }
 
