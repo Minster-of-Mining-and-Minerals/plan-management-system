@@ -257,7 +257,7 @@ export function NationalDashboardTab() {
       },
       {
         id: "compliance",
-        header: "Compliance Rate",
+        header: "Submission Rate",
         cell: ({ row }) => {
           const rate = row.original.complianceRate;
           return (
@@ -643,12 +643,17 @@ export function NationalDashboardTab() {
         <Card className="bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 shadow-sm">
           <CardHeader className="p-4 pb-2">
             <span className="text-xs font-medium text-slate-500 uppercase tracking-wider">
-              National KPI Compliance
+              KPI Submission Rate
             </span>
           </CardHeader>
           <CardContent className="p-4 pt-0 flex items-center justify-between">
-            <div className="text-2xl font-bold text-teal-700 dark:text-teal-400">
-              {kpis.overallNationalComplianceRate}%
+            <div>
+              <div className="text-2xl font-bold text-teal-700 dark:text-teal-400">
+                {kpis.overallNationalComplianceRate}%
+              </div>
+              <span className="text-[10px] text-slate-400">
+                Fulfillment of assigned KPIs
+              </span>
             </div>
             <div className="p-2 rounded-lg bg-teal-50 dark:bg-teal-950/60 text-teal-600">
               <TrendingUp className="h-5 w-5" />
@@ -790,7 +795,7 @@ export function NationalDashboardTab() {
                       {isSelected ? "▲ Click to collapse" : "▼ Click to expand"}
                     </span>
                     <span className="font-mono font-bold text-slate-800 dark:text-slate-200">
-                      {cat.complianceRate}% Compliance
+                      {cat.complianceRate}% Submitted
                     </span>
                   </div>
                 </Card>
@@ -824,7 +829,7 @@ export function NationalDashboardTab() {
                       <h4 className="text-base font-bold text-slate-900 dark:text-slate-100 flex items-center gap-2">
                         {label} Analytics Detail
                         <Badge variant="outline" className="font-mono text-xs border-emerald-400 text-emerald-700 dark:text-emerald-400">
-                          {selectedCat?.complianceRate ?? 0}% Compliance
+                          {selectedCat?.complianceRate ?? 0}% Submitted
                         </Badge>
                       </h4>
                       <p className="text-xs text-slate-500">
@@ -943,7 +948,7 @@ export function NationalDashboardTab() {
           <CardHeader className="p-5 pb-2">
             <CardTitle className="text-base font-semibold text-slate-900 dark:text-slate-100 flex items-center gap-2">
               <BarChart3 className="h-4 w-4 text-emerald-600" />
-              Regional Submission Compliance Comparison
+              Regional KPI Submission Rate Comparison
             </CardTitle>
           </CardHeader>
           <CardContent className="p-5 pt-3">
@@ -1082,7 +1087,7 @@ export function NationalDashboardTab() {
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
               <CardTitle className="text-base font-semibold text-slate-900 dark:text-slate-100 flex items-center gap-2">
                 <Building className="h-4 w-4 text-emerald-600" />
-                Regional Compliance Breakdown
+                Regional KPI Submission Breakdown
               </CardTitle>
               <span className="text-xs text-slate-500 font-mono">
                 {filteredRegionalCompliance.length} Regional States
