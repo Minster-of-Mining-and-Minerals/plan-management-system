@@ -20,6 +20,7 @@ import {
   FileText,
   CheckCircle2,
   AlertCircle,
+  AlertTriangle,
   TrendingUp,
   History,
   Sparkles,
@@ -186,6 +187,88 @@ export function RegionalKpiDetailView({
       currentPeriod,
     };
   }, [recurringPeriods, assignment.annual_target]);
+
+  // Active window countdown notification logic for the regional officer
+  const periodNotificationInfo = useMemo(() => {
+    const now = Date.now();
+    const msPerDay = 1000 * 60 * 60 * 24;
+
+    // 1. Check if any period is currently in grace period
+    const gracePeriod = recurringPeriods.find(
+      (p) => (p.lock_state === "grace_period" || p.is_in_grace_period) && !p.reported_actual
+    );
+    if (gracePeriod) {
+      const deadline = gracePeriod.phase_end_date || gracePeriod.deadline_date || gracePeriod.end_date;
+      const deadlineTime = deadline ? new Date(deadline).getTime() : now;
+      const daysLeft = Math.max(0, Math.ceil((deadlineTime - now) / msPerDay));
+      return {
+        type: "grace_period" as const,
+        period: gracePeriod,
+        daysLeft,
+        deadline,
+        periodLabel: gracePeriod.period_label,
+        customName: divisionCustomNameMap[gracePeriod.period_label] || gracePeriod.name || gracePeriod.period_label,
+        openDaysBefore: (assignment as any).effective_phase_config?.open_days_before ?? 5,
+        closeDaysAfter: (assignment as any).effective_phase_config?.close_days_after ?? 5,
+        isCustomTimeline: assignment.reporting_phase_override?.is_custom === true,
+      };
+    }
+
+    // 2. Check if any period is actively open for reporting
+    const openPeriod = recurringPeriods.find(
+      (p) =>
+        (!p.is_locked || p.lock_state === "reporting_open" || p.is_manually_unlocked) &&
+        p.lock_state !== "closed_deadline_passed" &&
+        !p.reported_actual
+    );
+    if (openPeriod) {
+      const standardEnd = openPeriod.end_date;
+      const deadline = openPeriod.phase_end_date || openPeriod.deadline_date || openPeriod.end_date;
+      const deadlineTime = deadline ? new Date(deadline).getTime() : now;
+      const daysLeft = Math.max(0, Math.ceil((deadlineTime - now) / msPerDay));
+      const daysToStandardEnd = standardEnd
+        ? Math.max(0, Math.ceil((new Date(standardEnd).getTime() - now) / msPerDay))
+        : null;
+
+      return {
+        type: "reporting_open" as const,
+        period: openPeriod,
+        daysLeft,
+        daysToStandardEnd,
+        standardEnd,
+        deadline,
+        periodLabel: openPeriod.period_label,
+        customName: divisionCustomNameMap[openPeriod.period_label] || openPeriod.name || openPeriod.period_label,
+        openDaysBefore: (assignment as any).effective_phase_config?.open_days_before ?? 5,
+        closeDaysAfter: (assignment as any).effective_phase_config?.close_days_after ?? 5,
+        isCustomTimeline: assignment.reporting_phase_override?.is_custom === true,
+      };
+    }
+
+    // 3. Check for the nearest upcoming period
+    const upcomingPeriod = recurringPeriods.find(
+      (p) => p.lock_state === "upcoming_phase" || p.lock_state === "upcoming"
+    );
+    if (upcomingPeriod) {
+      const openDate = upcomingPeriod.phase_start_date || upcomingPeriod.start_date;
+      const openTime = openDate ? new Date(openDate).getTime() : now;
+      const daysUntilOpen = Math.max(0, Math.ceil((openTime - now) / msPerDay));
+
+      return {
+        type: "upcoming_phase" as const,
+        period: upcomingPeriod,
+        daysUntilOpen,
+        openDate,
+        periodLabel: upcomingPeriod.period_label,
+        customName: divisionCustomNameMap[upcomingPeriod.period_label] || upcomingPeriod.name || upcomingPeriod.period_label,
+        openDaysBefore: (assignment as any).effective_phase_config?.open_days_before ?? 5,
+        closeDaysAfter: (assignment as any).effective_phase_config?.close_days_after ?? 5,
+        isCustomTimeline: assignment.reporting_phase_override?.is_custom === true,
+      };
+    }
+
+    return null;
+  }, [recurringPeriods, divisionCustomNameMap, assignment]);
 
   const handleOpenPeriodForm = (period: ReportingPeriod) => {
     setActivePeriodForForm(period);
@@ -412,6 +495,121 @@ export function RegionalKpiDetailView({
           >
             Review Mapping
           </Button>
+        </div>
+      )}
+
+      {/* Real-time Reporting Window Countdown Notification Banner */}
+      {periodNotificationInfo && (
+        <div
+          className={`p-4 rounded-xl border transition-all shadow-sm flex flex-col sm:flex-row sm:items-center justify-between gap-3 ${
+            periodNotificationInfo.type === "grace_period"
+              ? "bg-gradient-to-r from-amber-500/10 via-amber-500/5 to-transparent border-amber-300 dark:border-amber-700/60"
+              : periodNotificationInfo.type === "reporting_open"
+              ? "bg-gradient-to-r from-emerald-500/10 via-emerald-500/5 to-transparent border-emerald-300 dark:border-emerald-700/60"
+              : "bg-gradient-to-r from-blue-500/10 via-blue-500/5 to-transparent border-blue-200 dark:border-blue-800/60"
+          }`}
+        >
+          <div className="flex items-start gap-3">
+            <div
+              className={`p-2 rounded-lg shrink-0 ${
+                periodNotificationInfo.type === "grace_period"
+                  ? "bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300"
+                  : periodNotificationInfo.type === "reporting_open"
+                  ? "bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300"
+                  : "bg-blue-100 text-blue-800 dark:bg-blue-950 dark:text-blue-300"
+              }`}
+            >
+              {periodNotificationInfo.type === "grace_period" ? (
+                <AlertTriangle className="h-5 w-5" />
+              ) : periodNotificationInfo.type === "reporting_open" ? (
+                <Clock className="h-5 w-5" />
+              ) : (
+                <Calendar className="h-5 w-5" />
+              )}
+            </div>
+
+            <div className="space-y-1">
+              <div className="flex items-center gap-2 flex-wrap">
+                <span className="font-bold text-sm text-slate-900 dark:text-slate-100">
+                  {periodNotificationInfo.type === "grace_period"
+                    ? `Grace Submission Active: ${periodNotificationInfo.periodLabel} (${periodNotificationInfo.customName})`
+                    : periodNotificationInfo.type === "reporting_open"
+                    ? `Reporting Window Active: ${periodNotificationInfo.periodLabel} (${periodNotificationInfo.customName})`
+                    : `Upcoming Reporting Window: ${periodNotificationInfo.periodLabel} (${periodNotificationInfo.customName})`}
+                </span>
+                <Badge
+                  variant="outline"
+                  className={`text-[10px] font-mono ${
+                    periodNotificationInfo.type === "grace_period"
+                      ? "bg-amber-100 text-amber-800 border-amber-300 dark:bg-amber-950 dark:text-amber-300 font-bold"
+                      : periodNotificationInfo.type === "reporting_open"
+                      ? "bg-emerald-100 text-emerald-800 border-emerald-300 dark:bg-emerald-950 dark:text-emerald-300 font-bold"
+                      : "bg-blue-50 text-blue-700 border-blue-200"
+                  }`}
+                >
+                  {periodNotificationInfo.type === "grace_period"
+                    ? `${periodNotificationInfo.daysLeft}d left to lock`
+                    : periodNotificationInfo.type === "reporting_open"
+                    ? `${periodNotificationInfo.daysLeft}d left in window`
+                    : `Opens in ${periodNotificationInfo.daysUntilOpen}d`}
+                </Badge>
+              </div>
+
+              <p className="text-xs text-slate-600 dark:text-slate-400 leading-relaxed">
+                {periodNotificationInfo.type === "grace_period" ? (
+                  <>
+                    Standard operating period has passed. The grace submission window is active with{" "}
+                    <strong className="text-amber-800 dark:text-amber-300 font-bold">
+                      {periodNotificationInfo.daysLeft} day(s) remaining
+                    </strong>{" "}
+                    before the window permanently locks on{" "}
+                    <strong className="text-slate-800 dark:text-slate-200">{periodNotificationInfo.deadline}</strong>.
+                  </>
+                ) : periodNotificationInfo.type === "reporting_open" ? (
+                  <>
+                    The reporting window is active. You have{" "}
+                    <strong className="text-emerald-800 dark:text-emerald-300 font-bold">
+                      {periodNotificationInfo.daysLeft} day(s) remaining
+                    </strong>{" "}
+                    to submit your regional achievement. (Final grace closing date:{" "}
+                    <strong className="text-slate-800 dark:text-slate-200">{periodNotificationInfo.deadline}</strong>).
+                  </>
+                ) : (
+                  <>
+                    The operating cycle is in progress. Reporting submission opens in{" "}
+                    <strong className="text-blue-800 dark:text-blue-300 font-bold">
+                      {periodNotificationInfo.daysUntilOpen} day(s)
+                    </strong>{" "}
+                    on{" "}
+                    <strong className="text-slate-800 dark:text-slate-200">{periodNotificationInfo.openDate}</strong>.
+                  </>
+                )}
+              </p>
+
+              <div className="flex items-center gap-2 pt-0.5 text-[11px] text-slate-500 font-mono">
+                <span>
+                  Timeline:{" "}
+                  {periodNotificationInfo.isCustomTimeline ? "Custom Assignment Override" : "Standard Federal Matrix"} (
+                  {periodNotificationInfo.openDaysBefore}d early / {periodNotificationInfo.closeDaysAfter}d grace)
+                </span>
+              </div>
+            </div>
+          </div>
+
+          {(periodNotificationInfo.type === "reporting_open" || periodNotificationInfo.type === "grace_period") && (
+            <Button
+              size="sm"
+              onClick={() => handleOpenPeriodForm(periodNotificationInfo.period)}
+              className={`shrink-0 text-xs font-semibold self-start sm:self-center ${
+                periodNotificationInfo.type === "grace_period"
+                  ? "bg-amber-600 hover:bg-amber-700 text-white"
+                  : "bg-emerald-600 hover:bg-emerald-700 text-white"
+              }`}
+            >
+              <Send className="h-3.5 w-3.5 mr-1.5" />
+              Submit {periodNotificationInfo.periodLabel} Report
+            </Button>
+          )}
         </div>
       )}
 

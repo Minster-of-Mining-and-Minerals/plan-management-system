@@ -35,6 +35,7 @@ import {
   TrendingDown,
   Layers,
   ChevronRight,
+  Hourglass,
 } from "lucide-react";
 import { toast } from "sonner";
 import { generateReportingPeriods } from "@/utils/nationalReportingPeriodUtils";
@@ -252,6 +253,10 @@ export function RegionalDirectFormModal({
         }
       }
 
+      const phaseStartDate = p.phase_start_date || sDate;
+      const phaseEndDate = p.phase_end_date || p.deadline_date || eDate;
+      const isInGrace = p.is_in_grace_period || lockState === "grace_period";
+
       return {
         ...p,
         period_index: p.period_index || idx + 1,
@@ -260,6 +265,11 @@ export function RegionalDirectFormModal({
         custom_name: customCommunicationName,
         start_date: sDate,
         end_date: eDate,
+        phase_start_date: phaseStartDate,
+        phase_end_date: phaseEndDate,
+        is_in_grace_period: isInGrace,
+        is_locked: p.is_locked,
+        is_manually_unlocked: p.is_manually_unlocked,
         targetValue,
         reportedActualVal,
         hasAchievement: reportedActualVal != null,
@@ -341,6 +351,49 @@ export function RegionalDirectFormModal({
       (p) => String(p.period_label).toUpperCase() === String(reportingPeriodLabel).toUpperCase()
     ) || null;
   }, [periodsWithStatus, reportingPeriodLabel]);
+
+  // Real-time Countdown & Remaining Time to Close
+  const timeRemainingInfo = useMemo(() => {
+    if (!selectedPeriodData) return null;
+    const nowTime = Date.now();
+    const msPerDay = 1000 * 60 * 60 * 24;
+    const msPerHour = 1000 * 60 * 60;
+
+    const effectiveDeadline =
+      selectedPeriodData.phase_end_date ||
+      selectedPeriodData.deadline_date ||
+      selectedPeriodData.end_date;
+
+    const openDate = selectedPeriodData.phase_start_date || selectedPeriodData.start_date;
+
+    if (!effectiveDeadline) return null;
+
+    const deadlineTime = new Date(effectiveDeadline).getTime();
+    const openTime = openDate ? new Date(openDate).getTime() : nowTime;
+    const remainingMs = deadlineTime - nowTime;
+
+    const daysLeft = Math.max(0, Math.floor(remainingMs / msPerDay));
+    const hoursLeft = Math.max(0, Math.floor((remainingMs % msPerDay) / msPerHour));
+
+    const isCustomTimeline = assignment.reporting_phase_override?.is_custom === true;
+    const openDays = (assignment as any).effective_phase_config?.open_days_before ?? 5;
+    const graceDays = (assignment as any).effective_phase_config?.close_days_after ?? 5;
+
+    return {
+      daysLeft,
+      hoursLeft,
+      remainingMs,
+      effectiveDeadline,
+      openDate,
+      isClosed: remainingMs <= 0,
+      isGrace: selectedPeriodData.lockState === "grace_period" || selectedPeriodData.is_in_grace_period,
+      isOpen: selectedPeriodData.lockState === "active_open" || selectedPeriodData.lockState === "unlocked_on_demand",
+      isFuture: selectedPeriodData.lockState === "future",
+      isCustomTimeline,
+      openDays,
+      graceDays,
+    };
+  }, [selectedPeriodData, assignment]);
 
   // Target is strictly read-only and derived from configuration
   const effectivePeriodTargetNum = selectedPeriodData?.targetValue ?? null;
@@ -896,17 +949,126 @@ export function RegionalDirectFormModal({
                       )}
                     </div>
                     {/* Progress bar countdown */}
-                    {selectedPeriodData?.start_date && selectedPeriodData?.end_date && (
+                    {selectedPeriodData?.start_date && (
                       <div className="mt-2 pt-2 border-t border-slate-200 dark:border-slate-800">
                         <PeriodCountdownProgressBar
                           startDate={selectedPeriodData.start_date}
                           endDate={selectedPeriodData.end_date}
+                          phaseStartDate={selectedPeriodData.phase_start_date}
+                          phaseEndDate={selectedPeriodData.phase_end_date}
+                          isInGracePeriod={selectedPeriodData.is_in_grace_period}
+                          lockState={selectedPeriodData.lockState}
                           status={selectedPeriodData.isPublished ? "published" : undefined}
+                          compact={true}
                         />
                       </div>
                     )}
                   </div>
                 </div>
+
+                {/* Prominent Live Submission Deadline & Time-to-Close Banner */}
+                {timeRemainingInfo && (
+                  <div
+                    className={`p-3.5 rounded-xl border flex flex-col sm:flex-row sm:items-center justify-between gap-3 ${
+                      timeRemainingInfo.isClosed
+                        ? "bg-rose-50/70 dark:bg-rose-950/30 border-rose-300 dark:border-rose-900"
+                        : timeRemainingInfo.isGrace
+                        ? "bg-gradient-to-r from-amber-500/15 via-amber-500/5 to-transparent border-amber-300 dark:border-amber-700/70"
+                        : timeRemainingInfo.isFuture
+                        ? "bg-blue-50/60 dark:bg-blue-950/30 border-blue-200 dark:border-blue-800"
+                        : "bg-gradient-to-r from-emerald-500/15 via-emerald-500/5 to-transparent border-emerald-300 dark:border-emerald-700/70"
+                    }`}
+                  >
+                    <div className="flex items-start gap-2.5">
+                      <div
+                        className={`p-2 rounded-lg shrink-0 mt-0.5 ${
+                          timeRemainingInfo.isClosed
+                            ? "bg-rose-100 text-rose-800 dark:bg-rose-950 dark:text-rose-300"
+                            : timeRemainingInfo.isGrace
+                            ? "bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300"
+                            : timeRemainingInfo.isFuture
+                            ? "bg-blue-100 text-blue-800 dark:bg-blue-950 dark:text-blue-300"
+                            : "bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300"
+                        }`}
+                      >
+                        {timeRemainingInfo.isClosed ? (
+                          <Lock className="h-4 w-4" />
+                        ) : timeRemainingInfo.isGrace ? (
+                          <Hourglass className="h-4 w-4" />
+                        ) : (
+                          <Clock className="h-4 w-4" />
+                        )}
+                      </div>
+
+                      <div className="space-y-0.5">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className="text-xs font-bold text-slate-900 dark:text-slate-100">
+                            {timeRemainingInfo.isClosed
+                              ? `Submission Window Closed for ${selectedPeriodData?.period_label}`
+                              : timeRemainingInfo.isGrace
+                              ? `Grace Period Active: ${selectedPeriodData?.period_label}`
+                              : timeRemainingInfo.isFuture
+                              ? `Upcoming Window: ${selectedPeriodData?.period_label}`
+                              : `Active Submission Window: ${selectedPeriodData?.period_label}`}
+                          </span>
+                          <Badge
+                            variant="outline"
+                            className={`text-[10px] font-mono font-bold ${
+                              timeRemainingInfo.isClosed
+                                ? "bg-rose-100 text-rose-800 border-rose-300 dark:bg-rose-950 dark:text-rose-300"
+                                : timeRemainingInfo.isGrace
+                                ? "bg-amber-100 text-amber-800 border-amber-300 dark:bg-amber-950 dark:text-amber-300"
+                                : "bg-emerald-100 text-emerald-800 border-emerald-300 dark:bg-emerald-950 dark:text-emerald-300"
+                            }`}
+                          >
+                            {timeRemainingInfo.isClosed
+                              ? "Window Closed"
+                              : `${timeRemainingInfo.daysLeft}d ${timeRemainingInfo.hoursLeft}h left to close`}
+                          </Badge>
+                        </div>
+
+                        <p className="text-[11px] text-slate-600 dark:text-slate-400">
+                          {timeRemainingInfo.isClosed ? (
+                            <>
+                              The reporting deadline passed on{" "}
+                              <strong className="text-slate-800 dark:text-slate-200">{timeRemainingInfo.effectiveDeadline}</strong>.
+                              Submission requires federal administrative unlock.
+                            </>
+                          ) : timeRemainingInfo.isGrace ? (
+                            <>
+                              Operating cycle concluded. Grace buffer active:{" "}
+                              <strong className="text-amber-800 dark:text-amber-300 font-bold">
+                                {timeRemainingInfo.daysLeft} day(s) and {timeRemainingInfo.hoursLeft} hour(s) left
+                              </strong>{" "}
+                              before permanent window lock on{" "}
+                              <strong className="text-slate-800 dark:text-slate-200">{timeRemainingInfo.effectiveDeadline}</strong>.
+                            </>
+                          ) : timeRemainingInfo.isFuture ? (
+                            <>
+                              Reporting opens on{" "}
+                              <strong className="text-slate-800 dark:text-slate-200">{timeRemainingInfo.openDate}</strong>.
+                            </>
+                          ) : (
+                            <>
+                              Window is open. You have{" "}
+                              <strong className="text-emerald-800 dark:text-emerald-300 font-bold">
+                                {timeRemainingInfo.daysLeft} day(s) and {timeRemainingInfo.hoursLeft} hour(s) left
+                              </strong>{" "}
+                              to submit your report before closing on{" "}
+                              <strong className="text-slate-800 dark:text-slate-200">{timeRemainingInfo.effectiveDeadline}</strong>.
+                            </>
+                          )}
+                        </p>
+
+                        <div className="text-[10px] text-slate-400 font-mono pt-0.5">
+                          Assignment Timeline:{" "}
+                          {timeRemainingInfo.isCustomTimeline ? "Custom Assignment Window" : "Federal Default Matrix"} (
+                          {timeRemainingInfo.openDays}d window open / {timeRemainingInfo.graceDays}d grace close)
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )}
 
                 {/* Target & Unit Display (STRICTLY READ-ONLY) */}
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">

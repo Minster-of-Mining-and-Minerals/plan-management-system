@@ -7,6 +7,7 @@ const {
   validateAnnualDateRange,
   generateReportingPeriods,
   computePeriodLockStatus,
+  resolveEffectivePhaseConfig,
 } = require("../utils/nationalReportingPeriodUtils");
 
 const {
@@ -620,25 +621,12 @@ class NationalReportingService {
       const lockOverrides = item.lock_overrides || {};
 
       // Resolve phase configuration: check assignment override first, then global config for frequency
-      const freqKey = String(frequency).toLowerCase().replace(/[\s\-]/g, "_");
-      const globalFreqConfig = configByFreq[freqKey] || null;
-      let effectivePhaseConfig = null;
-
-      if (item.reporting_phase_override && item.reporting_phase_override.is_custom) {
-        effectivePhaseConfig = {
-          open_days_before: Number(item.reporting_phase_override.open_days_before ?? 5),
-          close_days_after: Number(item.reporting_phase_override.close_days_after ?? 5),
-          allow_grace_period: item.reporting_phase_override.allow_grace_period !== false,
-          phase_description: item.reporting_phase_override.phase_description || "Custom Assignment Window",
-        };
-      } else if (globalFreqConfig) {
-        effectivePhaseConfig = {
-          open_days_before: Number(globalFreqConfig.reporting_phase_open_days_before ?? 5),
-          close_days_after: Number(globalFreqConfig.reporting_phase_close_days_after ?? 5),
-          allow_grace_period: globalFreqConfig.allow_grace_period !== false,
-          phase_description: globalFreqConfig.phase_description || globalFreqConfig.display_title,
-        };
-      }
+      const effectivePhaseConfig = resolveEffectivePhaseConfig(
+        frequency,
+        item.reporting_phase_override,
+        configByFreq
+      );
+      item.effective_phase_config = effectivePhaseConfig;
 
       const recurringPeriods = generatedPeriods.map((p) => {
         const periodObj = { ...p };

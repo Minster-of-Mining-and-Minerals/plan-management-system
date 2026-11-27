@@ -115,11 +115,21 @@ export interface NationalReportingAssignment {
     phase_description?: string;
     notes?: string;
   } | null;
+  effective_phase_config?: {
+    open_days_before: number;
+    close_days_after: number;
+    allow_grace_period?: boolean;
+    phase_description?: string;
+    is_custom?: boolean;
+    source?: string;
+  } | null;
   effectivePhaseConfig?: {
     open_days_before: number;
     close_days_after: number;
     allow_grace_period?: boolean;
     phase_description?: string;
+    is_custom?: boolean;
+    source?: string;
   } | null;
   assigned_by?: string | null;
   assigned_at: string;

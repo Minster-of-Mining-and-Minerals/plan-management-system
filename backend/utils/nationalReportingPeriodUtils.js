@@ -353,7 +353,74 @@ function computePeriodLockStatus({ period, lockOverride, deadlineDays = 0, phase
   };
 }
 
+/**
+ * Default System Baseline Matrix for Reporting Phase Windows
+ * Used when no administrative override exists or when period configs are newly initialized.
+ */
+const DEFAULT_FREQUENCY_PHASE_RULES = {
+  daily: { open_days_before: 0, close_days_after: 1, allow_grace_period: true, phase_description: "Same-day reporting with 24h grace buffer" },
+  weekly: { open_days_before: 2, close_days_after: 3, allow_grace_period: true, phase_description: "Opens 2 days before week end, 3-day grace period" },
+  monthly: { open_days_before: 5, close_days_after: 5, allow_grace_period: true, phase_description: "Opens 5 days before month end (e.g. Day 25), 5-day grace period (Day 35)" },
+  quarterly: { open_days_before: 15, close_days_after: 15, allow_grace_period: true, phase_description: "Opens 15 days before quarter end, 15-day grace period" },
+  semi_annually: { open_days_before: 20, close_days_after: 20, allow_grace_period: true, phase_description: "Opens 20 days before semester end, 20-day grace period" },
+  annually: { open_days_before: 30, close_days_after: 30, allow_grace_period: true, phase_description: "Opens 30 days before fiscal year end, 30-day grace period" },
+};
+
+/**
+ * Resolve effective reporting phase configuration for an assignment.
+ * Priority:
+ * 1. Assignment custom override (if is_custom is explicitly true)
+ * 2. Federal configured matrix in database (NationalReportingPeriodConfig)
+ * 3. Default system baseline matrix (DEFAULT_FREQUENCY_PHASE_RULES)
+ */
+function resolveEffectivePhaseConfig(frequency, assignmentOverride = null, globalConfigsMap = {}) {
+  const cleanFreq = String(frequency || "quarterly").toLowerCase().replace(/[\s\-]/g, "_");
+  const fallback = DEFAULT_FREQUENCY_PHASE_RULES[cleanFreq] || DEFAULT_FREQUENCY_PHASE_RULES.quarterly;
+
+  if (assignmentOverride && assignmentOverride.is_custom) {
+    return {
+      open_days_before: Number(assignmentOverride.open_days_before ?? fallback.open_days_before),
+      close_days_after: Number(assignmentOverride.close_days_after ?? fallback.close_days_after),
+      allow_grace_period: assignmentOverride.allow_grace_period !== false,
+      phase_description: assignmentOverride.phase_description || "Custom Assignment Window",
+      is_custom: true,
+      source: "assignment_override",
+    };
+  }
+
+  const globalCfg = globalConfigsMap[cleanFreq] || null;
+  if (globalCfg) {
+    return {
+      open_days_before: Number(
+        globalCfg.reporting_phase_open_days_before !== undefined && globalCfg.reporting_phase_open_days_before !== null
+          ? globalCfg.reporting_phase_open_days_before
+          : fallback.open_days_before
+      ),
+      close_days_after: Number(
+        globalCfg.reporting_phase_close_days_after !== undefined && globalCfg.reporting_phase_close_days_after !== null
+          ? globalCfg.reporting_phase_close_days_after
+          : fallback.close_days_after
+      ),
+      allow_grace_period: globalCfg.allow_grace_period !== false,
+      phase_description: globalCfg.phase_description || globalCfg.display_title || fallback.phase_description,
+      is_custom: false,
+      source: "global_frequency_matrix",
+    };
+  }
+
+  return {
+    open_days_before: fallback.open_days_before,
+    close_days_after: fallback.close_days_after,
+    allow_grace_period: fallback.allow_grace_period !== false,
+    phase_description: fallback.phase_description,
+    is_custom: false,
+    source: "default_baseline_matrix",
+  };
+}
+
 module.exports = {
+  DEFAULT_FREQUENCY_PHASE_RULES,
+  resolveEffectivePhaseConfig,
   calculateAnnualEndDate,
   validateAnnualDateRange,
   getExpectedPeriodCount,

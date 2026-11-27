@@ -233,6 +233,20 @@ export function NationalPeriodConfigTab() {
     toast.info("Reset to default system division names. Click Save to persist.");
   };
 
+  const applyResetPhaseToDefault = () => {
+    const def = DEFAULT_PHASE_RULES[activeFrequency] || {
+      openDaysBefore: 5,
+      closeDaysAfter: 5,
+      allowGracePeriod: true,
+      phaseDescription: "",
+    };
+    setPhaseSettings((prev) => ({
+      ...prev,
+      [activeFrequency]: { ...def },
+    }));
+    toast.info(`Restored system default timeline rules for ${activeFrequency.replace(/_/g, " ")}. Click Save to persist.`);
+  };
+
   const handleSave = async () => {
     try {
       await updateConfig({
@@ -268,13 +282,13 @@ export function NationalPeriodConfigTab() {
           <div className="space-y-1">
             <div className="flex items-center gap-2 text-emerald-700 dark:text-emerald-400 font-bold text-xs uppercase tracking-wider">
               <CalendarRange className="h-4 w-4" />
-              Reporting Period Classification &amp; Communication Naming
+              Federal Reporting Frequency &amp; Submission Timeline Matrix
             </div>
             <h3 className="text-base font-bold text-slate-900 dark:text-slate-100">
-              Customize Display Names for Reporting Divisions
+              Configure Reporting Timelines &amp; Division Classification Names
             </h3>
-            <p className="text-xs text-slate-500 max-w-2xl leading-relaxed">
-              Federal administrators can assign custom communication names to any reporting division (e.g., naming Division 1 as <strong>January</strong>, <strong>Hamle</strong>, or <strong>0124</strong>). Underlying date intervals, sequential indexing, and target arithmetic remain 100% stable.
+            <p className="text-xs text-slate-500 max-w-3xl leading-relaxed">
+              Configure default reporting phase windows (early window open days and grace period submission buffers) across all frequencies. All current and previously assigned periods across all regions follow this configured matrix unless an individual assignment has a custom override.
             </p>
           </div>
 
@@ -285,8 +299,114 @@ export function NationalPeriodConfigTab() {
             className="bg-emerald-600 hover:bg-emerald-700 text-white font-semibold text-xs flex items-center gap-1.5 shrink-0 self-start sm:self-center"
           >
             <Save className="h-3.5 w-3.5" />
-            {isUpdating ? "Saving..." : "Save Classification Names"}
+            {isUpdating ? "Saving..." : "Save Frequency Configuration"}
           </Button>
+        </CardContent>
+      </Card>
+
+      {/* Global Frequency Timeline Matrix Overview Table */}
+      <Card className="border border-slate-200 dark:border-slate-800 shadow-sm overflow-hidden">
+        <CardHeader className="p-4 pb-2 bg-slate-50/70 dark:bg-slate-900/50 border-b border-slate-200 dark:border-slate-800">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+            <div>
+              <CardTitle className="text-sm font-bold flex items-center gap-2 text-slate-900 dark:text-slate-100">
+                <Sliders className="h-4 w-4 text-emerald-600" />
+                <span>Global Frequency Reporting Matrix (All Frequencies)</span>
+              </CardTitle>
+              <CardDescription className="text-xs">
+                Compare federal default baselines with current configured timelines. Click any frequency row to edit its timeline or division naming.
+              </CardDescription>
+            </div>
+            <Badge variant="outline" className="text-emerald-700 bg-emerald-50 dark:bg-emerald-950 text-[10px] border-emerald-300 font-mono self-start sm:self-auto">
+              Auto-Applies to All Regional Assignments
+            </Badge>
+          </div>
+        </CardHeader>
+        <CardContent className="p-0">
+          <div className="overflow-x-auto">
+            <table className="w-full text-xs text-left">
+              <thead className="bg-slate-100/70 dark:bg-slate-800/60 text-slate-600 dark:text-slate-400 font-semibold border-b border-slate-200 dark:border-slate-700">
+                <tr>
+                  <th className="px-4 py-2.5">Frequency Cycle</th>
+                  <th className="px-4 py-2.5">Divisions</th>
+                  <th className="px-4 py-2.5">Standard Default Baseline</th>
+                  <th className="px-4 py-2.5">Configured Opens (Early)</th>
+                  <th className="px-4 py-2.5">Configured Grace Closes</th>
+                  <th className="px-4 py-2.5">Total Window</th>
+                  <th className="px-4 py-2.5">Matrix Status</th>
+                  <th className="px-4 py-2.5 text-right">Action</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+                {frequenciesList.map((freq) => {
+                  const def = DEFAULT_PHASE_RULES[freq.id] || { openDaysBefore: 5, closeDaysAfter: 5 };
+                  const cfg = phaseSettings[freq.id] || { openDaysBefore: def.openDaysBefore, closeDaysAfter: def.closeDaysAfter };
+                  const isCustomized =
+                    cfg.openDaysBefore !== def.openDaysBefore ||
+                    cfg.closeDaysAfter !== def.closeDaysAfter;
+                  const isSelected = activeFrequency === freq.id;
+
+                  return (
+                    <tr
+                      key={freq.id}
+                      onClick={() => setActiveFrequency(freq.id)}
+                      className={`cursor-pointer transition-colors ${
+                        isSelected
+                          ? "bg-emerald-50/80 dark:bg-emerald-950/40 font-medium"
+                          : "hover:bg-slate-50 dark:hover:bg-slate-800/40"
+                      }`}
+                    >
+                      <td className="px-4 py-2.5">
+                        <div className="flex items-center gap-2">
+                          <span className={`w-2 h-2 rounded-full ${isSelected ? "bg-emerald-600" : "bg-slate-300 dark:bg-slate-600"}`} />
+                          <span className="font-bold text-slate-900 dark:text-slate-100">{freq.label}</span>
+                        </div>
+                      </td>
+                      <td className="px-4 py-2.5 font-mono text-slate-600 dark:text-slate-400">
+                        {freq.count} {freq.count === 1 ? "Division" : "Divisions"}
+                      </td>
+                      <td className="px-4 py-2.5 font-mono text-slate-500">
+                        {def.openDaysBefore}d before / {def.closeDaysAfter}d after
+                      </td>
+                      <td className="px-4 py-2.5 font-mono font-bold text-blue-700 dark:text-blue-400">
+                        {cfg.openDaysBefore} days before
+                      </td>
+                      <td className="px-4 py-2.5 font-mono font-bold text-amber-700 dark:text-amber-400">
+                        {cfg.closeDaysAfter} days after
+                      </td>
+                      <td className="px-4 py-2.5 font-mono font-bold text-slate-800 dark:text-slate-200">
+                        {Number(cfg.openDaysBefore) + Number(cfg.closeDaysAfter)} days total
+                      </td>
+                      <td className="px-4 py-2.5">
+                        {isCustomized ? (
+                          <Badge className="bg-indigo-100 text-indigo-800 dark:bg-indigo-950 dark:text-indigo-300 text-[10px] font-mono">
+                            Customized Matrix
+                          </Badge>
+                        ) : (
+                          <Badge variant="outline" className="text-emerald-700 border-emerald-300 bg-emerald-50/50 dark:bg-emerald-950/50 text-[10px] font-mono">
+                            Standard Default
+                          </Badge>
+                        )}
+                      </td>
+                      <td className="px-4 py-2.5 text-right">
+                        <Button
+                          variant={isSelected ? "default" : "outline"}
+                          size="sm"
+                          className={`h-6 text-[10px] px-2 ${isSelected ? "bg-emerald-600 text-white" : ""}`}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setActiveFrequency(freq.id);
+                          }}
+                        >
+                          {isSelected ? "Editing" : "Configure"}
+                        </Button>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
         </CardContent>
       </Card>
 
@@ -329,19 +449,51 @@ export function NationalPeriodConfigTab() {
       {/* Reporting Phase Submission Window Rules Card */}
       <Card className="border border-emerald-200 dark:border-emerald-900/60 shadow-sm bg-gradient-to-br from-emerald-50/40 via-white to-slate-50/30 dark:from-emerald-950/20 dark:via-slate-900 dark:to-slate-950">
         <CardHeader className="p-4 pb-3 border-b border-emerald-100 dark:border-emerald-900/40">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
             <div>
-              <CardTitle className="text-sm font-bold flex items-center gap-2 text-emerald-800 dark:text-emerald-300">
-                <Clock className="h-4 w-4 text-emerald-600" />
-                <span>Reporting Phase &amp; Submission Window Rules ({activeFrequency.replace(/_/g, " ").toUpperCase()})</span>
-              </CardTitle>
-              <CardDescription className="text-xs">
-                Define when the submission window opens relative to the operating period end date and how long regions have to submit before automatic deadline locking.
+              <div className="flex items-center gap-2">
+                <CardTitle className="text-sm font-bold flex items-center gap-2 text-emerald-800 dark:text-emerald-300">
+                  <Clock className="h-4 w-4 text-emerald-600" />
+                  <span>Reporting Phase &amp; Submission Window Rules ({activeFrequency.replace(/_/g, " ").toUpperCase()})</span>
+                </CardTitle>
+                <Badge variant="outline" className="text-emerald-700 bg-emerald-50 dark:bg-emerald-950 text-[10px] border-emerald-300 font-mono">
+                  Active Baseline Rule
+                </Badge>
+              </div>
+              <CardDescription className="text-xs mt-1">
+                Standard System Default for {activeFrequency.replace(/_/g, " ")}:{" "}
+                <strong className="text-slate-800 dark:text-slate-200">
+                  {DEFAULT_PHASE_RULES[activeFrequency]?.openDaysBefore ?? 5} days before period end
+                </strong>{" "}
+                (window opens),{" "}
+                <strong className="text-slate-800 dark:text-slate-200">
+                  {DEFAULT_PHASE_RULES[activeFrequency]?.closeDaysAfter ?? 5} days after period end
+                </strong>{" "}
+                (grace deadline).
               </CardDescription>
             </div>
-            <Badge variant="outline" className="text-emerald-700 bg-emerald-50 dark:bg-emerald-950 text-[10px] border-emerald-300 self-start sm:self-auto font-mono">
-              Active Baseline Rule
-            </Badge>
+            <div className="flex items-center gap-2 shrink-0">
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={applyResetPhaseToDefault}
+                className="h-8 text-xs border-amber-300 text-amber-800 dark:text-amber-300 hover:bg-amber-50 dark:hover:bg-amber-950 flex items-center gap-1.5"
+              >
+                <RotateCcw className="h-3 w-3" />
+                Reset to Standard Defaults
+              </Button>
+              <Button
+                type="button"
+                size="sm"
+                onClick={handleSave}
+                disabled={isUpdating}
+                className="h-8 text-xs bg-emerald-600 hover:bg-emerald-700 text-white font-semibold flex items-center gap-1.5"
+              >
+                <Save className="h-3.5 w-3.5" />
+                {isUpdating ? "Saving..." : "Save Timeline"}
+              </Button>
+            </div>
           </div>
         </CardHeader>
         <CardContent className="p-4 space-y-4">

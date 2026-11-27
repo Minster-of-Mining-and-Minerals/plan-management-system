@@ -350,6 +350,14 @@ export function NationalReportingConfigView() {
           </TabsTrigger>
 
           <TabsTrigger
+            value="periods"
+            className="flex items-center gap-2 data-[state=active]:bg-white dark:data-[state=active]:bg-slate-900 data-[state=active]:text-emerald-700 dark:data-[state=active]:text-emerald-400 data-[state=active]:shadow-sm rounded-lg text-xs font-semibold"
+          >
+            <CalendarRange className="h-4 w-4" />
+            Reporting Frequency
+          </TabsTrigger>
+
+          <TabsTrigger
             value="measurement"
             className="flex items-center gap-2 data-[state=active]:bg-white dark:data-[state=active]:bg-slate-900 data-[state=active]:text-emerald-700 dark:data-[state=active]:text-emerald-400 data-[state=active]:shadow-sm rounded-lg text-xs font-semibold"
           >
@@ -363,14 +371,6 @@ export function NationalReportingConfigView() {
           >
             <Scale className="h-4 w-4" />
             National Unit Configuration
-          </TabsTrigger>
-
-          <TabsTrigger
-            value="periods"
-            className="flex items-center gap-2 data-[state=active]:bg-white dark:data-[state=active]:bg-slate-900 data-[state=active]:text-emerald-700 dark:data-[state=active]:text-emerald-400 data-[state=active]:shadow-sm rounded-lg text-xs font-semibold"
-          >
-            <CalendarRange className="h-4 w-4" />
-            Period Classification &amp; Naming
           </TabsTrigger>
         </TabsList>
 
