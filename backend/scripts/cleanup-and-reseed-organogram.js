@@ -131,9 +131,7 @@ async function purgeAllData(queryInterface, adminIds) {
   await safeQuery(queryInterface, `DELETE FROM session_security_logs`);
   await safeQuery(queryInterface, `DELETE FROM user_device_restrictions`);
   await safeQuery(queryInterface, `DELETE FROM user_permission_groups`);
-  await safeQuery(queryInterface, `UPDATE system_audit_logs SET changed_by = NULL`);
-  await safeQuery(queryInterface, `DELETE FROM system_audit_logs WHERE changed_by IS NULL`);
-  await safeQuery(queryInterface, `UPDATE branding_audit_logs SET changed_by = NULL`);
+  await safeQuery(queryInterface, `DELETE FROM system_audit_logs`);
   await safeQuery(queryInterface, `DELETE FROM branding_audit_logs`);
 
   // ── 5. Users (preserve admins) ────────────────────────────────────────────
@@ -177,7 +175,8 @@ async function purgeAllData(queryInterface, adminIds) {
   console.log("  Deleting internal_assignments ...");
   await safeQuery(queryInterface, `DELETE FROM internal_assignments`);
 
-  console.log("  Deleting internal_structures ...");
+  console.log("  Nulling internal_structures parent_id and deleting ...");
+  await safeQuery(queryInterface, `UPDATE internal_structures SET parent_id = NULL`);
   await safeQuery(queryInterface, `DELETE FROM internal_structures`);
 
   // ── 7. Government structures ──────────────────────────────────────────────
@@ -201,41 +200,11 @@ async function purgeAllData(queryInterface, adminIds) {
   console.log("  Updating roles to remove government_structure_id FK ...");
   await safeQuery(queryInterface, `UPDATE roles SET government_structure_id = NULL`);
 
-  console.log("  Deleting government_structures ...");
+  console.log("  Nulling government_structures parent_id and deleting ...");
+  await safeQuery(queryInterface, `UPDATE government_structures SET parent_id = NULL`);
   await safeQuery(queryInterface, `DELETE FROM government_structures`);
 
   console.log("  ✓ Purge complete.\n");
-}
-
-// ─── Queryinterface adapter ───────────────────────────────────────────────────
-// The organogram seeders expect a queryInterface (Sequelize migration interface).
-// We build a compatible shim from the sequelize instance.
-function makeQueryInterface(seq) {
-  return {
-    sequelize: seq,
-    async bulkInsert(tableName, rows) {
-      if (!rows.length) return;
-      const cols = Object.keys(rows[0]);
-      const placeholders = rows
-        .map(
-          (_, ri) =>
-            `(${cols.map((_, ci) => `$${ri * cols.length + ci + 1}`).join(", ")})`
-        )
-        .join(", ");
-      const values = rows.flatMap((row) => cols.map((c) => row[c] ?? null));
-      await seq.query(
-        `INSERT INTO "${tableName}" (${cols.map((c) => `"${c}"`).join(", ")}) VALUES ${placeholders}`,
-        { bind: values }
-      );
-    },
-    async bulkDelete(tableName, where) {
-      const cols = Object.keys(where);
-      const conditions = cols.map((c, i) => `"${c}" = $${i + 1}`).join(" AND ");
-      await seq.query(`DELETE FROM "${tableName}" WHERE ${conditions}`, {
-        bind: cols.map((c) => where[c]),
-      });
-    },
-  };
 }
 
 async function run() {
@@ -243,7 +212,7 @@ async function run() {
   console.log("  Ministry of Mines — Cleanup & Re-seed (Organogram 2016 E.C.)");
   console.log("=================================================================");
 
-  const queryInterface = makeQueryInterface(sequelize);
+  const queryInterface = sequelize.getQueryInterface();
 
   // ── Identify admin users to preserve ──────────────────────────────────────
   const adminIds = await getAdminUserIds(queryInterface);
