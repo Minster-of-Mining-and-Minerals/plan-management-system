@@ -206,17 +206,6 @@ export const PRIVATE_CATEGORIZED_NAVIGATION: NavCategory[] = [
     category: "NATIONAL & REGIONAL OVERSIGHT",
     items: [
       {
-        title: "Short-Term Plan",
-        url: "/short-term-plan",
-        icon: ClipboardCheck,
-        anyPermissions: [
-          "PLAN:READ",
-          "PLAN:CREATE",
-          "PLAN:UPDATE",
-          "NATIONAL_REPORTING:READ_REQUIREMENT",
-        ],
-      },
-      {
         title: "National KPI",
         url: "/national-reporting",
         icon: BarChart3,
@@ -322,6 +311,17 @@ export const PRIVATE_CATEGORIZED_NAVIGATION: NavCategory[] = [
             icon: Palette,
             allPermissions: ["PERFORMANCE_COLOR_THRESHOLDS:READ"],
           },
+        ],
+      },
+      {
+        title: "Short-Term Plan",
+        url: "/short-term-plan",
+        icon: ClipboardCheck,
+        anyPermissions: [
+          "PLANS:READ",
+          "PLANS:CREATE",
+          "PLANS:UPDATE",
+          "NATIONAL_REPORTING:READ_REQUIREMENT",
         ],
       },
       {
