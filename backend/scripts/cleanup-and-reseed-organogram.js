@@ -125,14 +125,28 @@ async function purgeAllData(queryInterface, adminIds) {
   await safeQuery(queryInterface, `DELETE FROM planning_configurations`);
   await safeQuery(queryInterface, `DELETE FROM plan_rules`);
 
-  // ── 4. User sessions & security logs ───────────────────────────────────────
-  console.log("  Deleting sessions and security logs ...");
+  // ── 4. User sessions, logs & referenced records ────────────────────────────
+  console.log("  Deleting sessions, audit logs, notifications and issue records ...");
   await safeQuery(queryInterface, `DELETE FROM user_sessions`);
   await safeQuery(queryInterface, `DELETE FROM session_security_logs`);
   await safeQuery(queryInterface, `DELETE FROM user_device_restrictions`);
   await safeQuery(queryInterface, `DELETE FROM user_permission_groups`);
   await safeQuery(queryInterface, `DELETE FROM system_audit_logs`);
   await safeQuery(queryInterface, `DELETE FROM branding_audit_logs`);
+  await safeQuery(queryInterface, `DELETE FROM notifications`);
+  await safeQuery(queryInterface, `DELETE FROM notes`);
+  await safeQuery(queryInterface, `DELETE FROM ip_restrictions`);
+  await safeQuery(queryInterface, `DELETE FROM issue_histories`);
+  await safeQuery(queryInterface, `DELETE FROM issues`);
+  await safeQuery(queryInterface, `DELETE FROM plan_amendment_histories`);
+
+  // Null out or reassign user references in domain tables that should remain
+  const firstAdminId = adminIds[0] || HARD_ADMIN_ID;
+  await safeQuery(queryInterface, `UPDATE asm_miners SET registered_by_id = NULL WHERE registered_by_id NOT IN (:adminIds)`, { adminIds });
+  await safeQuery(queryInterface, `UPDATE gold_daily_reports SET submitted_by_id = NULL, reviewed_by_id = NULL`);
+  await safeQuery(queryInterface, `UPDATE gold_price_configurations SET created_by_id = NULL, updated_by_id = NULL`);
+  await safeQuery(queryInterface, `UPDATE gold_purchases SET updated_by_id = NULL, cancelled_by_id = NULL`);
+  await safeQuery(queryInterface, `UPDATE gold_purchases SET created_by_id = :firstAdminId WHERE created_by_id NOT IN (:adminIds)`, { adminIds, firstAdminId });
 
   // ── 5. Users (preserve admins) ────────────────────────────────────────────
   console.log(`  Preserving admin users: ${adminIds.join(", ")}`);
@@ -158,7 +172,6 @@ async function purgeAllData(queryInterface, adminIds) {
   await safeQuery(queryInterface, `DELETE FROM regional_internal_assignments`);
   await safeQuery(queryInterface, `DELETE FROM internal_assignments`);
   await safeQuery(queryInterface, `DELETE FROM external_assignments`);
-  await safeQuery(queryInterface, `DELETE FROM asm_miners`);
 
   // Delete non-admin users
   console.log("  Deleting non-admin users ...");
@@ -223,14 +236,41 @@ async function run() {
 
   // ── Re-seed organogram ────────────────────────────────────────────────────
   console.log("── SEED PHASE ───────────────────────────────────────────────────");
-  console.log("\n[1/3] Seeding Alternative Minister of Mines (MoM root sector)...");
+  console.log("\n[1/3] Seeding Alternative Minister of Mines (MoM root sector + organogram)...");
   await altMomSeeder.up(queryInterface);
 
-  console.log("\n[2/3] Seeding GIE + MIDI (child institute sectors)...");
+  console.log("\n[2/3] Ensuring GIE + MIDI as sub-child sectors under MoM...");
   await altMomInstitutesSeeder.up(queryInterface);
 
+  // Per instruction: "add MIDI and GIE as sub child sectors but only seed for mister of mines"
+  // Remove any internal departments and non-admin demo users for child institutes so only MoM has them
+  console.log("  Ensuring internal departments and demo users are only seeded for Ministry of Mines...");
+  const MOM_SECTOR_ID = "10000000-0000-4000-8000-000000000004";
+  await safeQuery(
+    queryInterface,
+    `DELETE FROM user_roles WHERE user_id IN (
+       SELECT user_id FROM users WHERE government_structure_id != :momId AND user_id NOT IN (:adminIds)
+     )`,
+    { momId: MOM_SECTOR_ID, adminIds }
+  );
+  await safeQuery(
+    queryInterface,
+    `DELETE FROM users WHERE government_structure_id != :momId AND user_id NOT IN (:adminIds)`,
+    { momId: MOM_SECTOR_ID, adminIds }
+  );
+  await safeQuery(
+    queryInterface,
+    `UPDATE internal_structures SET parent_id = NULL WHERE government_structure_id != :momId`,
+    { momId: MOM_SECTOR_ID }
+  );
+  await safeQuery(
+    queryInterface,
+    `DELETE FROM internal_structures WHERE government_structure_id != :momId`,
+    { momId: MOM_SECTOR_ID }
+  );
+
   // ── Re-seed short-term plans ──────────────────────────────────────────────
-  console.log("\n[3/3] Seeding 100-Day Short-Term Plans...");
+  console.log("\n[3/3] Seeding 100-Day Short-Term Plans referencing new organogram...");
   await seed100DayShortTermPlan();
 
   // ── Final counts ──────────────────────────────────────────────────────────
