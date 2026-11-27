@@ -166,6 +166,7 @@ export const baseApi = createApi({
     "NationalUnitsCatalog",
     "NationalCategories",
     "InspectionAnalytics",
+    "ShortTermPlan",
   ],
   endpoints: () => ({}),
 });

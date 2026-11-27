@@ -76,6 +76,7 @@ const formConfigContainerRoutes = require("./routers/issue/formConfigContainerRo
 const regionalIssueRoutes = require("./routers/issue/regionalIssueRoutes");
 const federalRegionalEscalationRoutes = require("./routers/issue/federalRegionalEscalationRoutes");
 const inspectionAnalyticsRoutes = require("./routers/inspection/inspectionAnalyticsRoutes");
+const shortTermPlanRoutes = require("./routers/shortTermPlan/shortTermPlanRoutes");
 
 // ================== Attachment Routes ==========================
 const attachmentRoute = require("./routers/attachment-routes/attachmentRoute");
@@ -226,6 +227,7 @@ app.use("/api/plan-assignments", planAssignmentRoutes);
 // National Reporting Framework Routes
 app.use("/api/national-reporting", nationalReportingRoutes);
 app.use("/api/regional/national-reporting", regionalNationalReportingRoutes);
+app.use("/api/short-term-plans", shortTermPlanRoutes);
 app.use("/api/performance-color-thresholds", performanceColorThresholdRoutes);
 app.use("/api/branding", brandingRoutes);
 app.use("/api/system-settings", systemSettingsRoutes);
