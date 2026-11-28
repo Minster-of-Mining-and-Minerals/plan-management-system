@@ -452,8 +452,8 @@ class RegionalNationalReportingService {
         periodObj.lock_state = periodLock.lock_state;
         periodObj.lock_reason = periodLock.lock_reason;
         periodObj.deadline_date = periodLock.deadline_date;
-        periodObj.phase_start_date = periodLock.phase_start_date;
-        periodObj.phase_end_date = periodLock.phase_end_date;
+        periodObj.phase_start_date = periodLock.phase_start_date || periodLock.reporting_phase_start;
+        periodObj.phase_end_date = periodLock.phase_end_date || periodLock.reporting_phase_end;
         periodObj.is_in_grace_period = periodLock.is_in_grace_period;
         periodObj.is_manually_unlocked = periodLock.is_manually_unlocked;
         periodObj.lock_override = periodLock.lock_override;
@@ -1249,6 +1249,29 @@ class RegionalNationalReportingService {
       throw err;
     }
 
+    const sanitizedAttachments = Array.isArray(evidenceAttachments)
+      ? evidenceAttachments.map((att, idx) => {
+          const label = String(att?.label || "").trim();
+          const description = String(att?.description || "").trim();
+          if (!label || !description) {
+            const err = new Error(
+              `Attachment #${idx + 1} must include both a display label and a description of its relation to the KPI.`
+            );
+            err.status = 400;
+            throw err;
+          }
+          return {
+            attachment_id: att.attachment_id || null,
+            file_name: att.file_name || label,
+            file_path: att.file_path || att.file_url || "",
+            mime_type: att.mime_type || null,
+            size: att.size ?? null,
+            label,
+            description,
+          };
+        })
+      : [];
+
     // 2. Find Assignment
     let assignment = null;
     if (assignmentId) {
@@ -1517,7 +1540,7 @@ class RegionalNationalReportingService {
       annual_target: annualTarget,
       annual_achievement_percent: annualAchievementPercent,
       narrative: narrative || null,
-      evidence_attachments: evidenceAttachments || [],
+      evidence_attachments: sanitizedAttachments,
       regional_validated_by: userId || null,
       regional_validated_at: new Date(),
       published_by: userId || null,

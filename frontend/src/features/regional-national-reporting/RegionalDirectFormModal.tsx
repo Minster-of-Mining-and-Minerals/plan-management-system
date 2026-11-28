@@ -22,6 +22,10 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import {
+  LabeledAttachmentInput,
+  type LabeledAttachmentItem,
+} from "@/components/ui/labeled-attachment-input";
+import {
   FileText,
   AlertTriangle,
   Clock,
@@ -290,6 +294,7 @@ export function RegionalDirectFormModal({
   const [reportingYear, setReportingYear] = useState<number>(assignedYear);
   const [reportedActual, setReportedActual] = useState<string>("");
   const [narrative, setNarrative] = useState<string>("");
+  const [evidenceAttachments, setEvidenceAttachments] = useState<LabeledAttachmentItem[]>([]);
 
   // Confirmation view state
   const [isConfirming, setIsConfirming] = useState<boolean>(false);
@@ -301,6 +306,7 @@ export function RegionalDirectFormModal({
       setIsConfirming(false);
       setAmharicValidationError(null);
       setReportingYear(assignedYear);
+      setEvidenceAttachments([]);
 
       // Only default if explicitly passed via selectedPeriod or initialPeriodLabel
       const explicitLabel = selectedPeriod?.period_label || initialPeriodLabel || "";
@@ -525,6 +531,12 @@ export function RegionalDirectFormModal({
       return;
     }
 
+    if (evidenceAttachments.some((a) => !a.label.trim() || !a.description.trim())) {
+      toast.error("Each attachment must include a display label and a description of its relation to the KPI.");
+      setIsConfirming(false);
+      return;
+    }
+
     try {
       const res = await submitReport({
         regionId,
@@ -537,6 +549,7 @@ export function RegionalDirectFormModal({
           reportedActual: numActual,
           localUnit: expectedFederalUnit, // Federal defined unit strictly enforced
           narrative: narrative.trim(),
+          evidenceAttachments,
           isFederalOverride: Boolean(isFederalOverride),
         },
       }).unwrap();
@@ -1283,6 +1296,11 @@ export function RegionalDirectFormModal({
                     </p>
                   )}
                 </div>
+
+                <LabeledAttachmentInput
+                  attachments={evidenceAttachments}
+                  onChange={setEvidenceAttachments}
+                />
               </>
             )}
 

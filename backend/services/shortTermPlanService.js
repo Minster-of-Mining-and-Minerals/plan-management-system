@@ -494,6 +494,30 @@ class ShortTermPlanService {
         ? Math.min(100, Math.round((reportedActual / plannedTarget) * 1000) / 10)
         : null;
 
+    const sanitizedAttachments = Array.isArray(payload.evidence_attachments)
+      ? payload.evidence_attachments.map((att, idx) => {
+          const label = String(att?.label || "").trim();
+          const description = String(att?.description || "").trim();
+          if (!label || !description) {
+            throw Object.assign(
+              new Error(
+                `Attachment #${idx + 1} must include both a display label and a description of its relation to the KPI.`
+              ),
+              { status: 400 }
+            );
+          }
+          return {
+            attachment_id: att.attachment_id || null,
+            file_name: att.file_name || label,
+            file_path: att.file_path || att.file_url || "",
+            mime_type: att.mime_type || null,
+            size: att.size ?? null,
+            label,
+            description,
+          };
+        })
+      : null;
+
     const existing = await ShortTermPeriodReport.findOne({
       where: {
         assignment_id: assignmentId,
@@ -508,7 +532,7 @@ class ShortTermPlanService {
         reported_actual: reportedActual,
         achievement_percent: achievementPercent,
         narrative: narrative || existing.narrative,
-        evidence_attachments: payload.evidence_attachments || existing.evidence_attachments,
+        evidence_attachments: sanitizedAttachments !== null ? sanitizedAttachments : existing.evidence_attachments,
         submitted_by: userId || existing.submitted_by,
         submitted_at: new Date(),
       });
@@ -527,7 +551,7 @@ class ShortTermPlanService {
       reported_actual: reportedActual,
       achievement_percent: achievementPercent,
       narrative: narrative || null,
-      evidence_attachments: payload.evidence_attachments || [],
+      evidence_attachments: sanitizedAttachments || [],
       submitted_by: userId || null,
       submitted_at: new Date(),
     });

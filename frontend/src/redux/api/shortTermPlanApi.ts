@@ -192,6 +192,15 @@ export const shortTermPlanApi = baseApi.injectEndpoints({
         submission_type: ShortTermSubmissionType;
         reported_actual?: number | null;
         narrative?: string;
+        evidence_attachments?: Array<{
+          attachment_id?: string | null;
+          file_name: string;
+          file_path: string;
+          mime_type?: string | null;
+          size?: number | null;
+          label: string;
+          description: string;
+        }>;
       }
     >({
       query: ({ assignmentId, planId: _planId, ...body }) => ({

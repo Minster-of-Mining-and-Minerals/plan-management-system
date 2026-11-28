@@ -65,20 +65,28 @@ export function PeriodCountdownProgressBar({
       };
     }
 
-    const openTime = new Date(effectiveOpenDate).getTime();
-    const deadlineTime = new Date(effectiveDeadlineDate).getTime();
-    const now = Date.now();
+    const ethiopiaTodayStr = new Intl.DateTimeFormat("en-CA", {
+      timeZone: "Africa/Addis_Ababa",
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+    }).format(new Date());
+
+    const toUtcNoonMs = (d: string) => new Date(`${String(d).slice(0, 10)}T12:00:00Z`).getTime();
+    const openTime = toUtcNoonMs(effectiveOpenDate);
+    const deadlineTime = toUtcNoonMs(effectiveDeadlineDate);
+    const now = toUtcNoonMs(ethiopiaTodayStr);
 
     const msPerDay = 1000 * 60 * 60 * 24;
-    const totalDuration = deadlineTime - openTime;
-    const totalDaysCount = Math.max(1, Math.ceil(totalDuration / msPerDay));
+    const totalDuration = Math.max(msPerDay, deadlineTime - openTime);
+    const totalDaysCount = Math.max(1, Math.round(totalDuration / msPerDay) + 1);
 
     // 1. Before phase opens: Period operating, reporting window upcoming
     if (now < openTime) {
-      const daysUntilOpen = Math.ceil((openTime - now) / msPerDay);
+      const daysUntilOpen = Math.max(1, Math.round((openTime - now) / msPerDay));
       return {
         progressPercent: 0,
-        statusText: `Reporting opens in ${daysUntilOpen}d (${effectiveOpenDate})`,
+        statusText: `Opens in ${daysUntilOpen}d (${effectiveOpenDate})`,
         colorVariant: "upcoming",
         isUrgent: false,
         isOverdue: false,
@@ -90,7 +98,7 @@ export function PeriodCountdownProgressBar({
 
     // 2. Past final grace deadline: Closed / Deadline passed
     if (now > deadlineTime) {
-      const daysOverdue = Math.ceil((now - deadlineTime) / msPerDay);
+      const daysOverdue = Math.max(1, Math.round((now - deadlineTime) / msPerDay));
       return {
         progressPercent: 100,
         statusText: `Closed ${daysOverdue}d ago (Due: ${effectiveDeadlineDate})`,
@@ -106,7 +114,7 @@ export function PeriodCountdownProgressBar({
     // 3. Active Window: Check if in grace period vs normal phase
     const elapsed = now - openTime;
     const remaining = deadlineTime - now;
-    const remainingDays = Math.ceil(remaining / msPerDay);
+    const remainingDays = Math.max(0, Math.round(remaining / msPerDay));
     const percentElapsed = Math.min(100, Math.max(0, Math.round((elapsed / Math.max(1, totalDuration)) * 100)));
 
     if (isInGracePeriod || lockState === "grace_period") {

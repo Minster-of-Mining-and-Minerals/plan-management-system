@@ -195,7 +195,14 @@ export function RegionalKpiDetailView({
 
   // Active window countdown notification logic for the regional officer
   const periodNotificationInfo = useMemo(() => {
-    const now = Date.now();
+    const ethiopiaTodayStr = new Intl.DateTimeFormat("en-CA", {
+      timeZone: "Africa/Addis_Ababa",
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+    }).format(new Date());
+    const toUtcNoonMs = (d: string) => new Date(`${String(d).slice(0, 10)}T12:00:00Z`).getTime();
+    const now = toUtcNoonMs(ethiopiaTodayStr);
     const msPerDay = 1000 * 60 * 60 * 24;
 
     // 1. Check if any period is currently in grace period
@@ -204,8 +211,8 @@ export function RegionalKpiDetailView({
     );
     if (gracePeriod) {
       const deadline = gracePeriod.phase_end_date || gracePeriod.deadline_date || gracePeriod.end_date;
-      const deadlineTime = deadline ? new Date(deadline).getTime() : now;
-      const daysLeft = Math.max(0, Math.ceil((deadlineTime - now) / msPerDay));
+      const deadlineTime = deadline ? toUtcNoonMs(deadline) : now;
+      const daysLeft = Math.max(0, Math.round((deadlineTime - now) / msPerDay));
       return {
         type: "grace_period" as const,
         period: gracePeriod,
@@ -229,10 +236,10 @@ export function RegionalKpiDetailView({
     if (openPeriod) {
       const standardEnd = openPeriod.end_date;
       const deadline = openPeriod.phase_end_date || openPeriod.deadline_date || openPeriod.end_date;
-      const deadlineTime = deadline ? new Date(deadline).getTime() : now;
-      const daysLeft = Math.max(0, Math.ceil((deadlineTime - now) / msPerDay));
+      const deadlineTime = deadline ? toUtcNoonMs(deadline) : now;
+      const daysLeft = Math.max(0, Math.round((deadlineTime - now) / msPerDay));
       const daysToStandardEnd = standardEnd
-        ? Math.max(0, Math.ceil((new Date(standardEnd).getTime() - now) / msPerDay))
+        ? Math.max(0, Math.round((toUtcNoonMs(standardEnd) - now) / msPerDay))
         : null;
 
       return {
@@ -256,8 +263,8 @@ export function RegionalKpiDetailView({
     );
     if (upcomingPeriod) {
       const openDate = upcomingPeriod.phase_start_date || upcomingPeriod.start_date;
-      const openTime = openDate ? new Date(openDate).getTime() : now;
-      const daysUntilOpen = Math.max(0, Math.ceil((openTime - now) / msPerDay));
+      const openTime = openDate ? toUtcNoonMs(openDate) : now;
+      const daysUntilOpen = Math.max(0, Math.round((openTime - now) / msPerDay));
 
       return {
         type: "upcoming_phase" as const,

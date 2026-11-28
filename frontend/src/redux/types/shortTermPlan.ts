@@ -48,6 +48,15 @@ export interface ShortTermDivision {
     reported_actual: number | null;
     achievement_percent: number | null;
     narrative?: string | null;
+    evidence_attachments?: Array<{
+      attachment_id?: string | null;
+      file_name: string;
+      file_path: string;
+      mime_type?: string | null;
+      size?: number | null;
+      label: string;
+      description: string;
+    }>;
     submitted_at: string;
     review_status: string;
     submittedByUser?: { user_id: string; full_name: string; email: string } | null;

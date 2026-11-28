@@ -31,6 +31,10 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
+  LabeledAttachmentInput,
+  type LabeledAttachmentItem,
+} from "@/components/ui/labeled-attachment-input";
+import {
   Select,
   SelectContent,
   SelectItem,
@@ -119,6 +123,7 @@ export function ShortTermKpiDetailView({ kpiId }: ShortTermKpiDetailViewProps) {
   const [submissionType, setSubmissionType] = useState<ShortTermSubmissionType>("actual_and_narrative");
   const [reportedActual, setReportedActual] = useState<string>("");
   const [narrative, setNarrative] = useState<string>("");
+  const [evidenceAttachments, setEvidenceAttachments] = useState<LabeledAttachmentItem[]>([]);
   const [isAssignModalOpen, setIsAssignModalOpen] = useState(false);
 
   const assignments = kpi?.assignments || [];
@@ -183,6 +188,7 @@ export function ShortTermKpiDetailView({ kpiId }: ShortTermKpiDetailViewProps) {
         : ""
     );
     setNarrative(div.report?.narrative || "");
+    setEvidenceAttachments(div.report?.evidence_attachments || []);
   };
 
   const handleReportSubmit = async (e: React.FormEvent) => {
@@ -191,6 +197,11 @@ export function ShortTermKpiDetailView({ kpiId }: ShortTermKpiDetailViewProps) {
 
     if (submissionType === "actual_and_narrative" && reportedActual === "") {
       toast.error("Please enter the reported actual value");
+      return;
+    }
+
+    if (evidenceAttachments.some((a) => !a.label.trim() || !a.description.trim())) {
+      toast.error("Each attachment must include a display label and a description of its relation to the KPI.");
       return;
     }
 
@@ -203,6 +214,7 @@ export function ShortTermKpiDetailView({ kpiId }: ShortTermKpiDetailViewProps) {
         submission_type: submissionType,
         reported_actual: submissionType === "actual_and_narrative" ? Number(reportedActual) : null,
         narrative,
+        evidence_attachments: evidenceAttachments,
       }).unwrap();
       toast.success(`Report submitted for ${reportingDivision.period_label}`);
       setReportingDivision(null);
@@ -606,7 +618,22 @@ export function ShortTermKpiDetailView({ kpiId }: ShortTermKpiDetailViewProps) {
                           <td className="px-4 py-3 font-mono text-[11px] text-slate-500">
                             {rep.submitted_at ? new Date(rep.submitted_at).toLocaleString() : "—"}
                           </td>
-                          <td className="px-4 py-3 max-w-xs text-slate-600">{rep.narrative || "—"}</td>
+                          <td className="px-4 py-3 max-w-xs text-slate-600">
+                            <div>{rep.narrative || "—"}</div>
+                            {rep.evidence_attachments && rep.evidence_attachments.length > 0 && (
+                              <div className="mt-1.5 space-y-1">
+                                {rep.evidence_attachments.map((att, aIdx) => (
+                                  <div
+                                    key={aIdx}
+                                    className="text-[10px] bg-slate-50 border rounded px-2 py-1"
+                                  >
+                                    <span className="font-semibold text-blue-700">{att.label}</span>
+                                    <span className="text-slate-500 block">{att.description}</span>
+                                  </div>
+                                ))}
+                              </div>
+                            )}
+                          </td>
                         </tr>
                       );
                     })}
@@ -617,8 +644,8 @@ export function ShortTermKpiDetailView({ kpiId }: ShortTermKpiDetailViewProps) {
           </Card>
         </TabsContent>
 
-        {/* TAB 2: REPORT — Plan-Draft-Style Cascaded Period Classification Cards */}
-        <TabsContent value="report" className="space-y-5">
+        {/* TAB 2: REPORT — Plan-Draft-Style Cascaded Period Classification Cards (Unwrapped) */}
+        <TabsContent value="report" className="space-y-4">
           {!activeAssignment ? (
             <Card>
               <CardContent className="py-10 text-center text-sm text-amber-700">
@@ -626,148 +653,161 @@ export function ShortTermKpiDetailView({ kpiId }: ShortTermKpiDetailViewProps) {
               </CardContent>
             </Card>
           ) : (
-            <Card>
-              <CardHeader className="border-b bg-slate-50/50">
-                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
-                  <div>
-                    <CardTitle className="text-base flex items-center gap-2">
-                      <Layers className="h-4 w-4 text-emerald-600" />
-                      Reporting Period Classification (Plan-Draft Card View)
-                    </CardTitle>
-                    <CardDescription>
-                      Colored by Plan Rule performance thresholds. Select a month card to drill down into weekly/daily reporting periods.
-                    </CardDescription>
-                  </div>
-                  {/* Breadcrumb Navigation */}
-                  <div className="flex items-center gap-1.5 text-xs">
-                    <Button
-                      variant={selectedMonth ? "ghost" : "secondary"}
-                      size="sm"
-                      className="h-7 px-2.5 text-xs"
-                      onClick={() => {
-                        setSelectedMonthLabel(null);
-                        setReportingDivision(null);
-                      }}
-                    >
-                      All Months ({monthlyGroups.length})
-                    </Button>
+            <>
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+                <div>
+                  <h2 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
+                    <Layers className="h-4 w-4 text-emerald-600" />
+                    Reporting Period Divisions
+                  </h2>
+                  <p className="text-sm text-muted-foreground mt-0.5">
+                    Colored by Plan Rule thresholds. Select a month division to drill down into weekly/daily reporting periods.
+                  </p>
+                </div>
+                <div className="flex items-center gap-1.5 text-xs">
+                  <Button
+                    variant={selectedMonth ? "ghost" : "secondary"}
+                    size="sm"
+                    className="h-7 px-2.5 text-xs"
+                    onClick={() => {
+                      setSelectedMonthLabel(null);
+                      setReportingDivision(null);
+                    }}
+                  >
+                    All Months ({monthlyGroups.length})
+                  </Button>
+                  {selectedMonth && (
+                    <>
+                      <ChevronRight className="h-3.5 w-3.5 text-slate-400" />
+                      <Badge variant="default" className="h-7 px-2.5">
+                        {selectedMonth.period_label}
+                      </Badge>
+                    </>
+                  )}
+                </div>
+              </div>
+
+              {/* Top Overall Target & Selected Month Target Strip */}
+              <Card
+                className="border"
+                style={{
+                  borderColor: `${overallApp.color}44`,
+                  backgroundColor: `${overallApp.color}0A`,
+                }}
+              >
+                <CardContent className="py-4">
+                  <div className="flex flex-wrap items-center justify-between gap-4">
+                    <div>
+                      <p className="text-xs text-muted-foreground">
+                        {kpi.plan?.title || "Short-Term Plan"} — Overall Target &amp; Achievement
+                      </p>
+                      <div className="flex items-baseline gap-3 mt-0.5">
+                        <p className="text-2xl font-bold font-mono" style={{ color: overallApp.color }}>
+                          {overallAchievement}%
+                        </p>
+                        <span className="text-xs font-mono text-slate-700">
+                          Target: <strong>{effectiveTarget != null ? `${effectiveTarget.toLocaleString()} ${kpi.unit}` : "—"}</strong>
+                          {" • "}
+                          Reported: <strong>{overallActual.toLocaleString()} {kpi.unit}</strong>
+                        </span>
+                      </div>
+                      {overallApp.hasBadge && (
+                        <PerformanceColorBadge
+                          color={overallApp.color}
+                          label={overallApp.label}
+                          className="mt-1.5 text-[10px] py-0 h-5"
+                        />
+                      )}
+                    </div>
+
                     {selectedMonth && (
-                      <>
-                        <ChevronRight className="h-3.5 w-3.5 text-slate-400" />
-                        <Badge variant="default" className="h-7 px-2.5">
-                          {selectedMonth.period_label}
-                        </Badge>
-                      </>
+                      <div className="rounded-lg border bg-white/90 px-3.5 py-2 text-xs font-mono">
+                        <span className="text-[10px] font-sans text-muted-foreground block">
+                          Selected Month ({selectedMonth.period_label})
+                        </span>
+                        <span className="font-bold text-slate-900">
+                          Target: {selectedMonth.month_target != null ? `${selectedMonth.month_target.toLocaleString()} ${kpi.unit}` : "—"}
+                          {" • "}
+                          Reported: {selectedMonth.month_actual != null ? `${selectedMonth.month_actual.toLocaleString()} ${kpi.unit}` : "0"}
+                        </span>
+                      </div>
                     )}
                   </div>
-                </div>
-              </CardHeader>
+                </CardContent>
+              </Card>
 
-              <CardContent className="pt-5 space-y-5">
-                {/* Overall Plan Root Strip */}
-                <div
-                  className="rounded-xl border p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3"
-                  style={{
-                    borderColor: `${overallApp.color}44`,
-                    backgroundColor: `${overallApp.color}0D`,
-                  }}
-                >
-                  <div className="flex items-center gap-3">
-                    <Calendar className="h-5 w-5 shrink-0" style={{ color: overallApp.color }} />
-                    <div>
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <span className="font-bold text-sm text-slate-900">
-                          {kpi.plan?.title || "Short-Term Plan"} — Overall Aggregate
-                        </span>
-                        {overallApp.hasBadge && (
-                          <PerformanceColorBadge color={overallApp.color} label={overallApp.label} variant="tint" />
-                        )}
-                      </div>
-                      <p className="text-xs text-slate-500">
-                        {summary?.reported_count ?? 0} / {summary?.total_divisions ?? 0} periods reported
-                      </p>
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-6 text-xs font-mono">
-                    <div>
-                      <span className="text-slate-400 block text-[10px] font-sans">Target</span>
-                      <span className="font-bold text-slate-900">
-                        {effectiveTarget != null ? `${effectiveTarget.toLocaleString()} ${kpi.unit}` : "—"}
-                      </span>
-                    </div>
-                    <div>
-                      <span className="text-slate-400 block text-[10px] font-sans">Reported Sum</span>
-                      <span className="font-bold" style={{ color: overallApp.color }}>
-                        {overallActual.toLocaleString()} {kpi.unit}
-                      </span>
-                    </div>
-                    <div>
-                      <span className="text-slate-400 block text-[10px] font-sans">Achievement</span>
-                      <span className="font-bold" style={{ color: overallApp.color }}>
-                        {overallAchievement}%
-                      </span>
-                    </div>
-                  </div>
-                </div>
-
-                {!selectedMonth ? (
-                  /* Level 1: Month Classification Cards (Plan-Draft Style + Plan Rule Coloring) */
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                    {monthlyGroups.map((month) => {
-                      const monthApp = getColorAppearance(
-                        month.achievement_percent,
-                        month.reported_count > 0 && month.month_actual !== null,
-                        month.is_locked
-                      );
-                      return (
+              {!selectedMonth ? (
+                /* Level 1: Month Division Cards (Plan-Draft Style, Unwrapped) */
+                <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+                  {monthlyGroups.map((month, idx) => {
+                    const monthApp = getColorAppearance(
+                      month.achievement_percent,
+                      month.reported_count > 0 && month.month_actual !== null,
+                      month.is_locked
+                    );
+                    const showProgress = month.reported_count > 0 && month.month_actual !== null;
+                    return (
+                      <Card
+                        key={month.period_label}
+                        onClick={() => setSelectedMonthLabel(month.period_label)}
+                        className="relative flex flex-col overflow-hidden transition-shadow hover:shadow-md cursor-pointer"
+                        style={
+                          month.is_locked && !showProgress
+                            ? { borderColor: LOCKED_STATUS_COLOR }
+                            : { borderColor: `${monthApp.color}55` }
+                        }
+                      >
                         <div
-                          key={month.period_label}
-                          onClick={() => setSelectedMonthLabel(month.period_label)}
-                          className="group cursor-pointer rounded-xl border p-4 transition-all hover:shadow-md"
+                          className="absolute top-0 left-0 right-0 h-1"
                           style={{
-                            borderColor: `${monthApp.color}55`,
-                            backgroundColor: `${monthApp.color}0A`,
+                            background: `linear-gradient(90deg, ${monthApp.color}, ${monthApp.color}55)`,
                           }}
-                        >
-                          <div className="flex items-start justify-between gap-2 mb-3">
-                            <div>
-                              <h3 className="font-semibold text-slate-900 transition-colors">
-                                {month.period_label}
-                              </h3>
-                              <p className="text-[11px] text-slate-500">
+                        />
+                        <CardHeader className="pb-3">
+                          <div className="flex items-start justify-between gap-2">
+                            <div className="space-y-1 min-w-0">
+                              <CardTitle className="text-base flex items-center gap-2">
+                                <Clock className="h-4 w-4 shrink-0" style={{ color: monthApp.color }} />
+                                <span className="truncate">{month.period_label}</span>
+                              </CardTitle>
+                              <CardDescription className="text-xs">
                                 {month.display_start_date} → {month.display_end_date}
-                              </p>
+                              </CardDescription>
                             </div>
-                            <div className="flex items-center gap-1.5 flex-wrap justify-end">
-                              {monthApp.hasBadge && (
-                                <PerformanceColorBadge color={monthApp.color} label={monthApp.label} variant="tint" />
-                              )}
-                              {getLockBadge(month.lock_status)}
-                            </div>
+                            <PerformanceColorBadge
+                              color={monthApp.color}
+                              label={monthApp.hasBadge ? monthApp.label : month.lock_status === "open" ? "Open" : month.lock_status === "upcoming" ? "Upcoming" : "Closed"}
+                              variant="solid"
+                            />
                           </div>
+                          <p className="text-xs text-muted-foreground pt-1">
+                            Month {idx + 1} of {monthlyGroups.length}
+                          </p>
+                        </CardHeader>
 
-                          <div className="grid grid-cols-3 gap-2 text-xs bg-white/90 rounded-lg border p-2.5 mb-3">
+                        <CardContent className="flex-1 space-y-3">
+                          <div className="grid grid-cols-3 gap-2 text-xs bg-slate-50/80 rounded-lg border p-2">
                             <div>
-                              <span className="text-slate-400 block text-[10px]">Target</span>
-                              <span className="font-semibold font-mono text-slate-800">
+                              <span className="text-muted-foreground block text-[10px]">Target</span>
+                              <span className="font-semibold font-mono">
                                 {month.month_target !== null ? month.month_target.toLocaleString() : "—"}
                               </span>
                             </div>
                             <div>
-                              <span className="text-slate-400 block text-[10px]">Actual</span>
+                              <span className="text-muted-foreground block text-[10px]">Actual</span>
                               <span className="font-semibold font-mono" style={{ color: monthApp.color }}>
                                 {month.month_actual !== null ? month.month_actual.toLocaleString() : "0"}
                               </span>
                             </div>
                             <div>
-                              <span className="text-slate-400 block text-[10px]">Achieved</span>
+                              <span className="text-muted-foreground block text-[10px]">Achieved</span>
                               <span className="font-semibold font-mono" style={{ color: monthApp.color }}>
                                 {month.achievement_percent !== null ? `${month.achievement_percent}%` : "—"}
                               </span>
                             </div>
                           </div>
 
-                          <div className="space-y-1.5">
+                          <div className="space-y-1">
                             <div className="w-full h-2 bg-slate-200/80 rounded-full overflow-hidden">
                               <div
                                 className="h-full rounded-full transition-all"
@@ -777,96 +817,104 @@ export function ShortTermKpiDetailView({ kpiId }: ShortTermKpiDetailViewProps) {
                                 }}
                               />
                             </div>
-                            <div className="flex items-center justify-between text-[11px] text-slate-500">
+                            <div className="flex items-center justify-between text-[11px] text-muted-foreground">
                               <span>
-                                {month.reported_count} / {month.total_children} period(s) reported
+                                {month.reported_count} / {month.total_children} period(s)
                               </span>
                               <span className="text-emerald-700 font-medium inline-flex items-center gap-0.5">
-                                Open periods <ChevronRight className="h-3 w-3" />
+                                Open <ChevronRight className="h-3 w-3" />
                               </span>
                             </div>
                           </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                ) : (
-                  /* Level 2: Inner Depth — Weeks / Days inside Selected Month */
-                  <div className="space-y-4">
-                    <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 rounded-lg border bg-slate-50 p-3.5">
-                      <div className="space-y-0.5">
-                        <div className="flex items-center gap-2">
-                          <h3 className="font-semibold text-slate-900">{selectedMonth.period_label}</h3>
-                          {getLockBadge(selectedMonth.lock_status)}
-                        </div>
-                        <p className="text-xs text-slate-500">
-                          {selectedMonth.display_start_date} → {selectedMonth.display_end_date} •{" "}
-                          Target: <strong>{selectedMonth.month_target ?? "—"}</strong> •{" "}
-                          Actual: <strong className="text-emerald-700">{selectedMonth.month_actual ?? 0}</strong> •{" "}
-                          Achievement: <strong>{selectedMonth.achievement_percent ?? 0}%</strong>
-                        </p>
-                      </div>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => {
-                          setSelectedMonthLabel(null);
-                          setReportingDivision(null);
-                        }}
-                      >
-                        <ArrowLeft className="h-3.5 w-3.5 mr-1.5" />
-                        Back to Months
-                      </Button>
+                        </CardContent>
+                      </Card>
+                    );
+                  })}
+                </div>
+              ) : (
+                /* Level 2: Inner Depth — Weeks / Days (Plan-Draft Style, Unwrapped) */
+                <div className="space-y-4">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <h3 className="font-semibold text-slate-900">{selectedMonth.period_label}</h3>
+                      {getLockBadge(selectedMonth.lock_status)}
                     </div>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => {
+                        setSelectedMonthLabel(null);
+                        setReportingDivision(null);
+                      }}
+                    >
+                      <ArrowLeft className="h-3.5 w-3.5 mr-1.5" />
+                      Back to Months
+                    </Button>
+                  </div>
 
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                      {selectedMonth.divisions.map((div) => {
-                        const isOpen = div.lock_status === "open";
-                        const canUserSubmit = isOpen && Boolean(activeAssignment.can_report) && canReportPerm;
-                        const isEditingThis = reportingDivision?.period_label === div.period_label;
-                        const divApp = getColorAppearance(
-                          div.report?.achievement_percent,
-                          Boolean(div.report && div.report.reported_actual !== null),
-                          div.is_locked
-                        );
+                  <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+                    {selectedMonth.divisions.map((div, idx) => {
+                      const isOpen = div.lock_status === "open";
+                      const canUserSubmit = isOpen && Boolean(activeAssignment.can_report) && canReportPerm;
+                      const isEditingThis = reportingDivision?.period_label === div.period_label;
+                      const divApp = getColorAppearance(
+                        div.report?.achievement_percent,
+                        Boolean(div.report && div.report.reported_actual !== null),
+                        div.is_locked
+                      );
 
-                        return (
+                      return (
+                        <Card
+                          key={div.period_label}
+                          className="relative flex flex-col overflow-hidden transition-shadow hover:shadow-md"
+                          style={
+                            div.is_locked
+                              ? { borderColor: LOCKED_STATUS_COLOR }
+                              : { borderColor: `${divApp.color}55` }
+                          }
+                        >
                           <div
-                            key={div.period_label}
-                            className="rounded-xl border p-4 space-y-3"
+                            className="absolute top-0 left-0 right-0 h-1"
                             style={{
-                              borderColor: `${divApp.color}55`,
-                              backgroundColor: `${divApp.color}08`,
+                              background: `linear-gradient(90deg, ${divApp.color}, ${divApp.color}55)`,
                             }}
-                          >
+                          />
+                          <CardHeader className="pb-3">
                             <div className="flex items-start justify-between gap-2">
-                              <div>
-                                <h4 className="font-semibold text-sm text-slate-900">{div.period_label}</h4>
-                                <p className="text-[11px] text-slate-500">
+                              <div className="space-y-1 min-w-0">
+                                <CardTitle className="text-base flex items-center gap-2">
+                                  <Clock className="h-4 w-4 shrink-0" style={{ color: divApp.color }} />
+                                  <span className="truncate">{div.period_label}</span>
+                                </CardTitle>
+                                <CardDescription className="text-xs">
                                   {div.display_start_date} → {div.display_end_date}
-                                </p>
+                                </CardDescription>
                               </div>
-                              <div className="flex items-center gap-1.5 flex-wrap justify-end">
-                                {divApp.hasBadge && (
-                                  <PerformanceColorBadge color={divApp.color} label={divApp.label} variant="tint" />
-                                )}
-                                {getLockBadge(div.lock_status)}
-                              </div>
+                              <PerformanceColorBadge
+                                color={divApp.color}
+                                label={divApp.hasBadge ? divApp.label : div.lock_status === "open" ? "Open" : div.lock_status === "upcoming" ? "Upcoming" : "Closed"}
+                                variant="solid"
+                              />
                             </div>
+                            <p className="text-xs text-muted-foreground pt-1">
+                              Period {idx + 1} of {selectedMonth.divisions.length}
+                            </p>
+                          </CardHeader>
 
-                            <div className="grid grid-cols-3 gap-2 text-xs bg-white rounded-md border p-2">
+                          <CardContent className="flex-1 space-y-3">
+                            <div className="grid grid-cols-3 gap-2 text-xs bg-slate-50/80 rounded-lg border p-2">
                               <div>
-                                <span className="text-slate-400 block text-[10px]">Planned Target</span>
+                                <span className="text-muted-foreground block text-[10px]">Target</span>
                                 <span className="font-semibold font-mono">{div.planned_target ?? "—"}</span>
                               </div>
                               <div>
-                                <span className="text-slate-400 block text-[10px]">Reported Actual</span>
+                                <span className="text-muted-foreground block text-[10px]">Actual</span>
                                 <span className="font-semibold font-mono" style={{ color: divApp.color }}>
                                   {div.report?.reported_actual ?? "—"}
                                 </span>
                               </div>
                               <div>
-                                <span className="text-slate-400 block text-[10px]">Achievement</span>
+                                <span className="text-muted-foreground block text-[10px]">Achieved</span>
                                 <span className="font-semibold font-mono" style={{ color: divApp.color }}>
                                   {div.report?.achievement_percent !== null && div.report?.achievement_percent !== undefined
                                     ? `${div.report.achievement_percent}%`
@@ -876,16 +924,11 @@ export function ShortTermKpiDetailView({ kpiId }: ShortTermKpiDetailViewProps) {
                             </div>
 
                             {div.report?.narrative && (
-                              <div className="text-xs bg-white rounded-md border p-2.5 text-slate-700">
+                              <div className="text-xs bg-white rounded-md border p-2 text-slate-700">
                                 <span className="font-medium text-slate-500 block text-[10px] mb-0.5">
                                   Narrative Update
                                 </span>
                                 {div.report.narrative}
-                                {div.report.submittedByUser && (
-                                  <span className="block text-[10px] text-slate-400 mt-1">
-                                    Submitted by {div.report.submittedByUser.full_name}
-                                  </span>
-                                )}
                               </div>
                             )}
 
@@ -956,6 +999,11 @@ export function ShortTermKpiDetailView({ kpiId }: ShortTermKpiDetailViewProps) {
                                   />
                                 </div>
 
+                                <LabeledAttachmentInput
+                                  attachments={evidenceAttachments}
+                                  onChange={setEvidenceAttachments}
+                                />
+
                                 <div className="flex items-center justify-end gap-2">
                                   <Button
                                     type="button"
@@ -971,14 +1019,14 @@ export function ShortTermKpiDetailView({ kpiId }: ShortTermKpiDetailViewProps) {
                                 </div>
                               </form>
                             )}
-                          </div>
-                        );
-                      })}
-                    </div>
+                          </CardContent>
+                        </Card>
+                      );
+                    })}
                   </div>
-                )}
-              </CardContent>
-            </Card>
+                </div>
+              )}
+            </>
           )}
         </TabsContent>
       </Tabs>

@@ -15,10 +15,9 @@ import { PerformanceColorBadge } from "@/features/plan-management/components/Per
 import { PeriodCountdownProgressBar } from "./PeriodCountdownProgressBar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader } from "@/components/ui/card";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   ArrowLeft,
-  Calendar,
   ChevronRight,
   Clock,
   Eye,
@@ -26,8 +25,8 @@ import {
   History,
   Layers,
   Lock,
-  Unlock,
 } from "lucide-react";
+import { cn } from "@/lib/utils";
 
 interface Props {
   assignment: NationalReportingAssignment;
@@ -54,10 +53,20 @@ interface CascadedNode {
   reportedCount: number;
   totalLeaves: number;
   isLocked: boolean;
+  isCurrentActive: boolean;
   lockState: string;
   lockReason?: string | null;
   leafPeriod?: ReportingPeriod;
   children: CascadedNode[];
+}
+
+function getEthiopiaTodayStr(): string {
+  return new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Africa/Addis_Ababa",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).format(new Date());
 }
 
 function isPeriodReported(p: ReportingPeriod): boolean {
@@ -80,7 +89,8 @@ function resolveLeafTarget(p: ReportingPeriod, assignment: NationalReportingAssi
 function buildLeafNode(
   p: ReportingPeriod,
   assignment: NationalReportingAssignment,
-  divisionCustomNameMap: Record<string, string>
+  divisionCustomNameMap: Record<string, string>,
+  todayStr: string
 ): CascadedNode {
   const reported = isPeriodReported(p);
   const target = resolveLeafTarget(p, assignment);
@@ -89,6 +99,9 @@ function buildLeafNode(
     target != null && target > 0 && actual != null
       ? Math.round((actual / target) * 1000) / 10
       : null;
+  const isCurrentActive = Boolean(
+    p.start_date && p.end_date && todayStr >= p.start_date && todayStr <= p.end_date
+  );
 
   return {
     id: p.period_label,
@@ -104,6 +117,7 @@ function buildLeafNode(
     reportedCount: reported ? 1 : 0,
     totalLeaves: 1,
     isLocked: Boolean(p.is_locked),
+    isCurrentActive,
     lockState: p.lock_state || (p.is_locked ? "closed_deadline_passed" : "reporting_open"),
     lockReason: p.lock_reason || null,
     leafPeriod: p,
@@ -116,6 +130,7 @@ function aggregateChildren(
   label: string,
   subtitle: string,
   children: CascadedNode[],
+  todayStr: string,
   fallbackTarget: number | null = null
 ): CascadedNode {
   let sumTarget = 0;
@@ -146,9 +161,22 @@ function aggregateChildren(
       ? Math.round((finalActual / finalTarget!) * 1000) / 10
       : null;
 
-  const anyOpen = children.some((c) => !c.isLocked);
   const startDate = children[0]?.startDate || "";
   const endDate = children[children.length - 1]?.endDate || "";
+  const isCurrentActive =
+    Boolean(startDate && endDate && todayStr >= startDate && todayStr <= endDate) ||
+    children.some((c) => c.isCurrentActive);
+  const anyOpen = children.some((c) => !c.isLocked);
+  // Active containers holding today's date are NEVER locked for drilling down
+  const containerLocked = !anyOpen && !isCurrentActive;
+
+  const lockState = anyOpen
+    ? "reporting_open"
+    : isCurrentActive
+      ? "upcoming_phase"
+      : endDate && todayStr > endDate
+        ? "closed_deadline_passed"
+        : "upcoming_phase";
 
   return {
     id,
@@ -163,33 +191,25 @@ function aggregateChildren(
     hasActual,
     reportedCount,
     totalLeaves,
-    isLocked: !anyOpen,
-    lockState: anyOpen ? "reporting_open" : children[0]?.lockState || "closed_deadline_passed",
-    lockReason: !anyOpen ? "All child periods in this division are currently locked." : null,
+    isLocked: containerLocked,
+    isCurrentActive,
+    lockState,
+    lockReason: containerLocked ? "Outside active reporting period." : null,
     children,
   };
 }
 
-function buildDayNodesForMonth(
-  monthNode: CascadedNode,
-  assignment: NationalReportingAssignment
-): CascadedNode[] {
-  // If backend already provided daily leaves inside this month, return them; otherwise synthesize 30 EC days
+function buildDayNodesForMonth(monthNode: CascadedNode, todayStr: string): CascadedNode[] {
   if (monthNode.children.length > 0) return monthNode.children;
   const startMs = monthNode.startDate ? new Date(`${monthNode.startDate}T12:00:00Z`).getTime() : NaN;
   const days: CascadedNode[] = [];
   const perDayTarget = monthNode.target != null ? Math.round((monthNode.target / 30) * 100) / 100 : null;
-  const todayStr = new Intl.DateTimeFormat("en-CA", {
-    timeZone: "Africa/Addis_Ababa",
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-  }).format(new Date());
 
   for (let d = 1; d <= 30; d++) {
     const dtStr = !isNaN(startMs)
       ? new Date(startMs + (d - 1) * 86400000).toISOString().slice(0, 10)
       : "";
+    const isCurrentActive = dtStr === todayStr;
     const isLocked = dtStr ? dtStr !== todayStr : monthNode.isLocked;
     const lockState = !dtStr
       ? monthNode.lockState
@@ -208,7 +228,7 @@ function buildDayNodesForMonth(
       monthly_target: perDayTarget,
       is_locked: isLocked,
       lock_state: lockState,
-      lock_reason: isLocked ? `Day ${d} (${dtStr}) is locked outside today's EC window.` : null,
+      lock_reason: isLocked ? `Day ${d} (${dtStr}) is outside today's EC window.` : null,
     };
     days.push({
       id: dayPeriod.period_label,
@@ -224,6 +244,7 @@ function buildDayNodesForMonth(
       reportedCount: 0,
       totalLeaves: 1,
       isLocked,
+      isCurrentActive,
       lockState,
       lockReason: dayPeriod.lock_reason,
       leafPeriod: dayPeriod,
@@ -244,6 +265,7 @@ export function RegionalCascadedPeriodsSection({
   onViewHistory,
 }: Props) {
   const thresholds = usePerformanceColorThresholds();
+  const todayStr = getEthiopiaTodayStr();
   const frequency = String(assignment.frequency_override || req?.frequency || "monthly")
     .toLowerCase()
     .replace(/[\s\-]/g, "_");
@@ -253,65 +275,44 @@ export function RegionalCascadedPeriodsSection({
       ? Number(assignment.annual_target)
       : null;
 
-  // Build bottom-up cascaded hierarchy
   const rootTree: CascadedNode = useMemo(() => {
     const leafNodes = recurringPeriods.map((p) =>
-      buildLeafNode(p, assignment, divisionCustomNameMap)
+      buildLeafNode(p, assignment, divisionCustomNameMap, todayStr)
     );
 
     if (frequency === "annually" || leafNodes.length <= 1) {
-      if (leafNodes.length === 1) {
-        return aggregateChildren("annual", "Annual Plan", "Full Year", leafNodes, annualPresetTarget);
-      }
-      return aggregateChildren("annual", "Annual Plan", "Full Year", leafNodes, annualPresetTarget);
+      return aggregateChildren("annual", "Annual Plan", "Full Year", leafNodes, todayStr, annualPresetTarget);
     }
 
     if (frequency === "semi_annually" || frequency === "semiannual") {
-      return aggregateChildren(
-        "annual",
-        "Annual Plan",
-        "2 Semi-Annual Divisions",
-        leafNodes,
-        annualPresetTarget
-      );
+      return aggregateChildren("annual", "Annual Plan", "2 Semi-Annual Divisions", leafNodes, todayStr, annualPresetTarget);
     }
 
     if (frequency === "quarterly") {
-      return aggregateChildren(
-        "annual",
-        "Annual Plan",
-        "4 Quarterly Divisions",
-        leafNodes,
-        annualPresetTarget
-      );
+      return aggregateChildren("annual", "Annual Plan", "4 Quarterly Divisions", leafNodes, todayStr, annualPresetTarget);
     }
 
-    // Monthly or Daily: group 12 months into 4 Quarters -> Annual
     const quarterNodes: CascadedNode[] = [];
     if (frequency === "daily" && leafNodes.length > 12) {
-      // Group daily leaves by ~30 days into 12 months, then 4 quarters
       const monthNodes: CascadedNode[] = [];
       for (let m = 0; m < 12; m++) {
         const chunk = leafNodes.slice(m * 30, (m + 1) * 30);
         if (chunk.length > 0) {
-          monthNodes.push(aggregateChildren(`M${m + 1}`, `Month ${m + 1}`, `${chunk.length} Days`, chunk));
+          monthNodes.push(aggregateChildren(`M${m + 1}`, `Month ${m + 1}`, `${chunk.length} Days`, chunk, todayStr));
         }
       }
       for (let q = 0; q < 4; q++) {
         const qMonths = monthNodes.slice(q * 3, (q + 1) * 3);
         if (qMonths.length > 0) {
-          quarterNodes.push(
-            aggregateChildren(`Q${q + 1}`, `Quarter ${q + 1}`, `${qMonths.length} Months`, qMonths)
-          );
+          quarterNodes.push(aggregateChildren(`Q${q + 1}`, `Quarter ${q + 1}`, `${qMonths.length} Months`, qMonths, todayStr));
         }
       }
     } else {
-      // Monthly leaves (12) -> group 3 per quarter, and if frequency === "daily", expand 30 days inside each month
       const effectiveLeaves =
         frequency === "daily"
           ? leafNodes.map((m) => ({
               ...m,
-              children: buildDayNodesForMonth(m, assignment),
+              children: buildDayNodesForMonth(m, todayStr),
               leafPeriod: undefined,
             }))
           : leafNodes;
@@ -319,26 +320,17 @@ export function RegionalCascadedPeriodsSection({
       for (let q = 0; q < 4; q++) {
         const qMonths = effectiveLeaves.slice(q * 3, (q + 1) * 3);
         if (qMonths.length > 0) {
-          quarterNodes.push(
-            aggregateChildren(`Q${q + 1}`, `Quarter ${q + 1}`, `${qMonths.length} Months`, qMonths)
-          );
+          quarterNodes.push(aggregateChildren(`Q${q + 1}`, `Quarter ${q + 1}`, `${qMonths.length} Months`, qMonths, todayStr));
         }
       }
     }
 
-    return aggregateChildren(
-      "annual",
-      "Annual Plan",
-      `${quarterNodes.length} Quarters (Bottom-Up Aggregate)`,
-      quarterNodes,
-      annualPresetTarget
-    );
-  }, [recurringPeriods, assignment, divisionCustomNameMap, frequency, annualPresetTarget]);
+    return aggregateChildren("annual", "Annual Plan", `${quarterNodes.length} Quarters`, quarterNodes, todayStr, annualPresetTarget);
+  }, [recurringPeriods, assignment, divisionCustomNameMap, frequency, annualPresetTarget, todayStr]);
 
-  // Drill-down path (array of selected node IDs)
   const [pathIds, setPathIds] = useState<string[]>([]);
 
-  const { currentLevelNodes, breadcrumbs } = useMemo(() => {
+  const { currentParent, currentLevelNodes, breadcrumbs } = useMemo(() => {
     let curr: CascadedNode = rootTree;
     const crumbs: Array<{ id: string; label: string }> = [{ id: "root", label: rootTree.label }];
     for (const id of pathIds) {
@@ -348,7 +340,7 @@ export function RegionalCascadedPeriodsSection({
       crumbs.push({ id: curr.id, label: curr.label });
     }
     const nodes = curr.children.length > 0 ? curr.children : [curr];
-    return { currentLevelNodes: nodes, breadcrumbs: crumbs };
+    return { currentParent: curr, currentLevelNodes: nodes, breadcrumbs: crumbs };
   }, [rootTree, pathIds]);
 
   const unitLabel = req?.expected_unit || "";
@@ -362,27 +354,35 @@ export function RegionalCascadedPeriodsSection({
         hasBadge: true,
       };
     }
+    if (node.isCurrentActive) {
+      return { color: "#10B981", label: "Active Period", hasBadge: false };
+    }
     if (node.isLocked) {
-      return { color: LOCKED_STATUS_COLOR, label: "Locked", hasBadge: false };
+      return {
+        color: LOCKED_STATUS_COLOR,
+        label: node.lockState === "upcoming_phase" ? "Upcoming" : "Locked",
+        hasBadge: false,
+      };
     }
     return { color: "#10B981", label: "Open", hasBadge: false };
   };
 
+  const rootApp = getCardAppearance(rootTree);
+
   return (
-    <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm overflow-hidden">
-      {/* Header & Breadcrumb Bar */}
-      <div className="p-4 bg-slate-50/80 dark:bg-slate-950/60 border-b border-slate-200 dark:border-slate-800 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+    <div className="space-y-4">
+      {/* Header & Breadcrumb Navigation (No Outer Wrapper Card) */}
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h2 className="text-base font-bold text-slate-900 dark:text-slate-100 flex items-center gap-2">
+          <h2 className="text-lg font-semibold text-gray-900 dark:text-slate-100 flex items-center gap-2">
             <Layers className="h-4 w-4 text-emerald-600" />
-            Cascaded Period Classification & Reporting ({frequency.replace("_", " ")})
+            Reporting Period Divisions ({frequency.replace("_", " ")})
           </h2>
-          <p className="text-xs text-slate-500 mt-0.5">
-            Bottom-up target & actual aggregation with Plan Rule coloring. Click a card to drill down into child periods.
+          <p className="text-sm text-muted-foreground mt-0.5">
+            Cascaded division targets &amp; bottom-up achievement colored by Plan Rule thresholds.
           </p>
         </div>
 
-        {/* Breadcrumb Navigation */}
         <div className="flex items-center gap-1 flex-wrap">
           {breadcrumbs.map((crumb, idx) => {
             const isLast = idx === breadcrumbs.length - 1;
@@ -414,157 +414,168 @@ export function RegionalCascadedPeriodsSection({
         </div>
       </div>
 
-      {/* Annual Root Summary Strip */}
-      <div className="px-4 pt-4">
-        {(() => {
-          const rootApp = getCardAppearance(rootTree);
-          return (
-            <div
-              className="rounded-xl border p-3.5 flex flex-col sm:flex-row sm:items-center justify-between gap-3"
-              style={{
-                borderColor: `${rootApp.color}44`,
-                backgroundColor: `${rootApp.color}0D`,
-              }}
-            >
-              <div className="flex items-center gap-3">
-                <Calendar className="h-5 w-5 shrink-0" style={{ color: rootApp.color }} />
-                <div>
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <span className="font-bold text-sm text-slate-900 dark:text-slate-100">
-                      {rootTree.label}
-                    </span>
-                    {rootApp.hasBadge && (
-                      <PerformanceColorBadge color={rootApp.color} label={rootApp.label} variant="tint" />
-                    )}
-                  </div>
-                  <p className="text-xs text-slate-500">
-                    {rootTree.reportedCount} / {rootTree.totalLeaves} reporting period(s) submitted
-                  </p>
-                </div>
+      {/* Top Annual Target & Selected Period Target Summary Card (Plan Draft Style) */}
+      <Card
+        className="border"
+        style={{
+          borderColor: `${rootApp.color}44`,
+          backgroundColor: `${rootApp.color}0A`,
+        }}
+      >
+        <CardContent className="py-4">
+          <div className="flex flex-wrap items-center justify-between gap-4">
+            <div>
+              <p className="text-xs text-muted-foreground">Annual Target &amp; Achievement</p>
+              <div className="flex items-baseline gap-3 mt-0.5">
+                <p className="text-2xl font-bold font-mono" style={{ color: rootApp.color }}>
+                  {rootTree.achievementPercent != null ? `${rootTree.achievementPercent}%` : "0%"}
+                </p>
+                <span className="text-xs font-mono text-slate-700 dark:text-slate-300">
+                  Target: <strong>{rootTree.target != null ? `${rootTree.target.toLocaleString()} ${unitLabel}` : "—"}</strong>
+                  {" • "}
+                  Reported: <strong>{rootTree.actual != null ? `${rootTree.actual.toLocaleString()} ${unitLabel}` : "0"}</strong>
+                </span>
               </div>
-              <div className="flex items-center gap-6 text-xs font-mono">
-                <div>
-                  <span className="text-slate-400 block text-[10px] font-sans">Annual Target</span>
-                  <span className="font-bold text-slate-900 dark:text-slate-100">
-                    {rootTree.target != null ? `${rootTree.target.toLocaleString()} ${unitLabel}` : "—"}
-                  </span>
-                </div>
-                <div>
-                  <span className="text-slate-400 block text-[10px] font-sans">Reported Sum</span>
-                  <span className="font-bold" style={{ color: rootApp.color }}>
-                    {rootTree.actual != null ? `${rootTree.actual.toLocaleString()} ${unitLabel}` : "0"}
-                  </span>
-                </div>
-                <div>
-                  <span className="text-slate-400 block text-[10px] font-sans">Aggregate %</span>
-                  <span className="font-bold" style={{ color: rootApp.color }}>
-                    {rootTree.achievementPercent != null ? `${rootTree.achievementPercent}%` : "—"}
-                  </span>
-                </div>
-              </div>
+              {rootApp.hasBadge && (
+                <PerformanceColorBadge
+                  color={rootApp.color}
+                  label={rootApp.label}
+                  className="mt-1.5 text-[10px] py-0 h-5"
+                />
+              )}
             </div>
-          );
-        })()}
-      </div>
 
-      {/* Cascaded Period Cards Grid */}
-      <div className="p-4 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-        {currentLevelNodes.map((node) => {
+            {pathIds.length > 0 && (
+              <div className="rounded-lg border bg-white/90 dark:bg-slate-950/60 px-3.5 py-2 text-xs font-mono">
+                <span className="text-[10px] font-sans text-muted-foreground block">
+                  Selected Division ({currentParent.label})
+                </span>
+                <span className="font-bold text-slate-900 dark:text-slate-100">
+                  Target: {currentParent.target != null ? `${currentParent.target.toLocaleString()} ${unitLabel}` : "—"}
+                  {" • "}
+                  Reported: {currentParent.actual != null ? `${currentParent.actual.toLocaleString()} ${unitLabel}` : "0"}
+                </span>
+              </div>
+            )}
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Plan-Draft-Style Division Cards Grid (Unwrapped) */}
+      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        {currentLevelNodes.map((node, idx) => {
           const app = getCardAppearance(node);
           const hasChildren = node.children.length > 0;
           const leaf = node.leafPeriod;
           const isLeaf = !hasChildren && Boolean(leaf);
           const reported = leaf ? isPeriodReported(leaf) : node.reportedCount > 0;
+          const showProgress = node.hasActual && node.achievementPercent != null;
+          const progressColor = showProgress ? app.color : LOCKED_STATUS_COLOR;
 
           return (
             <Card
               key={node.id}
               onClick={hasChildren ? () => setPathIds([...pathIds, node.id]) : undefined}
-              className={`border transition-all ${
-                hasChildren ? "cursor-pointer hover:shadow-md" : ""
-              }`}
-              style={{
-                borderColor: `${app.color}55`,
-                backgroundColor: `${app.color}08`,
-              }}
+              className={cn(
+                "relative flex flex-col overflow-hidden transition-shadow hover:shadow-md",
+                hasChildren && "cursor-pointer",
+                node.isLocked && !node.isCurrentActive && "bg-muted/40 border-muted-foreground/30"
+              )}
+              style={
+                node.isLocked && !node.isCurrentActive
+                  ? { borderColor: LOCKED_STATUS_COLOR }
+                  : showProgress
+                    ? { borderColor: `${progressColor}55` }
+                    : undefined
+              }
             >
-              <CardHeader className="p-4 pb-2 space-y-1.5">
-                <div className="flex items-start justify-between gap-2">
-                  <div className="min-w-0">
-                    <h3 className="font-bold text-sm text-slate-900 dark:text-slate-100 truncate">
-                      {node.label}
-                    </h3>
-                    <p className="text-[11px] text-slate-500 truncate">{node.subtitle}</p>
-                  </div>
+              {/* Plan-Draft Top Gradient Accent Bar */}
+              {(showProgress || node.isCurrentActive) && (
+                <div
+                  className="absolute top-0 left-0 right-0 h-1"
+                  style={{
+                    background: `linear-gradient(90deg, ${app.color}, ${app.color}55)`,
+                  }}
+                />
+              )}
 
-                  <div className="flex items-center gap-1.5 shrink-0">
-                    {app.hasBadge && (
-                      <PerformanceColorBadge color={app.color} label={app.label} variant="tint" />
-                    )}
-                    {node.isLocked ? (
-                      <Badge variant="outline" className="text-[10px] gap-1 text-slate-600 bg-white/80">
-                        <Lock className="h-2.5 w-2.5" />
-                        Locked
-                      </Badge>
-                    ) : (
-                      <Badge className="text-[10px] gap-1 bg-emerald-100 text-emerald-800 border-emerald-200 hover:bg-emerald-100">
-                        <Unlock className="h-2.5 w-2.5" />
-                        Open
-                      </Badge>
-                    )}
+              <CardHeader className="pb-3">
+                <div className="flex items-start justify-between gap-2">
+                  <div className="space-y-1 min-w-0">
+                    <CardTitle className="text-base flex items-center gap-2">
+                      <Clock
+                        className="h-4 w-4 shrink-0 text-muted-foreground"
+                        style={
+                          showProgress || node.isCurrentActive
+                            ? { color: app.color }
+                            : node.isLocked
+                              ? { color: LOCKED_STATUS_COLOR }
+                              : undefined
+                        }
+                      />
+                      <span className="truncate">{node.label}</span>
+                    </CardTitle>
+                    <CardDescription className="line-clamp-2 text-xs">
+                      {node.subtitle}
+                    </CardDescription>
                   </div>
+                  <PerformanceColorBadge
+                    color={app.color}
+                    label={app.label}
+                    variant="solid"
+                  />
                 </div>
+                <p className="text-xs text-muted-foreground pt-1">
+                  Division {idx + 1} of {currentLevelNodes.length}
+                </p>
               </CardHeader>
 
-              <CardContent className="p-4 pt-1 space-y-3">
-                {/* Target / Actual / Achievement Strip */}
-                <div className="grid grid-cols-3 gap-2 text-xs bg-white/90 dark:bg-slate-950/60 rounded-lg border p-2.5">
+              <CardContent className="flex-1 space-y-3">
+                <div className="grid grid-cols-3 gap-2 text-xs bg-slate-50/80 dark:bg-slate-900/50 rounded-lg border p-2">
                   <div>
-                    <span className="text-slate-400 block text-[10px]">Target</span>
-                    <span className="font-semibold font-mono text-slate-800 dark:text-slate-200">
+                    <span className="text-muted-foreground block text-[10px]">Target</span>
+                    <span className="font-semibold font-mono">
                       {node.target != null ? node.target.toLocaleString() : "—"}
                     </span>
                   </div>
                   <div>
-                    <span className="text-slate-400 block text-[10px]">Reported</span>
+                    <span className="text-muted-foreground block text-[10px]">Reported</span>
                     <span className="font-semibold font-mono" style={{ color: app.color }}>
                       {node.actual != null ? node.actual.toLocaleString() : "—"}
                     </span>
                   </div>
                   <div>
-                    <span className="text-slate-400 block text-[10px]">Achieved</span>
+                    <span className="text-muted-foreground block text-[10px]">Achieved</span>
                     <span className="font-semibold font-mono" style={{ color: app.color }}>
                       {node.achievementPercent != null ? `${node.achievementPercent}%` : "—"}
                     </span>
                   </div>
                 </div>
 
-                {/* Plan Rule Colored Progress Bar */}
+                {/* Progress Bar */}
                 <div className="space-y-1">
                   <div className="w-full h-2 bg-slate-200/80 dark:bg-slate-800 rounded-full overflow-hidden">
                     <div
                       className="h-full rounded-full transition-all"
                       style={{
                         width: `${Math.min(100, Math.max(0, node.achievementPercent ?? 0))}%`,
-                        backgroundColor: app.color,
+                        backgroundColor: progressColor,
                       }}
                     />
                   </div>
-                  <div className="flex items-center justify-between text-[11px] text-slate-500">
-                    <span>
-                      {node.reportedCount} / {node.totalLeaves} reported
-                    </span>
+                  <div className="flex items-center justify-between text-[11px] text-muted-foreground">
+                    <span>{node.reportedCount}/{node.totalLeaves} submitted</span>
                     {hasChildren && (
-                      <span className="font-medium inline-flex items-center gap-0.5 text-emerald-700">
-                        Open {node.children.length} divisions <ChevronRight className="h-3 w-3" />
+                      <span className="font-medium text-emerald-700 inline-flex items-center gap-0.5">
+                        Open ({node.children.length}) <ChevronRight className="h-3 w-3" />
                       </span>
                     )}
                   </div>
                 </div>
 
-                {/* Leaf Reporting Window Countdown & Actions */}
+                {/* Leaf Reporting Window & Actions */}
                 {isLeaf && leaf && (
-                  <div className="space-y-2 pt-1 border-t border-slate-200/70">
+                  <div className="space-y-2 pt-2 border-t">
                     {leaf.phase_start_date && leaf.phase_end_date && (
                       <PeriodCountdownProgressBar
                         startDate={leaf.start_date}
@@ -576,14 +587,6 @@ export function RegionalCascadedPeriodsSection({
                         status={reported ? "published" : leaf.status}
                         compact={true}
                       />
-                    )}
-                    {leaf.is_locked && leaf.lock_reason && (
-                      <p className="text-[10px] text-slate-500 flex items-center gap-1">
-                        <Clock className="h-3 w-3 shrink-0" />
-                        <span className="truncate" title={leaf.lock_reason}>
-                          {leaf.lock_reason}
-                        </span>
-                      </p>
                     )}
 
                     <div className="flex items-center justify-between gap-2">
