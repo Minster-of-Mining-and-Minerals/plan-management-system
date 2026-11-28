@@ -16,7 +16,20 @@ function pad(num) {
 }
 
 function formatDate(date) {
-  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
+  return `${date.getUTCFullYear()}-${pad(date.getUTCMonth() + 1)}-${pad(date.getUTCDate())}`;
+}
+
+function getEthiopiaTodayString() {
+  return new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Africa/Addis_Ababa",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).format(new Date());
+}
+
+function toUtcNoon(dateStr) {
+  return new Date(`${String(dateStr).slice(0, 10)}T12:00:00Z`);
 }
 
 /**
@@ -99,7 +112,7 @@ function generateReportingPeriods(startDateStr, endDateStr, frequency, calendarS
  * @returns {Object} { is_locked, lock_state, lock_reason, deadline_date, reporting_phase_start, reporting_phase_end, is_in_grace_period, is_manually_unlocked, lock_override }
  */
 function computePeriodLockStatus({ period, lockOverride, deadlineDays = 0, phaseConfig = null }) {
-  const todayStr = formatDate(new Date());
+  const todayStr = getEthiopiaTodayString();
   const now = new Date();
 
   // 1. Resolve phase parameters
@@ -124,9 +137,9 @@ function computePeriodLockStatus({ period, lockOverride, deadlineDays = 0, phase
     openDaysBefore = 0;
   }
 
-  // Calculate reporting phase boundaries
-  const endDt = new Date(period.end_date);
-  const startDt = new Date(period.start_date);
+  // Calculate reporting phase boundaries in UTC-noon to avoid server timezone drift
+  const endDt = toUtcNoon(period.end_date);
+  const startDt = toUtcNoon(period.start_date);
 
   let phaseStartDt = new Date(endDt.getTime() - openDaysBefore * 86400000);
   if (phaseStartDt < startDt) {

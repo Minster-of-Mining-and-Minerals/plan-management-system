@@ -90,14 +90,20 @@ interface Props {
   indicator: NationalIndicatorDetailData;
   onBack: () => void;
   reportingYear?: number;
+  yearFilter?: string;
   periodLabel?: string;
+  onYearChange?: (val: string) => void;
+  onPeriodChange?: (val: string) => void;
 }
 
 export function NationalIndicatorDetailView({
   indicator,
   onBack,
-  reportingYear = new Date().getFullYear(),
+  reportingYear,
+  yearFilter = "all",
   periodLabel = "all",
+  onYearChange,
+  onPeriodChange,
 }: Props) {
   const router = useRouter();
   const { data: customCategories = [] } = useGetNationalCategoriesQuery();
@@ -116,10 +122,6 @@ export function NationalIndicatorDetailView({
   const [statusFilter, setStatusFilter] = useState("all");
   const [mandateFilter, setMandateFilter] = useState("all");
 
-  const actual = indicator.nationalTotalActual || 0;
-  const target = indicator.nationalTotalTarget || 0;
-  const achievementRate = indicator.achievementRate;
-  const isOverAchieved = achievementRate != null && achievementRate > 100;
   const assignedList: AssignedRegionInfo[] = indicator.assignedRegions || [];
 
   // Filtered regional assignments for the table & chart
@@ -142,6 +144,69 @@ export function NationalIndicatorDetailView({
       );
     });
   }, [assignedList, searchQuery, regionFilter, statusFilter, mandateFilter]);
+
+  // Dynamic aggregates over filtered regional assignments
+  const hasClientFilters =
+    regionFilter !== "all" ||
+    statusFilter !== "all" ||
+    mandateFilter !== "all" ||
+    searchQuery.trim().length > 0;
+
+  const displayStats = useMemo(() => {
+    if (!hasClientFilters) {
+      return {
+        target: indicator.nationalTotalTarget ?? null,
+        actual: indicator.nationalTotalActual ?? null,
+        achievementRate: indicator.achievementRate ?? null,
+        assignedCount: indicator.assignedRegionsCount,
+        submittedCount: indicator.submittedRegionsCount,
+        completenessPercent: indicator.dataCompletenessPercent,
+        isCompleteData: indicator.isCompleteData,
+      };
+    }
+
+    let sumTarget = 0;
+    let hasTarget = false;
+    let sumActual = 0;
+    let hasActual = false;
+    let submitted = 0;
+
+    filteredAssignedList.forEach((asgn) => {
+      const t = asgn.standardizedTarget ?? asgn.plannedTarget;
+      const a = asgn.standardizedActual ?? asgn.reportedActual;
+      if (t != null && !isNaN(Number(t))) {
+        sumTarget += Number(t);
+        hasTarget = true;
+      }
+      if (a != null && !isNaN(Number(a))) {
+        sumActual += Number(a);
+        hasActual = true;
+      }
+      if (asgn.status === "published" || asgn.status === "clarification_requested") {
+        submitted += 1;
+      }
+    });
+
+    const totalCount = filteredAssignedList.length;
+    const achRate =
+      hasTarget && sumTarget > 0 && hasActual
+        ? Math.round((sumActual / sumTarget) * 1000) / 10
+        : null;
+    const compPct = totalCount > 0 ? Math.round((submitted / totalCount) * 100) : 0;
+
+    return {
+      target: hasTarget ? Math.round(sumTarget * 100) / 100 : null,
+      actual: hasActual ? Math.round(sumActual * 100) / 100 : null,
+      achievementRate: achRate,
+      assignedCount: totalCount,
+      submittedCount: submitted,
+      completenessPercent: compPct,
+      isCompleteData: totalCount > 0 && submitted >= totalCount,
+    };
+  }, [hasClientFilters, indicator, filteredAssignedList]);
+
+  const achievementRate = displayStats.achievementRate;
+  const isOverAchieved = achievementRate != null && achievementRate > 100;
 
   // Chart 1: Target vs Actual by Regional State (responds to filters)
   const regionalBarChartData = useMemo(() => {
@@ -397,15 +462,15 @@ export function NationalIndicatorDetailView({
           </CardHeader>
           <CardContent className="p-4 pt-0">
             <div className="text-2xl font-bold font-mono text-slate-900 dark:text-slate-100">
-              {indicator.nationalTotalTarget != null
-                ? Number(indicator.nationalTotalTarget).toLocaleString()
+              {displayStats.target != null
+                ? Number(displayStats.target).toLocaleString()
                 : "—"}{" "}
               <span className="text-xs font-sans font-normal text-slate-500">
                 {indicator.expectedUnit}
               </span>
             </div>
             <span className="text-[10px] text-slate-400 block mt-1">
-              Combined target across {indicator.assignedRegionsCount} assigned regional states
+              Combined target across {displayStats.assignedCount} regional state(s)
             </span>
           </CardContent>
         </Card>
@@ -419,15 +484,15 @@ export function NationalIndicatorDetailView({
           </CardHeader>
           <CardContent className="p-4 pt-0">
             <div className="text-2xl font-bold font-mono text-emerald-700 dark:text-emerald-400">
-              {indicator.nationalTotalActual != null
-                ? Number(indicator.nationalTotalActual).toLocaleString()
+              {displayStats.actual != null
+                ? Number(displayStats.actual).toLocaleString()
                 : "—"}{" "}
               <span className="text-xs font-sans font-normal text-slate-500">
                 {indicator.expectedUnit}
               </span>
             </div>
             <span className="text-[10px] text-slate-400 block mt-1">
-              Sum of verified regional reports received to date
+              Sum of verified regional reports for active filters
             </span>
           </CardContent>
         </Card>
@@ -466,22 +531,22 @@ export function NationalIndicatorDetailView({
           <CardContent className="p-4 pt-0">
             <div className="flex items-center justify-between">
               <span className="text-2xl font-bold font-mono text-slate-900 dark:text-slate-100">
-                {indicator.dataCompletenessPercent}%
+                {displayStats.completenessPercent}%
               </span>
               <Badge variant="outline" className="font-mono text-xs">
-                {indicator.submittedRegionsCount} / {indicator.assignedRegionsCount} States
+                {displayStats.submittedCount} / {displayStats.assignedCount} States
               </Badge>
             </div>
             <div className="w-full bg-slate-100 dark:bg-slate-800 rounded-full h-2 overflow-hidden mt-2">
               <div
                 className={`h-full rounded-full ${
-                  indicator.isCompleteData
+                  displayStats.isCompleteData
                     ? "bg-emerald-600"
-                    : indicator.submittedRegionsCount > 0
+                    : displayStats.submittedCount > 0
                     ? "bg-amber-500"
                     : "bg-slate-300"
                 }`}
-                style={{ width: `${Math.min(100, indicator.dataCompletenessPercent)}%` }}
+                style={{ width: `${Math.min(100, displayStats.completenessPercent)}%` }}
               />
             </div>
           </CardContent>
@@ -585,6 +650,49 @@ export function NationalIndicatorDetailView({
             </div>
 
             <div className="flex flex-wrap items-center gap-2">
+              {/* Year Filter */}
+              {onYearChange && (
+                <Select value={yearFilter} onValueChange={onYearChange}>
+                  <SelectTrigger className="w-[140px] h-8 text-xs bg-slate-50 dark:bg-slate-950">
+                    <SelectValue placeholder="All Years" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Years</SelectItem>
+                    <SelectItem value="2026">2018 EC / 2026</SelectItem>
+                    <SelectItem value="2027">2019 EC / 2027</SelectItem>
+                    <SelectItem value="2025">2017 EC / 2025</SelectItem>
+                  </SelectContent>
+                </Select>
+              )}
+
+              {/* Period Filter */}
+              {onPeriodChange && (
+                <Select value={periodLabel} onValueChange={onPeriodChange}>
+                  <SelectTrigger className="w-[165px] h-8 text-xs bg-slate-50 dark:bg-slate-950">
+                    <SelectValue placeholder="All Periods" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Periods</SelectItem>
+                    <SelectItem value="Hamle">Hamle (Month 1)</SelectItem>
+                    <SelectItem value="Nehase">Nehase (Month 2)</SelectItem>
+                    <SelectItem value="Meskerem">Meskerem (Month 3)</SelectItem>
+                    <SelectItem value="Tikimt">Tikimt (Month 4)</SelectItem>
+                    <SelectItem value="Hidar">Hidar (Month 5)</SelectItem>
+                    <SelectItem value="Tahsas">Tahsas (Month 6)</SelectItem>
+                    <SelectItem value="Tir">Tir (Month 7)</SelectItem>
+                    <SelectItem value="Yekatit">Yekatit (Month 8)</SelectItem>
+                    <SelectItem value="Megabit">Megabit (Month 9)</SelectItem>
+                    <SelectItem value="Miyazya">Miyazya (Month 10)</SelectItem>
+                    <SelectItem value="Ginbot">Ginbot (Month 11)</SelectItem>
+                    <SelectItem value="Sene">Sene (Month 12)</SelectItem>
+                    <SelectItem value="Q1">Q1</SelectItem>
+                    <SelectItem value="Q2">Q2</SelectItem>
+                    <SelectItem value="Q3">Q3</SelectItem>
+                    <SelectItem value="Q4">Q4</SelectItem>
+                  </SelectContent>
+                </Select>
+              )}
+
               {/* Region Filter */}
               <Select value={regionFilter} onValueChange={setRegionFilter}>
                 <SelectTrigger className="w-[190px] h-8 text-xs bg-slate-50 dark:bg-slate-950">

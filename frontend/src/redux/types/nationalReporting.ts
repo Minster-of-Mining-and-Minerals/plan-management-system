@@ -96,6 +96,8 @@ export interface NationalReportingAssignment {
   effective_start_date?: string | null;
   effective_end_date?: string | null;
   frequency_override?: string | null;
+  calendar_system_override?: "GC" | "EC" | string | null;
+  effective_calendar_system?: "GC" | "EC" | string;
   annual_target?: number | null;
   period_targets?: Record<string, number> | null;
   preset_annual_target?: number | null;

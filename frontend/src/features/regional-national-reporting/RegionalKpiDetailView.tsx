@@ -101,11 +101,15 @@ export function RegionalKpiDetailView({
     if (assignment.recurringPeriods && assignment.recurringPeriods.length > 0) {
       return assignment.recurringPeriods;
     }
-    if (req?.effective_start_date && req?.effective_end_date) {
+    const startDt = assignment.effective_start_date || req?.effective_start_date || "2026-07-08";
+    const endDt = assignment.effective_end_date || req?.effective_end_date || "2027-07-07";
+    const calSys = (assignment as any).effective_calendar_system || assignment.calendar_system_override || req?.calendar_system || "EC";
+    if (startDt && endDt) {
       return generateReportingPeriods(
-        req.effective_start_date,
-        req.effective_end_date,
-        req.frequency || "quarterly"
+        startDt,
+        endDt,
+        assignment.frequency_override || req?.frequency || "quarterly",
+        calSys
       );
     }
     return [
@@ -114,7 +118,7 @@ export function RegionalKpiDetailView({
       { period_index: 3, period_label: "Q3", name: "Quarter 3", start_date: "", end_date: "" },
       { period_index: 4, period_label: "Q4", name: "Quarter 4", start_date: "", end_date: "" },
     ];
-  }, [assignment.recurringPeriods, req]);
+  }, [assignment, req]);
 
   // Analytics Computations across recurring periods
   const analytics = useMemo(() => {

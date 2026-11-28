@@ -126,11 +126,14 @@ export function RegionalDirectFormModal({
 
   // Determine periods list with detailed window, lock, target, and achievement statuses
   const periodsWithStatus = useMemo(() => {
+    const startDt = assignment.effective_start_date || req?.effective_start_date || "2026-07-08";
+    const endDt = assignment.effective_end_date || req?.effective_end_date || "2027-07-07";
+    const calSys = (assignment as any).effective_calendar_system || assignment.calendar_system_override || req?.calendar_system || "EC";
     const rawList: ReportingPeriod[] =
       assignment.recurringPeriods && assignment.recurringPeriods.length > 0
         ? assignment.recurringPeriods
-        : req?.effective_start_date && req?.effective_end_date && req?.frequency !== "monthly"
-        ? generateReportingPeriods(req.effective_start_date, req.effective_end_date, req.frequency || "quarterly")
+        : startDt && endDt
+        ? generateReportingPeriods(startDt, endDt, assignment.frequency_override || req?.frequency || "quarterly", calSys)
         : DIVISION_BOUNDARIES_DEF.map((div) => ({
             period_index: div.index,
             period_label: div.monthLabel,

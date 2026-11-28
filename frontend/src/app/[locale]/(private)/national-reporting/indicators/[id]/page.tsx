@@ -23,8 +23,12 @@ export default function NationalIndicatorDetailPage() {
   const yearParam = searchParams.get("year");
   const periodParam = searchParams.get("period");
 
-  const reportingYear: number | "all" = yearParam ? parseInt(yearParam, 10) : "all";
-  const periodLabel = periodParam || "all";
+  const [yearFilter, setYearFilter] = React.useState<string>(yearParam || "all");
+  const [periodFilter, setPeriodFilter] = React.useState<string>(periodParam || "all");
+
+  const reportingYear: number | "all" =
+    yearFilter !== "all" && !isNaN(Number(yearFilter)) ? parseInt(yearFilter, 10) : "all";
+  const periodLabel = periodFilter || "all";
 
   // Fetch summary to get full aggregates and regional breakdown
   const { data: summary, isLoading: isSummaryLoading } = useGetNationalDashboardSummaryQuery({
@@ -131,7 +135,10 @@ export default function NationalIndicatorDetailPage() {
       indicator={indicatorData}
       onBack={() => router.push("/national-reporting")}
       reportingYear={reportingYear === "all" ? undefined : reportingYear}
+      yearFilter={yearFilter}
       periodLabel={periodLabel}
+      onYearChange={setYearFilter}
+      onPeriodChange={setPeriodFilter}
     />
   );
 }
