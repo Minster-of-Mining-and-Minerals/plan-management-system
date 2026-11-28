@@ -83,5 +83,12 @@ router.get(
   regionalNationalReportingController.getSubmissionVersions
 );
 
+// Internal Regional Delegation (Assign to internal department / person)
+router.post(
+  "/:regionId/assignments/:assignmentId/delegate",
+  checkPermission("regional_national_reporting", "create_mapping"),
+  regionalNationalReportingController.delegateRegionalAssignment
+);
+
 module.exports = router;
 

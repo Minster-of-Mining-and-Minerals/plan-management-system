@@ -154,25 +154,29 @@ export function LabeledAttachmentInput({
                 </Button>
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+              <div className="space-y-2.5">
                 <div>
-                  <Label className="text-[11px]">Display Label *</Label>
+                  <Label className="text-xs font-medium text-slate-700 dark:text-slate-300">
+                    Display Label / Document Title *
+                  </Label>
                   <Input
                     value={att.label}
                     onChange={(e) => updateItem(idx, { label: e.target.value })}
-                    placeholder="e.g. Q1 Signed Production Sheet"
-                    className="h-7 text-xs mt-0.5"
+                    placeholder="e.g. Q1 Signed Production Sheet / Field Inspection Memo"
+                    className="h-8 text-xs mt-1 w-full"
                     required
                   />
                 </div>
                 <div>
-                  <Label className="text-[11px]">Relation to KPI (Description) *</Label>
+                  <Label className="text-xs font-medium text-slate-700 dark:text-slate-300">
+                    Relation to KPI / Evidence Description *
+                  </Label>
                   <Textarea
-                    rows={1}
+                    rows={3}
                     value={att.description}
                     onChange={(e) => updateItem(idx, { description: e.target.value })}
-                    placeholder="Describe how this file supports the KPI..."
-                    className="min-h-[28px] text-xs mt-0.5 py-1"
+                    placeholder="Provide a detailed description of how this evidence document links to the KPI and supports the reported actual values..."
+                    className="min-h-[72px] text-xs mt-1 py-2 w-full resize-y"
                     required
                   />
                 </div>

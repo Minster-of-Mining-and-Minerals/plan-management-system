@@ -454,6 +454,30 @@ export const nationalReportingApi = baseApi.injectEndpoints({
       ],
     }),
 
+    delegateRegionalAssignment: builder.mutation<
+      { success: boolean; data: NationalReportingAssignment },
+      {
+        regionId: string;
+        assignmentId: string;
+        data: {
+          delegated_user_id?: string | null;
+          regional_structure_id?: string | null;
+          delegation_notes?: string | null;
+        };
+      }
+    >({
+      query: ({ regionId, assignmentId, data }) => ({
+        url: `/regional/national-reporting/${regionId}/assignments/${assignmentId}/delegate`,
+        method: "POST",
+        body: data,
+      }),
+      invalidatesTags: (_res, _err, { regionId }) => [
+        { type: "NationalAssignment" as const, id: `REGIONAL_${regionId}` },
+        { type: "NationalAssignment" as const, id: "LIST" },
+        "NationalDashboard",
+      ],
+    }),
+
     getSubmissionVersions: builder.query<
       SubmissionVersionHistoryResponse,
       {
@@ -512,6 +536,7 @@ export const {
   useGetRegionNationalReportingConfigQuery,
   useUpdateRegionNationalReportingConfigMutation,
   useSubmitDirectFormReportMutation,
+  useDelegateRegionalAssignmentMutation,
   useGetSubmissionVersionsQuery,
   useLazyGetSubmissionVersionsQuery,
   useGetPeriodConfigsQuery,

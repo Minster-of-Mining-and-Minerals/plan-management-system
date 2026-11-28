@@ -12,8 +12,11 @@ import { SubmissionVersionHistoryModal } from "../national-reporting/SubmissionV
 import { RegionalPublicationModal } from "./RegionalPublicationModal";
 import { RegionalMappingModal } from "./RegionalMappingModal";
 import { RegionalConfirmationModal } from "./RegionalConfirmationModal";
+import { RegionalDelegateNationalKpiModal } from "./RegionalDelegateNationalKpiModal";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   ArrowLeft,
   Calendar,
@@ -36,6 +39,10 @@ import {
   Percent,
   Lock,
   Unlock,
+  Building2,
+  UserCheck,
+  Users,
+  Share2,
 } from "lucide-react";
 import { generateReportingPeriods } from "@/utils/nationalReportingPeriodUtils";
 import { useGetPeriodConfigsQuery } from "@/redux/api/nationalReportingApi";
@@ -83,6 +90,8 @@ export function RegionalKpiDetailView({
   // Selected period for direct form modal
   const [activePeriodForForm, setActivePeriodForForm] = useState<ReportingPeriod | null>(null);
   const [isFormModalOpen, setIsFormModalOpen] = useState(false);
+  const [activeTab, setActiveTab] = useState<"overview" | "assignments">("overview");
+  const [isDelegationModalOpen, setIsDelegationModalOpen] = useState(false);
 
   // Modals state
   const [versionHistoryParams, setVersionHistoryParams] = useState<{
@@ -510,138 +519,267 @@ export function RegionalKpiDetailView({
         </div>
       )}
 
-      {/* Real-time Reporting Window Countdown Notification Banner */}
-      {periodNotificationInfo && (
-        <div
-          className={`p-4 rounded-xl border transition-all shadow-sm flex flex-col sm:flex-row sm:items-center justify-between gap-3 ${
-            periodNotificationInfo.type === "grace_period"
-              ? "bg-gradient-to-r from-amber-500/10 via-amber-500/5 to-transparent border-amber-300 dark:border-amber-700/60"
-              : periodNotificationInfo.type === "reporting_open"
-              ? "bg-gradient-to-r from-emerald-500/10 via-emerald-500/5 to-transparent border-emerald-300 dark:border-emerald-700/60"
-              : "bg-gradient-to-r from-blue-500/10 via-blue-500/5 to-transparent border-blue-200 dark:border-blue-800/60"
-          }`}
-        >
-          <div className="flex items-start gap-3">
+      {/* View Tabs: Reporting Window & Cascaded Periods vs Internal Delegation */}
+      <Tabs
+        value={activeTab}
+        onValueChange={(val) => setActiveTab(val as "overview" | "assignments")}
+        className="w-full space-y-4"
+      >
+        <TabsList className="bg-slate-100 dark:bg-slate-800 p-1">
+          <TabsTrigger value="overview" className="flex items-center gap-1.5 text-xs">
+            <Layers className="h-4 w-4" />
+            Reporting Window &amp; Cascaded Periods
+          </TabsTrigger>
+          <TabsTrigger value="assignments" className="flex items-center gap-1.5 text-xs">
+            <Share2 className="h-4 w-4" />
+            Internal Bureau Delegation
+          </TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="overview" className="space-y-4">
+          {/* Real-time Reporting Window Countdown Notification Banner */}
+          {periodNotificationInfo && (
             <div
-              className={`p-2 rounded-lg shrink-0 ${
+              className={`p-4 rounded-xl border transition-all shadow-sm flex flex-col sm:flex-row sm:items-center justify-between gap-3 ${
                 periodNotificationInfo.type === "grace_period"
-                  ? "bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300"
+                  ? "bg-gradient-to-r from-amber-500/10 via-amber-500/5 to-transparent border-amber-300 dark:border-amber-700/60"
                   : periodNotificationInfo.type === "reporting_open"
-                  ? "bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300"
-                  : "bg-blue-100 text-blue-800 dark:bg-blue-950 dark:text-blue-300"
+                  ? "bg-gradient-to-r from-emerald-500/10 via-emerald-500/5 to-transparent border-emerald-300 dark:border-emerald-700/60"
+                  : "bg-gradient-to-r from-blue-500/10 via-blue-500/5 to-transparent border-blue-200 dark:border-blue-800/60"
               }`}
             >
-              {periodNotificationInfo.type === "grace_period" ? (
-                <AlertTriangle className="h-5 w-5" />
-              ) : periodNotificationInfo.type === "reporting_open" ? (
-                <Clock className="h-5 w-5" />
-              ) : (
-                <Calendar className="h-5 w-5" />
-              )}
-            </div>
-
-            <div className="space-y-1">
-              <div className="flex items-center gap-2 flex-wrap">
-                <span className="font-bold text-sm text-slate-900 dark:text-slate-100">
-                  {periodNotificationInfo.type === "grace_period"
-                    ? `Grace Submission Active: ${periodNotificationInfo.periodLabel} (${periodNotificationInfo.customName})`
-                    : periodNotificationInfo.type === "reporting_open"
-                    ? `Reporting Window Active: ${periodNotificationInfo.periodLabel} (${periodNotificationInfo.customName})`
-                    : `Upcoming Reporting Window: ${periodNotificationInfo.periodLabel} (${periodNotificationInfo.customName})`}
-                </span>
-                <Badge
-                  variant="outline"
-                  className={`text-[10px] font-mono ${
+              <div className="flex items-start gap-3">
+                <div
+                  className={`p-2 rounded-lg shrink-0 ${
                     periodNotificationInfo.type === "grace_period"
-                      ? "bg-amber-100 text-amber-800 border-amber-300 dark:bg-amber-950 dark:text-amber-300 font-bold"
+                      ? "bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300"
                       : periodNotificationInfo.type === "reporting_open"
-                      ? "bg-emerald-100 text-emerald-800 border-emerald-300 dark:bg-emerald-950 dark:text-emerald-300 font-bold"
-                      : "bg-blue-50 text-blue-700 border-blue-200"
+                      ? "bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300"
+                      : "bg-blue-100 text-blue-800 dark:bg-blue-950 dark:text-blue-300"
                   }`}
                 >
-                  {periodNotificationInfo.type === "grace_period"
-                    ? `${periodNotificationInfo.daysLeft}d left to lock`
-                    : periodNotificationInfo.type === "reporting_open"
-                    ? `${periodNotificationInfo.daysLeft}d left in window`
-                    : `Opens in ${periodNotificationInfo.daysUntilOpen}d`}
-                </Badge>
+                  {periodNotificationInfo.type === "grace_period" ? (
+                    <AlertTriangle className="h-5 w-5" />
+                  ) : periodNotificationInfo.type === "reporting_open" ? (
+                    <Clock className="h-5 w-5" />
+                  ) : (
+                    <Calendar className="h-5 w-5" />
+                  )}
+                </div>
+
+                <div className="space-y-1">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="font-bold text-sm text-slate-900 dark:text-slate-100">
+                      {periodNotificationInfo.type === "grace_period"
+                        ? `Grace Submission Active: ${periodNotificationInfo.periodLabel} (${periodNotificationInfo.customName})`
+                        : periodNotificationInfo.type === "reporting_open"
+                        ? `Reporting Window Active: ${periodNotificationInfo.periodLabel} (${periodNotificationInfo.customName})`
+                        : `Upcoming Reporting Window: ${periodNotificationInfo.periodLabel} (${periodNotificationInfo.customName})`}
+                    </span>
+                    <Badge
+                      variant="outline"
+                      className={`text-[10px] font-mono ${
+                        periodNotificationInfo.type === "grace_period"
+                          ? "bg-amber-100 text-amber-800 border-amber-300 dark:bg-amber-950 dark:text-amber-300 font-bold"
+                          : periodNotificationInfo.type === "reporting_open"
+                          ? "bg-emerald-100 text-emerald-800 border-emerald-300 dark:bg-emerald-950 dark:text-emerald-300 font-bold"
+                          : "bg-blue-50 text-blue-700 border-blue-200"
+                      }`}
+                    >
+                      {periodNotificationInfo.type === "grace_period"
+                        ? `${periodNotificationInfo.daysLeft}d left to lock`
+                        : periodNotificationInfo.type === "reporting_open"
+                        ? `${periodNotificationInfo.daysLeft}d left in window`
+                        : `Opens in ${periodNotificationInfo.daysUntilOpen}d`}
+                    </Badge>
+                  </div>
+
+                  <p className="text-xs text-slate-600 dark:text-slate-400 leading-relaxed">
+                    {periodNotificationInfo.type === "grace_period" ? (
+                      <>
+                        Standard operating period has passed. The grace submission window is active with{" "}
+                        <strong className="text-amber-800 dark:text-amber-300 font-bold">
+                          {periodNotificationInfo.daysLeft} day(s) remaining
+                        </strong>{" "}
+                        before the window permanently locks on{" "}
+                        <strong className="text-slate-800 dark:text-slate-200">{periodNotificationInfo.deadline}</strong>.
+                      </>
+                    ) : periodNotificationInfo.type === "reporting_open" ? (
+                      <>
+                        The reporting window is active. You have{" "}
+                        <strong className="text-emerald-800 dark:text-emerald-300 font-bold">
+                          {periodNotificationInfo.daysLeft} day(s) remaining
+                        </strong>{" "}
+                        to submit your regional achievement. (Final grace closing date:{" "}
+                        <strong className="text-slate-800 dark:text-slate-200">{periodNotificationInfo.deadline}</strong>).
+                      </>
+                    ) : (
+                      <>
+                        The operating cycle is in progress. Reporting submission opens in{" "}
+                        <strong className="text-blue-800 dark:text-blue-300 font-bold">
+                          {periodNotificationInfo.daysUntilOpen} day(s)
+                        </strong>{" "}
+                        on{" "}
+                        <strong className="text-slate-800 dark:text-slate-200">{periodNotificationInfo.openDate}</strong>.
+                      </>
+                    )}
+                  </p>
+
+                  <div className="flex items-center gap-2 pt-0.5 text-[11px] text-slate-500 font-mono">
+                    <span>
+                      Timeline:{" "}
+                      {periodNotificationInfo.isCustomTimeline ? "Custom Assignment Override" : "Standard Federal Matrix"} (
+                      {periodNotificationInfo.openDaysBefore}d early / {periodNotificationInfo.closeDaysAfter}d grace)
+                    </span>
+                  </div>
+                </div>
               </div>
 
-              <p className="text-xs text-slate-600 dark:text-slate-400 leading-relaxed">
-                {periodNotificationInfo.type === "grace_period" ? (
-                  <>
-                    Standard operating period has passed. The grace submission window is active with{" "}
-                    <strong className="text-amber-800 dark:text-amber-300 font-bold">
-                      {periodNotificationInfo.daysLeft} day(s) remaining
-                    </strong>{" "}
-                    before the window permanently locks on{" "}
-                    <strong className="text-slate-800 dark:text-slate-200">{periodNotificationInfo.deadline}</strong>.
-                  </>
-                ) : periodNotificationInfo.type === "reporting_open" ? (
-                  <>
-                    The reporting window is active. You have{" "}
-                    <strong className="text-emerald-800 dark:text-emerald-300 font-bold">
-                      {periodNotificationInfo.daysLeft} day(s) remaining
-                    </strong>{" "}
-                    to submit your regional achievement. (Final grace closing date:{" "}
-                    <strong className="text-slate-800 dark:text-slate-200">{periodNotificationInfo.deadline}</strong>).
-                  </>
-                ) : (
-                  <>
-                    The operating cycle is in progress. Reporting submission opens in{" "}
-                    <strong className="text-blue-800 dark:text-blue-300 font-bold">
-                      {periodNotificationInfo.daysUntilOpen} day(s)
-                    </strong>{" "}
-                    on{" "}
-                    <strong className="text-slate-800 dark:text-slate-200">{periodNotificationInfo.openDate}</strong>.
-                  </>
-                )}
-              </p>
-
-              <div className="flex items-center gap-2 pt-0.5 text-[11px] text-slate-500 font-mono">
-                <span>
-                  Timeline:{" "}
-                  {periodNotificationInfo.isCustomTimeline ? "Custom Assignment Override" : "Standard Federal Matrix"} (
-                  {periodNotificationInfo.openDaysBefore}d early / {periodNotificationInfo.closeDaysAfter}d grace)
-                </span>
-              </div>
+              {(periodNotificationInfo.type === "reporting_open" || periodNotificationInfo.type === "grace_period") && (
+                <Button
+                  size="sm"
+                  onClick={() => handleOpenPeriodForm(periodNotificationInfo.period)}
+                  className={`shrink-0 text-xs font-semibold self-start sm:self-center ${
+                    periodNotificationInfo.type === "grace_period"
+                      ? "bg-amber-600 hover:bg-amber-700 text-white"
+                      : "bg-emerald-600 hover:bg-emerald-700 text-white"
+                  }`}
+                >
+                  <Send className="h-3.5 w-3.5 mr-1.5" />
+                  Submit {periodNotificationInfo.periodLabel} Report
+                </Button>
+              )}
             </div>
-          </div>
-
-          {(periodNotificationInfo.type === "reporting_open" || periodNotificationInfo.type === "grace_period") && (
-            <Button
-              size="sm"
-              onClick={() => handleOpenPeriodForm(periodNotificationInfo.period)}
-              className={`shrink-0 text-xs font-semibold self-start sm:self-center ${
-                periodNotificationInfo.type === "grace_period"
-                  ? "bg-amber-600 hover:bg-amber-700 text-white"
-                  : "bg-emerald-600 hover:bg-emerald-700 text-white"
-              }`}
-            >
-              <Send className="h-3.5 w-3.5 mr-1.5" />
-              Submit {periodNotificationInfo.periodLabel} Report
-            </Button>
           )}
-        </div>
-      )}
 
-      {/* Cascaded Card-Based Period Classification & Reporting */}
-      <RegionalCascadedPeriodsSection
-        assignment={assignment}
-        req={req}
-        recurringPeriods={recurringPeriods}
-        divisionCustomNameMap={divisionCustomNameMap}
-        isFormReportingActive={isFormReportingActive}
-        onOpenPeriodForm={handleOpenPeriodForm}
-        onViewReceipt={handleViewReceipt}
-        onViewHistory={(period) =>
-          setVersionHistoryParams({
-            requirementId: assignment.requirement_id,
-            reportingPeriodLabel: period.period_label,
-            titleHint: req?.title,
-          })
-        }
-      />
+          {/* Cascaded Card-Based Period Classification & Reporting */}
+          <RegionalCascadedPeriodsSection
+            assignment={assignment}
+            req={req}
+            recurringPeriods={recurringPeriods}
+            divisionCustomNameMap={divisionCustomNameMap}
+            isFormReportingActive={isFormReportingActive}
+            onOpenPeriodForm={handleOpenPeriodForm}
+            onViewReceipt={handleViewReceipt}
+            onViewHistory={(period) =>
+              setVersionHistoryParams({
+                requirementId: assignment.requirement_id,
+                reportingPeriodLabel: period.period_label,
+                titleHint: req?.title,
+              })
+            }
+          />
+        </TabsContent>
+
+        <TabsContent value="assignments" className="space-y-4">
+          <Card className="border-slate-200 dark:border-slate-800 shadow-sm">
+            <CardHeader className="pb-3 border-b bg-slate-50/50 dark:bg-slate-900/50 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+              <div>
+                <CardTitle className="text-base flex items-center gap-2">
+                  <Share2 className="h-4 w-4 text-emerald-600" />
+                  Internal Regional Bureau Delegation
+                </CardTitle>
+                <CardDescription>
+                  Delegate responsibility for gathering evidence and submitting progress for this national KPI to an internal directorate or officer
+                </CardDescription>
+              </div>
+              <Button
+                size="sm"
+                className="gap-1.5 self-start sm:self-auto bg-emerald-600 hover:bg-emerald-700 text-white"
+                onClick={() => setIsDelegationModalOpen(true)}
+              >
+                <Share2 className="h-4 w-4" />
+                {assignment.delegated_user_id || assignment.regional_structure_id
+                  ? "Reassign / Update Delegation"
+                  : "Delegate Indicator"}
+              </Button>
+            </CardHeader>
+            <CardContent className="p-6">
+              {!assignment.delegated_user_id && !assignment.regional_structure_id ? (
+                <div className="py-8 text-center space-y-3">
+                  <div className="h-10 w-10 mx-auto rounded-full bg-amber-50 text-amber-600 flex items-center justify-center">
+                    <Users className="h-5 w-5" />
+                  </div>
+                  <div>
+                    <h3 className="text-sm font-semibold text-slate-800 dark:text-slate-200">
+                      Not Delegated Internally
+                    </h3>
+                    <p className="text-xs text-slate-500 max-w-md mx-auto mt-1">
+                      This indicator is currently managed at the regional bureau level. You can assign it to a specific regional directorate or reporting officer.
+                    </p>
+                  </div>
+                  <Button
+                    size="sm"
+                    onClick={() => setIsDelegationModalOpen(true)}
+                    className="gap-1.5 bg-emerald-600 hover:bg-emerald-700 text-white"
+                  >
+                    <Share2 className="h-4 w-4" />
+                    Assign to Department / Person
+                  </Button>
+                </div>
+              ) : (
+                <div className="space-y-6">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="p-4 rounded-xl border bg-slate-50/50 dark:bg-slate-900/50 space-y-2">
+                      <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider flex items-center gap-1.5">
+                        <Building2 className="h-3.5 w-3.5 text-slate-400" />
+                        Assigned Regional Department
+                      </span>
+                      <div className="text-base font-semibold text-slate-900 dark:text-slate-100">
+                        {assignment.regionalStructure?.name || "Entire Regional Bureau"}
+                      </div>
+                      <span className="text-[11px] text-slate-400 block">
+                        {assignment.regionalStructure?.code ? `Code: ${assignment.regionalStructure.code}` : "All departments eligible"}
+                      </span>
+                    </div>
+
+                    <div className="p-4 rounded-xl border bg-slate-50/50 dark:bg-slate-900/50 space-y-2">
+                      <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider flex items-center gap-1.5">
+                        <UserCheck className="h-3.5 w-3.5 text-emerald-600" />
+                        Assigned Reporting Officer
+                      </span>
+                      <div className="text-base font-semibold text-slate-900 dark:text-slate-100">
+                        {assignment.delegatedUser?.full_name || "Any Officer in Department"}
+                      </div>
+                      <span className="text-[11px] text-slate-400 block">
+                        {assignment.delegatedUser?.email || "Open submission within department"}
+                      </span>
+                    </div>
+                  </div>
+
+                  {assignment.delegation_notes && (
+                    <div className="p-4 rounded-xl border bg-white dark:bg-slate-950 space-y-1.5">
+                      <span className="text-xs font-semibold text-slate-700 dark:text-slate-300">
+                        Delegation Instructions &amp; Methodology Notes
+                      </span>
+                      <p className="text-xs text-slate-600 dark:text-slate-400 whitespace-pre-wrap leading-relaxed">
+                        {assignment.delegation_notes}
+                      </p>
+                    </div>
+                  )}
+
+                  {assignment.delegated_at && (
+                    <div className="text-[11px] text-slate-400 flex items-center gap-1">
+                      <Clock className="h-3 w-3" />
+                      <span>Delegated on: {new Date(assignment.delegated_at).toLocaleString()}</span>
+                    </div>
+                  )}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+      </Tabs>
+
+      {/* Internal Delegation Modal */}
+      {isDelegationModalOpen && (
+        <RegionalDelegateNationalKpiModal
+          isOpen={isDelegationModalOpen}
+          onClose={() => setIsDelegationModalOpen(false)}
+          assignment={assignment}
+          regionId={regionId}
+        />
+      )}
 
       {/* Modals */}
       {/* 1. Direct Form Reporting Modal (Pre-populated and locked to selected period) */}

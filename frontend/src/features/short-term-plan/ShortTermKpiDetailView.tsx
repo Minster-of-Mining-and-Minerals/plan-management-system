@@ -124,7 +124,7 @@ export function ShortTermKpiDetailView({ kpiId }: ShortTermKpiDetailViewProps) {
   const { data: internalDepts = [] } = useGetInternalStructuresQuery({ is_active: true });
   const { data: users = [] } = useGetUsersQuery({ limit: 200 });
 
-  const [activeTab, setActiveTab] = useState<"status" | "report">("status");
+  const [activeTab, setActiveTab] = useState<"status" | "report" | "assignments">("status");
   const [selectedAssignmentIdx, setSelectedAssignmentIdx] = useState(0);
   const [selectedMonthLabel, setSelectedMonthLabel] = useState<string | null>(null);
   const [reportingDivision, setReportingDivision] = useState<ShortTermDivision | null>(null);
@@ -357,8 +357,8 @@ export function ShortTermKpiDetailView({ kpiId }: ShortTermKpiDetailViewProps) {
         </div>
       </div>
 
-      {/* Two-Tab Navigation: Status & Report */}
-      <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as "status" | "report")} className="w-full space-y-5">
+      {/* Three-Tab Navigation: Status, Report, and Assignments */}
+      <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as "status" | "report" | "assignments")} className="w-full space-y-5">
         <TabsList>
           <TabsTrigger value="status">
             <BarChart3 className="h-4 w-4" />
@@ -367,6 +367,10 @@ export function ShortTermKpiDetailView({ kpiId }: ShortTermKpiDetailViewProps) {
           <TabsTrigger value="report">
             <FileText className="h-4 w-4" />
             Report (Cascaded Periods)
+          </TabsTrigger>
+          <TabsTrigger value="assignments">
+            <GitBranch className="h-4 w-4" />
+            Assignments ({assignments.length})
           </TabsTrigger>
         </TabsList>
 
@@ -969,6 +973,156 @@ export function ShortTermKpiDetailView({ kpiId }: ShortTermKpiDetailViewProps) {
               )}
             </>
           )}
+        </TabsContent>
+
+        {/* TAB 3: ASSIGNMENTS — View, Reassign, and Add Sector / Department / User Assignments */}
+        <TabsContent value="assignments" className="space-y-4">
+          <Card>
+            <CardHeader className="pb-3 border-b bg-slate-50/50 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+              <div>
+                <CardTitle className="text-base flex items-center gap-2">
+                  <GitBranch className="h-4 w-4 text-emerald-600" />
+                  Assigned Sectors, Departments &amp; Users
+                </CardTitle>
+                <CardDescription>
+                  Detailed assignment hierarchy, reporting permissions, allocated targets, and cascaded responsibilities for this KPI
+                </CardDescription>
+              </div>
+              {canAssign && (
+                <Button
+                  size="sm"
+                  className="gap-1.5 self-start sm:self-auto bg-emerald-600 hover:bg-emerald-700 text-white"
+                  onClick={() => setIsAssignModalOpen(true)}
+                >
+                  <Users className="h-4 w-4" />
+                  {assignments.length > 0 ? "Reassign / Add Assignment" : "Assign KPI"}
+                </Button>
+              )}
+            </CardHeader>
+            <CardContent className="p-0 overflow-x-auto">
+              {assignments.length === 0 ? (
+                <div className="py-12 px-4 text-center space-y-3">
+                  <div className="h-10 w-10 mx-auto rounded-full bg-amber-50 text-amber-600 flex items-center justify-center">
+                    <Building2 className="h-5 w-5" />
+                  </div>
+                  <div>
+                    <h3 className="text-sm font-semibold text-slate-800">No Assignments Found</h3>
+                    <p className="text-xs text-slate-500 max-w-sm mx-auto mt-1">
+                      This KPI has not been assigned to any sector, department, or user yet. Assign it to enable performance reporting.
+                    </p>
+                  </div>
+                  {canAssign && (
+                    <Button
+                      size="sm"
+                      onClick={() => setIsAssignModalOpen(true)}
+                      className="gap-1.5 mt-2 bg-emerald-600 hover:bg-emerald-700 text-white"
+                    >
+                      <Users className="h-4 w-4" />
+                      Assign KPI Now
+                    </Button>
+                  )}
+                </div>
+              ) : (
+                <table className="w-full text-xs text-left">
+                  <thead className="bg-slate-100/70 text-slate-600 uppercase text-[10px] font-semibold border-b">
+                    <tr>
+                      <th className="px-4 py-3">Assigned Hierarchy</th>
+                      <th className="px-4 py-3">Reporting User</th>
+                      <th className="px-4 py-3">Allocated Target</th>
+                      <th className="px-4 py-3">Reporting Frequency</th>
+                      <th className="px-4 py-3">Evaluation Mode</th>
+                      <th className="px-4 py-3">Access Level</th>
+                      {canAssign && <th className="px-4 py-3 text-right">Actions</th>}
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y">
+                    {assignments.map((asgn, idx) => (
+                      <tr key={asgn.assignment_id || idx} className="hover:bg-slate-50/60">
+                        <td className="px-4 py-3 space-y-1">
+                          <div className="flex items-center gap-1.5 font-semibold text-slate-900">
+                            <Building2 className="h-3.5 w-3.5 text-slate-500 shrink-0" />
+                            <span>{asgn.sector?.name || "—"}</span>
+                          </div>
+                          {asgn.department ? (
+                            <div className="flex items-center gap-1.5 text-slate-600 pl-5">
+                              <span className="text-[10px] text-slate-400">↳</span>
+                              <Users className="h-3 w-3 text-slate-400 shrink-0" />
+                              <span>{asgn.department.name}</span>
+                            </div>
+                          ) : (
+                            <div className="text-[11px] text-slate-400 pl-5 italic">
+                              Whole Sector (Unrestricted Department)
+                            </div>
+                          )}
+                        </td>
+                        <td className="px-4 py-3">
+                          {asgn.assignedUser ? (
+                            <div>
+                              <div className="flex items-center gap-1.5 font-medium text-slate-800">
+                                <UserCheck className="h-3.5 w-3.5 text-emerald-600 shrink-0" />
+                                <span>{asgn.assignedUser.full_name}</span>
+                              </div>
+                              {asgn.assignedUser.email && (
+                                <span className="text-[10px] text-slate-400 block pl-5">
+                                  {asgn.assignedUser.email}
+                                </span>
+                              )}
+                            </div>
+                          ) : (
+                            <Badge variant="outline" className="bg-slate-50 text-slate-600 text-[10px]">
+                              Any User in Hierarchy
+                            </Badge>
+                          )}
+                        </td>
+                        <td className="px-4 py-3 font-mono font-medium text-slate-800">
+                          {asgn.allocated_target !== null && asgn.allocated_target !== undefined
+                            ? `${asgn.allocated_target.toLocaleString()} ${kpi.unit}`
+                            : `${(kpi.total_target ?? 0).toLocaleString()} ${kpi.unit}`}
+                        </td>
+                        <td className="px-4 py-3">
+                          <Badge variant="outline" className="capitalize text-[10px]">
+                            {asgn.effective_frequency || asgn.reporting_frequency_override || kpi.reporting_frequency}
+                          </Badge>
+                        </td>
+                        <td className="px-4 py-3">
+                          <Badge variant="secondary" className="capitalize text-[10px]">
+                            {asgn.evaluation_mode_override || kpi.evaluation_mode}
+                          </Badge>
+                        </td>
+                        <td className="px-4 py-3">
+                          <Badge
+                            className={
+                              asgn.can_report
+                                ? "bg-emerald-100 text-emerald-800 border-emerald-200 text-[10px]"
+                                : "bg-slate-100 text-slate-600 border-slate-200 text-[10px]"
+                            }
+                          >
+                            {asgn.can_report ? "Reporter" : "Viewer"}
+                          </Badge>
+                        </td>
+                        {canAssign && (
+                          <td className="px-4 py-3 text-right">
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className="h-7 text-xs gap-1 text-slate-700 hover:text-emerald-700 hover:border-emerald-300"
+                              onClick={() => {
+                                setSelectedAssignmentIdx(idx);
+                                setIsAssignModalOpen(true);
+                              }}
+                            >
+                              <GitBranch className="h-3 w-3" />
+                              Reassign
+                            </Button>
+                          </td>
+                        )}
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              )}
+            </CardContent>
+          </Card>
         </TabsContent>
       </Tabs>
 

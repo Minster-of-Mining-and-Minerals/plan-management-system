@@ -12,6 +12,7 @@ import {
   ReportingPeriod,
 } from "@/redux/types/nationalReporting";
 import { RegionalKpiDetailView } from "./RegionalKpiDetailView";
+import { RegionalDelegateNationalKpiModal } from "./RegionalDelegateNationalKpiModal";
 import { DataTable } from "@/features/template/component/tableList/DataTable";
 import { TableLayout } from "@/features/template/component/tableList/TableLayout";
 import { ColumnDef } from "@tanstack/react-table";
@@ -33,6 +34,8 @@ import {
   ChevronRight,
   ChevronsUpDown,
   FolderOpen,
+  Building2,
+  Share2,
 } from "lucide-react";
 
 interface Props {
@@ -65,6 +68,10 @@ export function RegionalAssignedRequirementsTab({ regionId }: Props) {
 
   // Selected assignment for detailed view
   const [selectedAssignment, setSelectedAssignment] =
+    useState<NationalReportingAssignment | null>(null);
+
+  // Assignment to delegate internally
+  const [delegatingAssignment, setDelegatingAssignment] =
     useState<NationalReportingAssignment | null>(null);
 
   // Collapsible category state
@@ -429,20 +436,65 @@ export function RegionalAssignedRequirementsTab({ regionId }: Props) {
       },
     },
     {
+      id: "delegation",
+      header: "Internal Assignee",
+      cell: ({ row }) => {
+        const item = row.original;
+        const hasUser = Boolean(item.delegatedUser);
+        const hasDept = Boolean(item.regionalStructure);
+
+        if (!hasUser && !hasDept) {
+          return (
+            <span className="text-[11px] text-slate-400 italic">
+              Unassigned
+            </span>
+          );
+        }
+
+        return (
+          <div className="space-y-0.5 text-xs max-w-[150px]">
+            {hasDept && (
+              <div className="flex items-center gap-1 text-slate-700 font-medium truncate" title={item.regionalStructure?.name}>
+                <Building2 className="h-3 w-3 text-slate-400 shrink-0" />
+                <span className="truncate">{item.regionalStructure?.name}</span>
+              </div>
+            )}
+            {hasUser && (
+              <div className="flex items-center gap-1 text-slate-600 truncate text-[11px]" title={item.delegatedUser?.full_name}>
+                <CheckCircle2 className="h-3 w-3 text-emerald-600 shrink-0" />
+                <span className="truncate">{item.delegatedUser?.full_name}</span>
+              </div>
+            )}
+          </div>
+        );
+      },
+    },
+    {
       id: "actions",
       header: "Actions",
       cell: ({ row }) => {
         const item = row.original;
+        const isDelegated = Boolean(item.delegatedUser || item.regionalStructure);
         return (
-          <div className="flex items-center justify-end">
+          <div className="flex items-center justify-end gap-1.5">
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => setDelegatingAssignment(item)}
+              className="h-7 px-2 text-xs font-semibold flex items-center gap-1 hover:bg-emerald-50 hover:text-emerald-700 hover:border-emerald-300 dark:hover:bg-slate-800"
+              title="Assign or delegate this KPI internally to a department or person"
+            >
+              <Share2 className="h-3.5 w-3.5 text-emerald-600" />
+              <span>{isDelegated ? "Reassign" : "Assign"}</span>
+            </Button>
             <Button
               size="sm"
               variant="outline"
               onClick={() => setSelectedAssignment(item)}
-              className="h-7 px-2.5 text-xs font-semibold flex items-center gap-1.5 hover:bg-emerald-50 hover:text-emerald-700 hover:border-emerald-300 dark:hover:bg-slate-800"
+              className="h-7 px-2.5 text-xs font-semibold flex items-center gap-1.5 hover:bg-slate-100 hover:text-slate-800 dark:hover:bg-slate-800"
             >
               <Eye className="h-3.5 w-3.5" />
-              <span>View Details</span>
+              <span>Details</span>
             </Button>
           </div>
         );
@@ -740,6 +792,19 @@ export function RegionalAssignedRequirementsTab({ regionId }: Props) {
             })}
         </div>
       </TableLayout>
+
+      {/* Regional Internal Delegation Modal */}
+      {delegatingAssignment && (
+        <RegionalDelegateNationalKpiModal
+          isOpen={Boolean(delegatingAssignment)}
+          onClose={() => {
+            setDelegatingAssignment(null);
+            refetch();
+          }}
+          assignment={delegatingAssignment}
+          regionId={regionId}
+        />
+      )}
     </div>
   );
 }

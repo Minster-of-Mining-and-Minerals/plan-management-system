@@ -160,6 +160,22 @@ export interface NationalReportingAssignment {
   };
   isFormReportingActive?: boolean;
   nodeMappingAvailable?: boolean;
+  delegated_user_id?: string | null;
+  regional_structure_id?: string | null;
+  delegated_at?: string | null;
+  delegation_notes?: string | null;
+  delegatedUser?: {
+    user_id: string;
+    full_name: string;
+    email: string;
+    phone_number?: string | null;
+  } | null;
+  regionalStructure?: {
+    regional_structure_id: string;
+    name: string;
+    code: string;
+    level?: number;
+  } | null;
 }
 
 export interface SubmissionVersionItem extends NationalPublishedRecord {

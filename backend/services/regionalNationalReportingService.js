@@ -337,6 +337,18 @@ class RegionalNationalReportingService {
           ],
           order: [["published_at", "DESC"]],
         },
+        {
+          model: User,
+          as: "delegatedUser",
+          attributes: ["user_id", "full_name", "email", "phone_number"],
+          required: false,
+        },
+        {
+          model: db.RegionalStructure,
+          as: "regionalStructure",
+          attributes: ["regional_structure_id", "name", "code", "level"],
+          required: false,
+        },
       ],
       order: [["assigned_at", "DESC"]],
     });
@@ -1973,6 +1985,82 @@ class RegionalNationalReportingService {
       categoryBreakdown,
       indicatorSummaries,
     };
+  }
+
+  /**
+   * Delegate a national reporting assignment to an internal regional department or person
+   */
+  async delegateRegionalAssignment(regionId, assignmentId, data, currentUserId) {
+    const assignment = await NationalReportingAssignment.findOne({
+      where: {
+        assignment_id: assignmentId,
+        region_id: regionId,
+      },
+      include: [
+        {
+          model: NationalReportingRequirement,
+          as: "requirement",
+        },
+      ],
+    });
+
+    if (!assignment) {
+      const err = new Error("National reporting assignment not found for this region.");
+      err.status = 404;
+      throw err;
+    }
+
+    const { delegated_user_id, regional_structure_id, delegation_notes } = data;
+
+    if (delegated_user_id) {
+      const user = await User.findByPk(delegated_user_id);
+      if (!user) {
+        const err = new Error("Selected user not found.");
+        err.status = 400;
+        throw err;
+      }
+    }
+
+    if (regional_structure_id) {
+      const struct = await db.RegionalStructure.findOne({
+        where: {
+          regional_structure_id,
+          region_id: regionId,
+        },
+      });
+      if (!struct) {
+        const err = new Error("Selected regional structure/department not found in this region.");
+        err.status = 400;
+        throw err;
+      }
+    }
+
+    await assignment.update({
+      delegated_user_id: delegated_user_id || null,
+      regional_structure_id: regional_structure_id || null,
+      delegation_notes: delegation_notes !== undefined ? delegation_notes : assignment.delegation_notes,
+      delegated_at: new Date(),
+    });
+
+    // Return reloaded assignment with associations
+    return await NationalReportingAssignment.findByPk(assignmentId, {
+      include: [
+        {
+          model: NationalReportingRequirement,
+          as: "requirement",
+        },
+        {
+          model: User,
+          as: "delegatedUser",
+          attributes: ["user_id", "full_name", "email", "phone_number"],
+        },
+        {
+          model: db.RegionalStructure,
+          as: "regionalStructure",
+          attributes: ["regional_structure_id", "name", "code", "level"],
+        },
+      ],
+    });
   }
 }
 

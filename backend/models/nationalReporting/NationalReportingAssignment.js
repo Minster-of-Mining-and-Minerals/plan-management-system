@@ -31,6 +31,16 @@ module.exports = (sequelize, DataTypes) => {
         foreignKey: "assigned_by",
         as: "assignedByUser",
       });
+
+      NationalReportingAssignment.belongsTo(models.User, {
+        foreignKey: "delegated_user_id",
+        as: "delegatedUser",
+      });
+
+      NationalReportingAssignment.belongsTo(models.RegionalStructure, {
+        foreignKey: "regional_structure_id",
+        as: "regionalStructure",
+      });
     }
   }
 
@@ -107,6 +117,22 @@ module.exports = (sequelize, DataTypes) => {
         type: DataTypes.DATE,
         defaultValue: DataTypes.NOW,
         allowNull: false,
+      },
+      delegated_user_id: {
+        type: DataTypes.UUID,
+        allowNull: true,
+      },
+      regional_structure_id: {
+        type: DataTypes.UUID,
+        allowNull: true,
+      },
+      delegated_at: {
+        type: DataTypes.DATE,
+        allowNull: true,
+      },
+      delegation_notes: {
+        type: DataTypes.TEXT,
+        allowNull: true,
       },
     },
     {

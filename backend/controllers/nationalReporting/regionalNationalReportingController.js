@@ -269,6 +269,30 @@ async function getRegionalDashboardSummary(req, res) {
   }
 }
 
+async function delegateRegionalAssignment(req, res) {
+  try {
+    const regionId = resolveAndVerifyRegionId(req);
+    const { assignmentId } = req.params;
+    const assignment = await regionalNationalReportingService.delegateRegionalAssignment(
+      regionId,
+      assignmentId,
+      req.body,
+      req.user?.user_id
+    );
+    return res.status(200).json({
+      success: true,
+      message: "National indicator delegated internally successfully.",
+      data: assignment,
+    });
+  } catch (error) {
+    console.error("Error delegating regional assignment:", error);
+    return res.status(error.status || 500).json({
+      success: false,
+      message: error.message || "Failed to delegate regional assignment.",
+    });
+  }
+}
+
 module.exports = {
   listAssignedRequirements,
   getRegionalDashboardSummary,
@@ -281,5 +305,6 @@ module.exports = {
   updateRegionReportingConfig,
   submitDirectFormReport,
   getSubmissionVersions,
+  delegateRegionalAssignment,
 };
 
