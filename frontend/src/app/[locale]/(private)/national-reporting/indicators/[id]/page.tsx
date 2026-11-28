@@ -23,7 +23,7 @@ export default function NationalIndicatorDetailPage() {
   const yearParam = searchParams.get("year");
   const periodParam = searchParams.get("period");
 
-  const reportingYear = yearParam ? parseInt(yearParam, 10) : new Date().getFullYear();
+  const reportingYear: number | "all" = yearParam ? parseInt(yearParam, 10) : "all";
   const periodLabel = periodParam || "all";
 
   // Fetch summary to get full aggregates and regional breakdown
@@ -76,22 +76,28 @@ export default function NationalIndicatorDetailPage() {
       nationalTotalTarget: 0,
       nationalTotalActual: 0,
       achievementRate: 0,
-      assignedRegions: (requirement.assignments || []).map((a) => ({
-        assignmentId: a.assignment_id,
-        regionId: a.region_id,
-        regionName: a.region?.name || "Unknown Region",
-        regionCode: a.region?.code || "",
-        isMandatory: a.is_mandatory,
-        status: "pending_submission",
-        submissionMethod: a.region?.national_reporting_method || "form_based",
-        reportedActual: null,
-        plannedTarget: null,
-        localUnit: requirement.expected_unit,
-        standardizedActual: null,
-        standardizedTarget: null,
-        standardizedUnit: requirement.expected_unit,
-        achievementPercent: null,
-      })),
+      assignedRegions: (requirement.assignments || []).map((a) => {
+        const annualVal =
+          a.annual_target != null && !isNaN(Number(a.annual_target))
+            ? Number(a.annual_target)
+            : null;
+        return {
+          assignmentId: a.assignment_id,
+          regionId: a.region_id,
+          regionName: a.region?.name || "Unknown Region",
+          regionCode: a.region?.code || "",
+          isMandatory: a.is_mandatory,
+          status: "pending_submission",
+          submissionMethod: a.region?.national_reporting_method || "form_based",
+          reportedActual: null,
+          plannedTarget: annualVal,
+          localUnit: requirement.expected_unit,
+          standardizedActual: null,
+          standardizedTarget: annualVal,
+          standardizedUnit: requirement.expected_unit,
+          achievementPercent: null,
+        };
+      }),
     };
   }
 
@@ -124,7 +130,7 @@ export default function NationalIndicatorDetailPage() {
     <NationalIndicatorDetailView
       indicator={indicatorData}
       onBack={() => router.push("/national-reporting")}
-      reportingYear={reportingYear}
+      reportingYear={reportingYear === "all" ? undefined : reportingYear}
       periodLabel={periodLabel}
     />
   );

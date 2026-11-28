@@ -1734,6 +1734,7 @@ class RegionalNationalReportingService {
     let targetHasValue = false;
     let aggregateActual = 0;
     let actualHasValue = false;
+    const unitTotalsMap = new Map();
 
     const categoryBreakdownMap = new Map();
     const indicatorSummaries = [];
@@ -1806,6 +1807,30 @@ class RegionalNationalReportingService {
       if (reportedActual !== null && !isNaN(reportedActual)) {
         aggregateActual += reportedActual;
         actualHasValue = true;
+      }
+
+      if ((configuredTarget !== null && !isNaN(configuredTarget)) || (reportedActual !== null && !isNaN(reportedActual))) {
+        const unitKey = String(req.expected_unit || "Unit").trim() || "Unit";
+        if (!unitTotalsMap.has(unitKey)) {
+          unitTotalsMap.set(unitKey, {
+            unit: unitKey,
+            totalTarget: 0,
+            totalActual: 0,
+            hasTarget: false,
+            hasActual: false,
+            kpiCount: 0,
+          });
+        }
+        const unitEntry = unitTotalsMap.get(unitKey);
+        unitEntry.kpiCount += 1;
+        if (configuredTarget !== null && !isNaN(configuredTarget)) {
+          unitEntry.totalTarget += configuredTarget;
+          unitEntry.hasTarget = true;
+        }
+        if (reportedActual !== null && !isNaN(reportedActual)) {
+          unitEntry.totalActual += reportedActual;
+          unitEntry.hasActual = true;
+        }
       }
 
       const achievementRate =
@@ -1895,6 +1920,18 @@ class RegionalNationalReportingService {
         complianceRate: totalAssignedCount > 0 ? Math.round((submittedCount / totalAssignedCount) * 100) : 0,
         aggregateTarget: targetHasValue ? Math.round(aggregateTarget * 100) / 100 : null,
         aggregateActual: actualHasValue ? Math.round(aggregateActual * 100) / 100 : null,
+        aggregateTargetsByUnit: Array.from(unitTotalsMap.values())
+          .map((u) => ({
+            unit: u.unit,
+            totalTarget: Math.round(u.totalTarget * 100) / 100,
+            totalActual: Math.round(u.totalActual * 100) / 100,
+            achievementRate:
+              u.hasTarget && u.totalTarget > 0 && u.hasActual
+                ? Math.round((u.totalActual / u.totalTarget) * 1000) / 10
+                : null,
+            kpiCount: u.kpiCount,
+          }))
+          .sort((a, b) => b.totalTarget - a.totalTarget),
         overallAchievementRate:
           targetHasValue && aggregateTarget > 0 && actualHasValue
             ? Math.round((aggregateActual / aggregateTarget) * 1000) / 10

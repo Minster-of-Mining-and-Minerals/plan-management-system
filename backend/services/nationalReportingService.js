@@ -68,12 +68,15 @@ function resolveAssignmentTarget(assignment, periodLabel = null) {
     return Number(assignment.annual_target);
   }
 
-  // Fallback: sum canonical "Division X" keys (or numeric keys) if present without double-counting
+  // Fallback: sum canonical "Division X" keys (or numeric / month keys) if present without double-counting
   const divisionKeys = Object.keys(periodTargets).filter((k) => /^division\s+\d+$/i.test(k.trim()));
+  const numericKeys = Object.keys(periodTargets).filter((k) => /^\d+$/.test(k.trim()));
   const keysToSum =
     divisionKeys.length > 0
       ? divisionKeys
-      : Object.keys(periodTargets).filter((k) => /^\d+$/.test(k.trim()));
+      : numericKeys.length > 0
+        ? numericKeys
+        : Object.keys(periodTargets).filter((k) => !/\(.+\)/.test(k));
 
   if (keysToSum.length > 0) {
     let sum = 0;
@@ -1249,6 +1252,7 @@ class NationalReportingService {
     let globalTargetHasValue = false;
     let globalAggregateActual = 0;
     let globalActualHasValue = false;
+    const unitTotalsMap = new Map();
 
     for (const [reqId, info] of requirementsMap.entries()) {
       const req = info.requirement;
@@ -1315,6 +1319,30 @@ class NationalReportingService {
       if (actualHasValue) {
         globalAggregateActual += totalActual;
         globalActualHasValue = true;
+      }
+
+      if (targetHasValue || actualHasValue) {
+        const unitKey = String(req.expected_unit || "Unit").trim() || "Unit";
+        if (!unitTotalsMap.has(unitKey)) {
+          unitTotalsMap.set(unitKey, {
+            unit: unitKey,
+            totalTarget: 0,
+            totalActual: 0,
+            hasTarget: false,
+            hasActual: false,
+            kpiCount: 0,
+          });
+        }
+        const unitEntry = unitTotalsMap.get(unitKey);
+        unitEntry.kpiCount += 1;
+        if (targetHasValue) {
+          unitEntry.totalTarget += totalTarget;
+          unitEntry.hasTarget = true;
+        }
+        if (actualHasValue) {
+          unitEntry.totalActual += totalActual;
+          unitEntry.hasActual = true;
+        }
       }
 
       const submittedRegionsCount = submissions.length;
@@ -1389,6 +1417,24 @@ class NationalReportingService {
         ? Math.round((globalAggregateActual / globalAggregateTarget) * 1000) / 10
         : null;
 
+    const aggregateTargetsByUnit = Array.from(unitTotalsMap.values())
+      .map((u) => {
+        const roundedTarget = Math.round(u.totalTarget * 100) / 100;
+        const roundedActual = Math.round(u.totalActual * 100) / 100;
+        const achRate =
+          u.hasTarget && u.totalTarget > 0 && u.hasActual
+            ? Math.round((u.totalActual / u.totalTarget) * 1000) / 10
+            : null;
+        return {
+          unit: u.unit,
+          totalTarget: roundedTarget,
+          totalActual: roundedActual,
+          achievementRate: achRate,
+          kpiCount: u.kpiCount,
+        };
+      })
+      .sort((a, b) => b.totalTarget - a.totalTarget);
+
     return {
       filters: {
         reporting_year: currentYear,
@@ -1411,6 +1457,7 @@ class NationalReportingService {
             : 0,
         aggregateTarget: globalTargetHasValue ? Math.round(globalAggregateTarget * 100) / 100 : null,
         aggregateActual: globalActualHasValue ? Math.round(globalAggregateActual * 100) / 100 : null,
+        aggregateTargetsByUnit,
         overallAchievementRate,
         openWindowsCount,
         lockedWindowsCount,

@@ -349,8 +349,8 @@ export function RegionalNationalDashboardTab({ regionId }: Props) {
       </div>
 
       {/* Summary Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
-        <Card>
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-8 gap-4">
+        <Card className="lg:col-span-1">
           <CardHeader className="p-4 pb-1">
             <span className="text-[11px] font-semibold uppercase text-slate-500">Assigned KPIs</span>
           </CardHeader>
@@ -360,7 +360,7 @@ export function RegionalNationalDashboardTab({ regionId }: Props) {
           </CardContent>
         </Card>
 
-        <Card>
+        <Card className="lg:col-span-1">
           <CardHeader className="p-4 pb-1">
             <span className="text-[11px] font-semibold uppercase text-slate-500">Submitted / Rate</span>
           </CardHeader>
@@ -373,31 +373,69 @@ export function RegionalNationalDashboardTab({ regionId }: Props) {
           </CardContent>
         </Card>
 
-        <Card>
+        <Card className="sm:col-span-2 lg:col-span-4">
           <CardHeader className="p-4 pb-1">
-            <span className="text-[11px] font-semibold uppercase text-slate-500">Aggregate Target</span>
-          </CardHeader>
-          <CardContent className="p-4 pt-1 flex items-center justify-between">
-            <span className="text-2xl font-bold font-mono text-slate-900 dark:text-slate-100">
-              {kpis.aggregateTarget != null ? Number(kpis.aggregateTarget).toLocaleString() : "—"}
+            <span className="text-[11px] font-semibold uppercase text-slate-500">
+              Aggregate Target (By Unit)
             </span>
-            <Scale className="h-5 w-5 text-slate-600" />
+          </CardHeader>
+          <CardContent className="p-4 pt-1 flex items-start justify-between gap-2">
+            <div className="flex-1 min-w-0">
+              {kpis.aggregateTargetsByUnit && kpis.aggregateTargetsByUnit.length > 0 ? (
+                <div className="flex flex-wrap gap-1.5">
+                  {kpis.aggregateTargetsByUnit.map((item) => (
+                    <span
+                      key={item.unit}
+                      className="inline-flex items-baseline gap-1 px-2 py-0.5 rounded-md bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-sm font-bold font-mono text-slate-900 dark:text-slate-100"
+                    >
+                      {Number(item.totalTarget).toLocaleString()}
+                      <span className="text-[11px] font-semibold text-slate-500">{item.unit}</span>
+                    </span>
+                  ))}
+                </div>
+              ) : (
+                <span className="text-2xl font-bold font-mono text-slate-900 dark:text-slate-100">
+                  {kpis.aggregateTarget != null ? Number(kpis.aggregateTarget).toLocaleString() : "—"}
+                </span>
+              )}
+            </div>
+            <Scale className="h-5 w-5 text-slate-600 shrink-0" />
           </CardContent>
         </Card>
 
-        <Card>
+        <Card className="lg:col-span-1">
           <CardHeader className="p-4 pb-1">
             <span className="text-[11px] font-semibold uppercase text-emerald-700">Reported Actual</span>
           </CardHeader>
-          <CardContent className="p-4 pt-1 flex items-center justify-between">
-            <span className="text-2xl font-bold font-mono text-emerald-700">
-              {kpis.aggregateActual != null ? Number(kpis.aggregateActual).toLocaleString() : "0"}
-            </span>
-            <BarChart3 className="h-5 w-5 text-emerald-600" />
+          <CardContent className="p-4 pt-1 flex items-start justify-between gap-2">
+            <div className="min-w-0">
+              {kpis.aggregateTargetsByUnit && kpis.aggregateTargetsByUnit.length === 1 ? (
+                <span className="text-xl font-bold font-mono text-emerald-700">
+                  {Number(kpis.aggregateTargetsByUnit[0].totalActual).toLocaleString()}{" "}
+                  <span className="text-xs font-semibold">{kpis.aggregateTargetsByUnit[0].unit}</span>
+                </span>
+              ) : kpis.aggregateTargetsByUnit && kpis.aggregateTargetsByUnit.length > 1 ? (
+                <div className="flex flex-wrap gap-1">
+                  {kpis.aggregateTargetsByUnit.map((item) => (
+                    <span
+                      key={item.unit}
+                      className="text-xs font-mono font-semibold text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded"
+                    >
+                      {Number(item.totalActual).toLocaleString()} {item.unit}
+                    </span>
+                  ))}
+                </div>
+              ) : (
+                <span className="text-2xl font-bold font-mono text-emerald-700">
+                  {kpis.aggregateActual != null ? Number(kpis.aggregateActual).toLocaleString() : "0"}
+                </span>
+              )}
+            </div>
+            <BarChart3 className="h-5 w-5 text-emerald-600 shrink-0" />
           </CardContent>
         </Card>
 
-        <Card>
+        <Card className="lg:col-span-1">
           <CardHeader className="p-4 pb-1">
             <span className="text-[11px] font-semibold uppercase text-teal-700">Achievement Rate</span>
           </CardHeader>

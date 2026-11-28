@@ -779,50 +779,86 @@ export function NationalDashboardTab() {
       </div>
 
       {/* Aggregate Set Target vs Actual Strip (Pinned to Active Cascaded Filters) */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-        <Card className="bg-gradient-to-br from-slate-50 to-white dark:from-slate-900 dark:to-slate-950 border-slate-200 dark:border-slate-800 shadow-sm">
+      <div className="grid grid-cols-1 lg:grid-cols-4 gap-4">
+        <Card className="lg:col-span-2 bg-gradient-to-br from-slate-50 to-white dark:from-slate-900 dark:to-slate-950 border-slate-200 dark:border-slate-800 shadow-sm">
           <CardHeader className="p-4 pb-1">
             <span className="text-[11px] font-semibold uppercase tracking-wider text-slate-500">
-              Aggregate Configured Target
+              Aggregate Configured Target (By Unit)
             </span>
           </CardHeader>
-          <CardContent className="p-4 pt-1 flex items-center justify-between">
-            <div>
-              <div className="text-2xl font-bold font-mono text-slate-900 dark:text-slate-100">
-                {kpis.aggregateTarget != null ? Number(kpis.aggregateTarget).toLocaleString() : "—"}
-              </div>
-              <span className="text-[10px] text-slate-500">
-                Sum of configured targets across filtered assignments
+          <CardContent className="p-4 pt-1 flex items-start justify-between gap-3">
+            <div className="space-y-1.5 flex-1 min-w-0">
+              {kpis.aggregateTargetsByUnit && kpis.aggregateTargetsByUnit.length > 0 ? (
+                <div className="flex flex-wrap gap-2">
+                  {kpis.aggregateTargetsByUnit.map((item) => (
+                    <div
+                      key={item.unit}
+                      className="inline-flex items-baseline gap-1.5 px-2.5 py-1 rounded-md bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-2xs"
+                    >
+                      <span className="text-lg font-bold font-mono text-slate-900 dark:text-slate-100">
+                        {Number(item.totalTarget).toLocaleString()}
+                      </span>
+                      <span className="text-xs font-semibold text-slate-600 dark:text-slate-400">
+                        {item.unit}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="text-2xl font-bold font-mono text-slate-900 dark:text-slate-100">
+                  {kpis.aggregateTarget != null ? Number(kpis.aggregateTarget).toLocaleString() : "—"}
+                </div>
+              )}
+              <span className="text-[10px] text-slate-500 block">
+                Sum of configured targets grouped by unit across filtered assignments
               </span>
             </div>
-            <div className="p-2.5 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300">
+            <div className="p-2.5 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 shrink-0">
               <Scale className="h-5 w-5" />
             </div>
           </CardContent>
         </Card>
 
-        <Card className="bg-gradient-to-br from-emerald-50/70 to-white dark:from-emerald-950/30 dark:to-slate-950 border-emerald-200 dark:border-emerald-900/50 shadow-sm">
+        <Card className="lg:col-span-1 bg-gradient-to-br from-emerald-50/70 to-white dark:from-emerald-950/30 dark:to-slate-950 border-emerald-200 dark:border-emerald-900/50 shadow-sm">
           <CardHeader className="p-4 pb-1">
             <span className="text-[11px] font-semibold uppercase tracking-wider text-emerald-700 dark:text-emerald-400">
               Aggregate Reported Actual
             </span>
           </CardHeader>
-          <CardContent className="p-4 pt-1 flex items-center justify-between">
-            <div>
-              <div className="text-2xl font-bold font-mono text-emerald-700 dark:text-emerald-400">
-                {kpis.aggregateActual != null ? Number(kpis.aggregateActual).toLocaleString() : "0"}
-              </div>
-              <span className="text-[10px] text-emerald-600/80 dark:text-emerald-400/80">
+          <CardContent className="p-4 pt-1 flex items-start justify-between gap-2">
+            <div className="space-y-1 min-w-0">
+              {kpis.aggregateTargetsByUnit && kpis.aggregateTargetsByUnit.length === 1 ? (
+                <div className="text-xl font-bold font-mono text-emerald-700 dark:text-emerald-400">
+                  {Number(kpis.aggregateTargetsByUnit[0].totalActual).toLocaleString()}{" "}
+                  <span className="text-xs font-semibold">{kpis.aggregateTargetsByUnit[0].unit}</span>
+                </div>
+              ) : kpis.aggregateTargetsByUnit && kpis.aggregateTargetsByUnit.length > 1 ? (
+                <div className="flex flex-wrap gap-1.5">
+                  {kpis.aggregateTargetsByUnit.map((item) => (
+                    <span
+                      key={item.unit}
+                      className="text-xs font-mono font-semibold text-emerald-700 dark:text-emerald-400 bg-white/80 dark:bg-emerald-950/50 px-2 py-0.5 rounded border border-emerald-200/70"
+                    >
+                      {Number(item.totalActual).toLocaleString()} {item.unit}
+                    </span>
+                  ))}
+                </div>
+              ) : (
+                <div className="text-2xl font-bold font-mono text-emerald-700 dark:text-emerald-400">
+                  {kpis.aggregateActual != null ? Number(kpis.aggregateActual).toLocaleString() : "0"}
+                </div>
+              )}
+              <span className="text-[10px] text-emerald-600/80 dark:text-emerald-400/80 block">
                 Validated actuals reported against target
               </span>
             </div>
-            <div className="p-2.5 rounded-lg bg-emerald-100 dark:bg-emerald-900/60 text-emerald-700 dark:text-emerald-300">
+            <div className="p-2.5 rounded-lg bg-emerald-100 dark:bg-emerald-900/60 text-emerald-700 dark:text-emerald-300 shrink-0">
               <BarChart3 className="h-5 w-5" />
             </div>
           </CardContent>
         </Card>
 
-        <Card className="bg-gradient-to-br from-teal-50/70 to-white dark:from-teal-950/30 dark:to-slate-950 border-teal-200 dark:border-teal-900/50 shadow-sm">
+        <Card className="lg:col-span-1 bg-gradient-to-br from-teal-50/70 to-white dark:from-teal-950/30 dark:to-slate-950 border-teal-200 dark:border-teal-900/50 shadow-sm">
           <CardHeader className="p-4 pb-1">
             <span className="text-[11px] font-semibold uppercase tracking-wider text-teal-700 dark:text-teal-400">
               Target Realization Rate

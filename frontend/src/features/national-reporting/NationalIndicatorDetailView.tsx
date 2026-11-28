@@ -152,7 +152,7 @@ export function NationalIndicatorDetailView({
       actual: asgn.standardizedActual ?? asgn.reportedActual ?? 0,
       achievementRate: asgn.achievementPercent ?? 0,
     }));
-  }, [assignedList]);
+  }, [filteredAssignedList]);
 
   // Table Columns Definition (TanStack DataTable)
   const columns: ColumnDef<AssignedRegionInfo>[] = useMemo(

@@ -321,6 +321,14 @@ export interface NationalPublishedRecord {
   };
 }
 
+export interface AggregateTargetByUnit {
+  unit: string;
+  totalTarget: number;
+  totalActual: number;
+  achievementRate: number | null;
+  kpiCount: number;
+}
+
 export interface NationalDashboardSummary {
   filters: {
     reporting_year: number | string;
@@ -340,6 +348,7 @@ export interface NationalDashboardSummary {
     overallNationalComplianceRate: number;
     aggregateTarget?: number | null;
     aggregateActual?: number | null;
+    aggregateTargetsByUnit?: AggregateTargetByUnit[];
     overallAchievementRate?: number | null;
     openWindowsCount?: number;
     lockedWindowsCount?: number;
@@ -439,6 +448,7 @@ export interface RegionalNationalDashboardSummary {
     complianceRate: number;
     aggregateTarget?: number | null;
     aggregateActual?: number | null;
+    aggregateTargetsByUnit?: AggregateTargetByUnit[];
     overallAchievementRate?: number | null;
   };
   categoryBreakdown: Array<{
