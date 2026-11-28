@@ -46,6 +46,7 @@ import { CalendarSystemSelector } from "@/components/ui/calendar-system-selector
 import { DualCalendarDatePicker } from "@/components/ui/dual-calendar-date-picker";
 import type { CalendarSystem } from "@/utils/calendarUtils";
 import { ShortTermKpiDetailModal } from "./ShortTermKpiDetailModal";
+import { AssignShortTermKpiModal } from "./AssignShortTermKpiModal";
 import { actionFeedback } from "@/components/action-feedback";
 import { Plus, Share2, Eye, Edit, Trash2 } from "lucide-react";
 import { toast } from "sonner";
@@ -687,70 +688,16 @@ export function ShortTermPlanView() {
         </DialogContent>
       </Dialog>
 
-      {/* Assign KPI Dialog */}
-      <Dialog open={!!assigningKpi} onOpenChange={(o) => !o && setAssigningKpi(null)}>
-        <DialogContent className="sm:max-w-[520px]">
-          <DialogHeader><DialogTitle>Assign KPI (Sector → Department / User)</DialogTitle></DialogHeader>
-          <form onSubmit={handleAssignKpi} className="space-y-3">
-            <div>
-              <Label>Department / Desk (Internal Structure)</Label>
-              <Select value={assignForm.internal_structure_id} onValueChange={(v) => setAssignForm({ ...assignForm, internal_structure_id: v })}>
-                <SelectTrigger><SelectValue placeholder="Select department (optional)" /></SelectTrigger>
-                <SelectContent>
-                  {filteredDepts.map((d) => (
-                    <SelectItem key={d.internal_structure_id} value={d.internal_structure_id}>{d.name}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div>
-              <Label>Assigned User (Optional)</Label>
-              <Select value={assignForm.assigned_user_id} onValueChange={(v) => setAssignForm({ ...assignForm, assigned_user_id: v })}>
-                <SelectTrigger><SelectValue placeholder="Select user (optional)" /></SelectTrigger>
-                <SelectContent>
-                  {users.map((u) => (
-                    <SelectItem key={u.user_id} value={u.user_id}>{u.full_name} ({u.email})</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="grid grid-cols-3 gap-3">
-              <div>
-                <Label>Allocated Target</Label>
-                <Input type="number" step="any" value={assignForm.allocated_target} onChange={(e) => setAssignForm({ ...assignForm, allocated_target: e.target.value })} />
-              </div>
-              <div>
-                <Label>Eval Mode</Label>
-                <Select value={assignForm.evaluation_mode_override || "__default__"} onValueChange={(v) => setAssignForm({ ...assignForm, evaluation_mode_override: v === "__default__" ? "" : (v as ShortTermEvaluationMode) })}>
-                  <SelectTrigger><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="__default__">Use KPI Default</SelectItem>
-                    <SelectItem value="number">Number</SelectItem>
-                    <SelectItem value="percentage">Percentage (%)</SelectItem>
-                    <SelectItem value="frequency">Frequency</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div>
-                <Label>Frequency</Label>
-                <Select value={assignForm.reporting_frequency_override || "__default__"} onValueChange={(v) => setAssignForm({ ...assignForm, reporting_frequency_override: v === "__default__" ? "" : (v as ShortTermFrequency) })}>
-                  <SelectTrigger><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="__default__">Use KPI Default</SelectItem>
-                    <SelectItem value="monthly">Monthly</SelectItem>
-                    <SelectItem value="weekly">Weekly</SelectItem>
-                    <SelectItem value="daily">Daily</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-            <DialogFooter>
-              <Button type="button" variant="outline" onClick={() => setAssigningKpi(null)}>Cancel</Button>
-              <Button type="submit" disabled={isAssigning}>Assign KPI</Button>
-            </DialogFooter>
-          </form>
-        </DialogContent>
-      </Dialog>
+      {/* Assign KPI Dialog (Sector -> Department / User) */}
+      <AssignShortTermKpiModal
+        kpi={assigningKpi}
+        planId={activePlanId}
+        defaultSectorId={planDetail?.government_structure_id || ""}
+        sectors={sectors}
+        departments={internalDepts}
+        users={users}
+        onClose={() => setAssigningKpi(null)}
+      />
     </div>
   );
 }

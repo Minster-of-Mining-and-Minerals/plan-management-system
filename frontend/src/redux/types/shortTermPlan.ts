@@ -38,6 +38,9 @@ export interface ShortTermDivision {
   calendar_system: CalendarSystem;
   planned_target: number | null;
   recommended_submission_type: ShortTermSubmissionType;
+  lock_status?: "open" | "upcoming" | "closed";
+  is_locked?: boolean;
+  lock_reason?: string | null;
   report?: {
     report_id: string;
     submission_type: ShortTermSubmissionType;
@@ -63,6 +66,8 @@ export interface ShortTermKpiAssignment {
   period_targets: Record<string, number | string>;
   reporting_frequency_override?: ShortTermFrequency | null;
   effective_frequency?: ShortTermFrequency;
+  can_report?: boolean;
+  access_reason?: string | null;
   sector?: { government_structure_id: string; name: string } | null;
   department?: { internal_structure_id: string; name: string } | null;
   assignedUser?: { user_id: string; full_name: string; email: string } | null;
@@ -76,6 +81,8 @@ export interface ShortTermKpiAssignment {
     effective_evaluation_mode?: ShortTermEvaluationMode;
     overall_actual: number | null;
     overall_achievement_percent: number | null;
+    today_gc?: string;
+    today_ec?: string;
   };
 }
 

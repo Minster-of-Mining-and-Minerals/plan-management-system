@@ -39,6 +39,10 @@ import {
   Sliders,
   Save,
   Building2,
+  Lock,
+  Unlock,
+  ShieldAlert,
+  Calendar,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -103,6 +107,18 @@ export function ShortTermKpiDetailModal({ kpi, planId, onClose }: ShortTermKpiDe
       evaluation_mode_override: activeAssignment.evaluation_mode_override || "",
       reporting_frequency_override: activeAssignment.reporting_frequency_override || "",
     });
+    const openDiv = (activeAssignment.divisions || []).find((d) => d.lock_status === "open") || null;
+    if (openDiv) {
+      setSelectedDivision(openDiv);
+      setReportForm({
+        submission_type: openDiv.report?.submission_type || openDiv.recommended_submission_type,
+        reported_actual:
+          openDiv.report?.reported_actual !== null && openDiv.report?.reported_actual !== undefined
+            ? String(openDiv.report.reported_actual)
+            : "",
+        narrative: openDiv.report?.narrative || "",
+      });
+    }
   }, [activeAssignment]);
 
   if (!kpi) return null;
@@ -343,10 +359,18 @@ export function ShortTermKpiDetailModal({ kpi, planId, onClose }: ShortTermKpiDe
               {/* Section 3: Reporting Divisions & Submission Inside Detail */}
               {activeAssignment && (
                 <div className="space-y-3">
-                  <div className="flex items-center justify-between">
-                    <h4 className="text-xs font-semibold uppercase tracking-wide text-slate-700">
-                      Reporting Schedule ({activeAssignment.effective_frequency}) — Click any period to report
-                    </h4>
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <div className="flex items-center gap-2">
+                      <h4 className="text-xs font-semibold uppercase tracking-wide text-slate-700">
+                        Reporting Schedule ({activeAssignment.effective_frequency})
+                      </h4>
+                      {activeAssignment.progress_summary?.today_ec && (
+                        <Badge variant="outline" className="text-[10px] font-mono bg-emerald-50 text-emerald-800 border-emerald-200 flex items-center gap-1">
+                          <Calendar className="h-3 w-3" />
+                          Today (EC): {activeAssignment.progress_summary.today_ec}
+                        </Badge>
+                      )}
+                    </div>
                     {activeAssignment.progress_summary && (
                       <div className="flex items-center gap-2 text-xs">
                         <span>
@@ -363,12 +387,21 @@ export function ShortTermKpiDetailModal({ kpi, planId, onClose }: ShortTermKpiDe
                     )}
                   </div>
 
-                  <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2 max-h-[220px] overflow-y-auto p-1">
+                  {activeAssignment.can_report === false && (
+                    <div className="rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-900 flex items-center gap-2">
+                      <ShieldAlert className="h-4 w-4 text-amber-600 shrink-0" />
+                      <span>{activeAssignment.access_reason || "You do not have reporting access for this assignment."}</span>
+                    </div>
+                  )}
+
+                  <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2 max-h-[240px] overflow-y-auto p-1">
                     {(activeAssignment.divisions || []).map((div) => {
                       const rep = div.report;
                       const isNarrativeOnly = rep?.submission_type === "narrative_only";
                       const isNumeric = rep && !isNarrativeOnly;
                       const isSelected = selectedDivision?.period_label === div.period_label;
+                      const isLocked = Boolean(div.is_locked);
+                      const isOpen = div.lock_status === "open";
                       return (
                         <button
                           key={div.period_label}
@@ -377,27 +410,48 @@ export function ShortTermKpiDetailModal({ kpi, planId, onClose }: ShortTermKpiDe
                           className={`text-left rounded-md border p-2.5 transition-all ${
                             isSelected
                               ? "ring-2 ring-primary border-primary"
+                              : isLocked
+                              ? "bg-slate-50 border-slate-200 opacity-80 hover:border-slate-300"
                               : isNumeric
                               ? "bg-emerald-50 border-emerald-300"
                               : isNarrativeOnly
                               ? "bg-amber-50 border-amber-300"
-                              : "bg-white border-slate-200 hover:border-slate-300"
+                              : "bg-white border-emerald-200 hover:border-emerald-400"
                           }`}
                         >
                           <div className="flex items-center justify-between gap-1">
                             <span className="text-xs font-semibold text-slate-800 truncate">
                               {div.period_label}
                             </span>
-                            {isNumeric ? (
+                            {isLocked ? (
+                              <Lock className="h-3.5 w-3.5 text-slate-400 shrink-0" />
+                            ) : isNumeric ? (
                               <CheckCircle2 className="h-3.5 w-3.5 text-emerald-600 shrink-0" />
                             ) : isNarrativeOnly ? (
                               <MessageSquareText className="h-3.5 w-3.5 text-amber-600 shrink-0" />
                             ) : (
-                              <FileText className="h-3.5 w-3.5 text-slate-300 shrink-0" />
+                              <Unlock className="h-3.5 w-3.5 text-emerald-600 shrink-0" />
                             )}
                           </div>
-                          <div className="text-[11px] text-slate-500 mt-0.5">
-                            Target: {div.planned_target !== null ? div.planned_target : "Narrative"}
+                          <div className="text-[10px] font-mono text-slate-400 mt-0.5 truncate">
+                            {div.display_start_date} → {div.display_end_date} ({div.calendar_system})
+                          </div>
+                          <div className="flex items-center justify-between gap-1 mt-1">
+                            <span className="text-[11px] text-slate-600">
+                              Target: {div.planned_target !== null ? div.planned_target : "Narrative"}
+                            </span>
+                            <Badge
+                              variant={isOpen ? "default" : "outline"}
+                              className={`text-[9px] px-1 py-0 ${
+                                isOpen
+                                  ? "bg-emerald-600 text-white"
+                                  : div.lock_status === "upcoming"
+                                  ? "text-blue-600 border-blue-200"
+                                  : "text-slate-500 border-slate-300"
+                              }`}
+                            >
+                              {isOpen ? "Open" : div.lock_status === "upcoming" ? "Upcoming" : "Closed"}
+                            </Badge>
                           </div>
                           {rep && (
                             <div className="text-[11px] font-medium mt-0.5 truncate text-slate-700">
@@ -412,10 +466,23 @@ export function ShortTermKpiDetailModal({ kpi, planId, onClose }: ShortTermKpiDe
                   {/* Inline Reporting Form inside KPI Detail */}
                   {selectedDivision && (
                     <form onSubmit={handleSubmitReport} className="rounded-lg border border-primary/30 bg-primary/5 p-4 space-y-3">
-                      <div className="flex items-center justify-between">
-                        <span className="text-sm font-semibold text-slate-900">
-                          Report for {selectedDivision.period_label}
-                        </span>
+                      <div className="flex flex-wrap items-center justify-between gap-2">
+                        <div className="flex items-center gap-2">
+                          <span className="text-sm font-semibold text-slate-900">
+                            Report for {selectedDivision.period_label}
+                          </span>
+                          {selectedDivision.is_locked ? (
+                            <Badge variant="outline" className="text-[10px] text-rose-700 border-rose-300 bg-rose-50 flex items-center gap-1">
+                              <Lock className="h-3 w-3" />
+                              {selectedDivision.lock_reason || "Locked"}
+                            </Badge>
+                          ) : (
+                            <Badge className="text-[10px] bg-emerald-600 text-white flex items-center gap-1">
+                              <Unlock className="h-3 w-3" />
+                              Open for Today
+                            </Badge>
+                          )}
+                        </div>
                         <span className="text-xs text-slate-500">
                           Target:{" "}
                           <strong>
@@ -425,6 +492,15 @@ export function ShortTermKpiDetailModal({ kpi, planId, onClose }: ShortTermKpiDe
                           </strong>
                         </span>
                       </div>
+
+                      {selectedDivision.is_locked || activeAssignment.can_report === false ? (
+                        <div className="rounded-md border border-slate-200 bg-white/80 p-3 text-xs text-slate-600">
+                          {activeAssignment.can_report === false
+                            ? activeAssignment.access_reason
+                            : selectedDivision.lock_reason || "This reporting period is locked based on the Ethiopian Calendar date."}
+                        </div>
+                      ) : (
+                        <>
 
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                         <div>
@@ -480,6 +556,8 @@ export function ShortTermKpiDetailModal({ kpi, planId, onClose }: ShortTermKpiDe
                           Submit Period Report
                         </Button>
                       </div>
+                        </>
+                      )}
                     </form>
                   )}
                 </div>

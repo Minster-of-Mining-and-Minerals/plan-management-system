@@ -13,6 +13,54 @@ const {
 const VALID_FREQUENCIES = ["monthly", "weekly", "daily"];
 const VALID_EVALUATION_MODES = ["number", "percentage", "frequency"];
 
+/**
+ * Exact current canonical Gregorian date (YYYY-MM-DD) in Africa/Addis_Ababa (UTC+3).
+ */
+function getTodayDateInAddisAbaba(nowDate = new Date()) {
+  const parts = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Africa/Addis_Ababa",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).formatToParts(nowDate);
+  const y = parts.find((p) => p.type === "year")?.value;
+  const m = parts.find((p) => p.type === "month")?.value;
+  const d = parts.find((p) => p.type === "day")?.value;
+  return `${y}-${m}-${d}`;
+}
+
+/**
+ * Compute calendar lock status for a short-term reporting division against today's date in Ethiopia.
+ */
+function computeDivisionLockStatus(division, todayGc = getTodayDateInAddisAbaba()) {
+  if (!division?.start_date || !division?.end_date) {
+    return { lock_status: "open", is_locked: false, lock_reason: null };
+  }
+  const cal = normalizeCalendarSystem(division.calendar_system || "EC", "EC");
+  const startDisp = division.display_start_date || formatDateByCalendar(division.start_date, cal);
+  const endDisp = division.display_end_date || formatDateByCalendar(division.end_date, cal);
+
+  if (todayGc < division.start_date) {
+    return {
+      lock_status: "upcoming",
+      is_locked: true,
+      lock_reason: `Locked — opens on ${startDisp} (${cal})`,
+    };
+  }
+  if (todayGc > division.end_date) {
+    return {
+      lock_status: "closed",
+      is_locked: true,
+      lock_reason: `Locked — reporting window closed after ${endDisp} (${cal})`,
+    };
+  }
+  return {
+    lock_status: "open",
+    is_locked: false,
+    lock_reason: null,
+  };
+}
+
 function normalizeFrequency(freq) {
   const f = String(freq || "weekly").trim().toLowerCase();
   if (VALID_FREQUENCIES.includes(f)) return f;
@@ -144,12 +192,16 @@ function summarizeAssignmentProgress(kpi, assignment, divisions, reports = []) {
   let narrativeOnlyCount = 0;
   let latestNumericActual = null;
 
+  const todayGc = getTodayDateInAddisAbaba();
+  const todayEc = formatDateByCalendar(todayGc, normalizeCalendarSystem(divisions[0]?.calendar_system || "EC", "EC"));
+
   const enrichedDivisions = divisions.map((div) => {
     const targetVal =
       periodTargets[div.period_label] !== undefined && periodTargets[div.period_label] !== null && periodTargets[div.period_label] !== ""
         ? Number(periodTargets[div.period_label])
         : null;
     const report = reportsByLabel.get(String(div.period_label).trim().toLowerCase()) || null;
+    const lockInfo = computeDivisionLockStatus(div, todayGc);
 
     if (report) {
       if (report.submission_type === "narrative_only") {
@@ -172,6 +224,9 @@ function summarizeAssignmentProgress(kpi, assignment, divisions, reports = []) {
       ...div,
       planned_target: targetVal,
       recommended_submission_type: recommendedMode,
+      lock_status: lockInfo.lock_status,
+      is_locked: lockInfo.is_locked,
+      lock_reason: lockInfo.lock_reason,
       report: report
         ? {
             report_id: report.report_id,
@@ -216,6 +271,8 @@ function summarizeAssignmentProgress(kpi, assignment, divisions, reports = []) {
       effective_evaluation_mode: evalMode,
       overall_actual: numericReportsCount > 0 ? overallActual : null,
       overall_achievement_percent: overallAchievementPercent,
+      today_gc: todayGc,
+      today_ec: todayEc,
     },
   };
 }
@@ -225,6 +282,8 @@ module.exports = {
   VALID_EVALUATION_MODES,
   normalizeFrequency,
   normalizeEvaluationMode,
+  getTodayDateInAddisAbaba,
+  computeDivisionLockStatus,
   generateShortTermDivisions,
   summarizeAssignmentProgress,
 };

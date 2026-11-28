@@ -17,9 +17,58 @@ const {
 const {
   normalizeFrequency,
   normalizeEvaluationMode,
+  getTodayDateInAddisAbaba,
+  computeDivisionLockStatus,
   generateShortTermDivisions,
   summarizeAssignmentProgress,
 } = require("../utils/shortTermPlanPeriodUtils");
+
+function resolveAssignmentReportingAccess(assignment, currentUser) {
+  if (!currentUser) {
+    return { can_report: false, access_reason: "Authentication required" };
+  }
+  const roleNames = Array.isArray(currentUser.roles)
+    ? currentUser.roles.map((r) => String(r.name || r).toLowerCase())
+    : [];
+  const isSuperAdmin =
+    Boolean(currentUser.is_super_admin) ||
+    roleNames.some((r) => r.includes("super admin") || r === "super_admin");
+  if (isSuperAdmin) {
+    return { can_report: true, access_reason: null };
+  }
+
+  if (assignment.assigned_user_id) {
+    if (currentUser.user_id === assignment.assigned_user_id) {
+      return { can_report: true, access_reason: null };
+    }
+    return {
+      can_report: false,
+      access_reason: "Restricted: only the specifically assigned user can report on this KPI.",
+    };
+  }
+
+  if (assignment.internal_structure_id) {
+    if (currentUser.internal_structure_id === assignment.internal_structure_id) {
+      return { can_report: true, access_reason: null };
+    }
+    return {
+      can_report: false,
+      access_reason: "Restricted: only users in the assigned department can report on this KPI.",
+    };
+  }
+
+  if (assignment.government_structure_id) {
+    if (currentUser.government_structure_id === assignment.government_structure_id) {
+      return { can_report: true, access_reason: null };
+    }
+    return {
+      can_report: false,
+      access_reason: "Restricted: only users in the assigned sector can report on this KPI.",
+    };
+  }
+
+  return { can_report: true, access_reason: null };
+}
 
 class ShortTermPlanService {
   async listPlans(filters = {}) {
@@ -124,7 +173,7 @@ class ShortTermPlanService {
     });
   }
 
-  async getPlanDetail(planId, filters = {}) {
+  async getPlanDetail(planId, filters = {}, currentUser = null) {
     const plan = await ShortTermPlan.findByPk(planId, {
       include: [
         { model: GovernmentStructure, as: "sector", attributes: ["government_structure_id", "name"] },
@@ -169,9 +218,12 @@ class ShortTermPlanService {
           const effFreq = normalizeFrequency(a.reporting_frequency_override || kpiFreq);
           const divisions = generateShortTermDivisions(item.start_date, item.end_date, effFreq, item.calendar_system);
           const progress = summarizeAssignmentProgress(kpi, a, divisions, a.reports || []);
+          const access = resolveAssignmentReportingAccess(a, currentUser);
           return {
             ...a,
             effective_frequency: effFreq,
+            can_report: access.can_report,
+            access_reason: access.access_reason,
             divisions: progress.divisions,
             progress_summary: progress.summary,
           };
@@ -220,11 +272,20 @@ class ShortTermPlanService {
       throw Object.assign(new Error("government_structure_id (Sector) is required for assignment"), { status: 400 });
     }
 
+    let internalStructureId = payload.internal_structure_id || null;
+    const assignedUserId = payload.assigned_user_id || null;
+    if (!internalStructureId && assignedUserId) {
+      const targetUser = await User.findByPk(assignedUserId, { attributes: ["user_id", "internal_structure_id"] });
+      if (targetUser?.internal_structure_id) {
+        internalStructureId = targetUser.internal_structure_id;
+      }
+    }
+
     return ShortTermKpiAssignment.create({
       short_term_kpi_id: kpiId,
       government_structure_id: sectorId,
-      internal_structure_id: payload.internal_structure_id || null,
-      assigned_user_id: payload.assigned_user_id || null,
+      internal_structure_id: internalStructureId,
+      assigned_user_id: assignedUserId,
       assignee_label: payload.assignee_label || null,
       allocated_target:
         payload.allocated_target !== undefined && payload.allocated_target !== ""
@@ -241,7 +302,10 @@ class ShortTermPlanService {
     });
   }
 
-  async submitPeriodReport(assignmentId, payload, userId) {
+  async submitPeriodReport(assignmentId, payload, userOrId) {
+    const currentUser = userOrId && typeof userOrId === "object" ? userOrId : null;
+    const userId = currentUser ? currentUser.user_id : userOrId || null;
+
     const assignment = await ShortTermKpiAssignment.findByPk(assignmentId, {
       include: [
         {
@@ -252,6 +316,15 @@ class ShortTermPlanService {
       ],
     });
     if (!assignment) throw Object.assign(new Error("Short-term KPI assignment not found"), { status: 404 });
+
+    if (currentUser) {
+      const access = resolveAssignmentReportingAccess(assignment, currentUser);
+      if (!access.can_report) {
+        throw Object.assign(new Error(access.access_reason || "You are not authorized to report on this KPI."), {
+          status: 403,
+        });
+      }
+    }
 
     const kpi = assignment.kpi;
     const plan = kpi.plan;
@@ -267,6 +340,16 @@ class ShortTermPlanService {
 
     if (!targetDiv) {
       throw Object.assign(new Error(`Invalid reporting period '${periodLabel}' for ${effFreq} schedule.`), { status: 400 });
+    }
+
+    // Calendar-based date lock check (Africa/Addis_Ababa UTC+3)
+    const todayGc = getTodayDateInAddisAbaba();
+    const lockInfo = computeDivisionLockStatus(targetDiv, todayGc);
+    if (lockInfo.is_locked) {
+      throw Object.assign(
+        new Error(`Reporting period '${targetDiv.period_label}' is currently locked. ${lockInfo.lock_reason}`),
+        { status: 403 }
+      );
     }
 
     const submissionType = payload.submission_type === "narrative_only" ? "narrative_only" : "actual_and_narrative";

@@ -22,7 +22,7 @@ async function createPlan(req, res) {
 
 async function getPlanDetail(req, res) {
   try {
-    const data = await shortTermPlanService.getPlanDetail(req.params.planId, req.query);
+    const data = await shortTermPlanService.getPlanDetail(req.params.planId, req.query, req.user);
     return res.status(200).json({ success: true, data });
   } catch (err) {
     return res.status(err.status || 500).json({ success: false, message: err.message });
@@ -49,7 +49,7 @@ async function assignKpi(req, res) {
 
 async function submitPeriodReport(req, res) {
   try {
-    const data = await shortTermPlanService.submitPeriodReport(req.params.assignmentId, req.body, req.user?.user_id);
+    const data = await shortTermPlanService.submitPeriodReport(req.params.assignmentId, req.body, req.user);
     return res.status(201).json({ success: true, data });
   } catch (err) {
     return res.status(err.status || 500).json({ success: false, message: err.message });
