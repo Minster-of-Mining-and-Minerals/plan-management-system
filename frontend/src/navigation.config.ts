@@ -318,10 +318,11 @@ export const PRIVATE_CATEGORIZED_NAVIGATION: NavCategory[] = [
         url: "/short-term-plan",
         icon: ClipboardCheck,
         anyPermissions: [
-          "PLANS:READ",
-          "PLANS:CREATE",
-          "PLANS:UPDATE",
-          "NATIONAL_REPORTING:READ_REQUIREMENT",
+          "SHORT_TERM_PLAN:VIEW",
+          "SHORT_TERM_PLAN:CREATE",
+          "SHORT_TERM_PLAN:EDIT",
+          "SHORT_TERM_PLAN:ASSIGN",
+          "SHORT_TERM_PLAN:REPORT",
         ],
         children: [
           {
@@ -329,10 +330,11 @@ export const PRIVATE_CATEGORIZED_NAVIGATION: NavCategory[] = [
             url: "/short-term-plan/dashboard",
             icon: LayoutDashboard,
             anyPermissions: [
-              "PLANS:READ",
-              "PLANS:CREATE",
-              "PLANS:UPDATE",
-              "NATIONAL_REPORTING:READ_REQUIREMENT",
+              "SHORT_TERM_PLAN:VIEW",
+              "SHORT_TERM_PLAN:CREATE",
+              "SHORT_TERM_PLAN:EDIT",
+              "SHORT_TERM_PLAN:ASSIGN",
+              "SHORT_TERM_PLAN:REPORT",
             ],
           },
           {
@@ -340,10 +342,11 @@ export const PRIVATE_CATEGORIZED_NAVIGATION: NavCategory[] = [
             url: "/short-term-plan",
             icon: ListTree,
             anyPermissions: [
-              "PLANS:READ",
-              "PLANS:CREATE",
-              "PLANS:UPDATE",
-              "NATIONAL_REPORTING:READ_REQUIREMENT",
+              "SHORT_TERM_PLAN:VIEW",
+              "SHORT_TERM_PLAN:CREATE",
+              "SHORT_TERM_PLAN:EDIT",
+              "SHORT_TERM_PLAN:ASSIGN",
+              "SHORT_TERM_PLAN:REPORT",
             ],
           },
         ],

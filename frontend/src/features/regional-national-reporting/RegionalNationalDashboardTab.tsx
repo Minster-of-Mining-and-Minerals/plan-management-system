@@ -487,3 +487,4 @@ export function RegionalNationalDashboardTab({ regionId }: Props) {
     </div>
   );
 }
+

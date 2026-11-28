@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useMemo, useState } from "react";
-import { useSearchParams } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { ColumnDef } from "@tanstack/react-table";
 import {
   useGetShortTermPlansQuery,
@@ -10,7 +10,6 @@ import {
   useAddShortTermKpiMutation,
   useUpdateShortTermKpiMutation,
   useDeleteShortTermKpiMutation,
-  useAssignShortTermKpiMutation,
 } from "@/redux/api/shortTermPlanApi";
 import { useGetGovernmentStructuresQuery } from "@/redux/api/governmentStructureApi";
 import { useGetInternalStructuresQuery } from "@/redux/api/internalStructureApi";
@@ -45,13 +44,20 @@ import {
 import { CalendarSystemSelector } from "@/components/ui/calendar-system-selector";
 import { DualCalendarDatePicker } from "@/components/ui/dual-calendar-date-picker";
 import type { CalendarSystem } from "@/utils/calendarUtils";
-import { ShortTermKpiDetailModal } from "./ShortTermKpiDetailModal";
 import { AssignShortTermKpiModal } from "./AssignShortTermKpiModal";
+import { usePermissions } from "@/hooks/usePermissions";
 import { actionFeedback } from "@/components/action-feedback";
 import { Plus, Share2, Eye, Edit, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 
 export function ShortTermPlanView() {
+  const router = useRouter();
+  const { check } = usePermissions();
+  const canCreatePlan = check({ anyPermissions: ["SHORT_TERM_PLAN:CREATE"] });
+  const canEditKpi = check({ anyPermissions: ["SHORT_TERM_PLAN:EDIT"] });
+  const canAssignKpi = check({ anyPermissions: ["SHORT_TERM_PLAN:ASSIGN"] });
+  const canDeleteKpi = check({ anyPermissions: ["SHORT_TERM_PLAN:DELETE"] });
+
   const searchParams = useSearchParams();
   const searchQuery = (searchParams.get("search") || "").trim().toLowerCase();
 
@@ -86,18 +92,10 @@ export function ShortTermPlanView() {
   const [addKpi, { isLoading: isAddingKpi }] = useAddShortTermKpiMutation();
   const [updateKpi, { isLoading: isUpdatingKpi }] = useUpdateShortTermKpiMutation();
   const [deleteKpi] = useDeleteShortTermKpiMutation();
-  const [assignKpi, { isLoading: isAssigning }] = useAssignShortTermKpiMutation();
 
   // Table Filters
   const [frequencyFilter, setFrequencyFilter] = useState<string>("all");
   const [evalModeFilter, setEvalModeFilter] = useState<string>("all");
-
-  // KPI Detail Modal (Reporting Frequency & Reporting Section inside)
-  const [detailKpiId, setDetailKpiId] = useState<string | null>(null);
-  const detailKpi = useMemo(
-    () => (planDetail?.kpis || []).find((k) => k.short_term_kpi_id === detailKpiId) || null,
-    [planDetail?.kpis, detailKpiId]
-  );
 
   // Create Plan Dialog
   const [isCreatePlanOpen, setIsCreatePlanOpen] = useState(false);
@@ -128,15 +126,6 @@ export function ShortTermPlanView() {
 
   // Assign KPI Dialog
   const [assigningKpi, setAssigningKpi] = useState<ShortTermKpi | null>(null);
-  const [assignForm, setAssignForm] = useState({
-    government_structure_id: "",
-    internal_structure_id: "",
-    assigned_user_id: "",
-    assignee_label: "",
-    allocated_target: "",
-    evaluation_mode_override: "" as "" | ShortTermEvaluationMode,
-    reporting_frequency_override: "" as "" | ShortTermFrequency,
-  });
 
   const allKpis = planDetail?.kpis || [];
   const filteredKpis = useMemo(() => {
@@ -158,12 +147,6 @@ export function ShortTermPlanView() {
       return true;
     });
   }, [allKpis, frequencyFilter, evalModeFilter, searchQuery]);
-
-  const filteredDepts = useMemo(() => {
-    const sectorId = assignForm.government_structure_id || planDetail?.government_structure_id;
-    if (!sectorId) return internalDepts;
-    return internalDepts.filter((d) => d.government_structure_id === sectorId);
-  }, [internalDepts, assignForm.government_structure_id, planDetail?.government_structure_id]);
 
   const openCreateKpi = () => {
     setEditingKpi(null);
@@ -261,33 +244,6 @@ export function ShortTermPlanView() {
     }
   };
 
-  const handleAssignKpi = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!assigningKpi || !planDetail) return;
-    const sectorId = assignForm.government_structure_id || planDetail.government_structure_id;
-    if (!sectorId) {
-      toast.error("Please select a Sector");
-      return;
-    }
-    try {
-      await assignKpi({
-        kpiId: assigningKpi.short_term_kpi_id,
-        planId: planDetail.short_term_plan_id,
-        government_structure_id: sectorId,
-        internal_structure_id: assignForm.internal_structure_id || null,
-        assigned_user_id: assignForm.assigned_user_id || null,
-        assignee_label: assignForm.assignee_label || undefined,
-        allocated_target: assignForm.allocated_target ? Number(assignForm.allocated_target) : null,
-        evaluation_mode_override: assignForm.evaluation_mode_override || null,
-        reporting_frequency_override: assignForm.reporting_frequency_override || null,
-      }).unwrap();
-      toast.success("KPI assigned successfully");
-      setAssigningKpi(null);
-    } catch (err: any) {
-      toast.error(err?.data?.message || "Failed to assign KPI");
-    }
-  };
-
   const filters: FilterField[] = useMemo(
     () => [
       {
@@ -351,24 +307,26 @@ export function ShortTermPlanView() {
     [sectorFilter, sectors, activePlanId, plans, isLoadingPlans, frequencyFilter, evalModeFilter]
   );
 
-  const actions: ActionButton[] = [
-    {
-      label: "New Plan",
-      icon: <Plus className="h-4 w-4" />,
-      variant: "outline",
-      onClick: () => setIsCreatePlanOpen(true),
-    },
-    ...(planDetail
-      ? [
-          {
-            label: "Add KPI",
-            icon: <Plus className="h-4 w-4" />,
-            variant: "default" as const,
-            onClick: openCreateKpi,
-          },
-        ]
-      : []),
-  ];
+  const actions: ActionButton[] = canCreatePlan
+    ? [
+        {
+          label: "New Plan",
+          icon: <Plus className="h-4 w-4" />,
+          variant: "outline",
+          onClick: () => setIsCreatePlanOpen(true),
+        },
+        ...(planDetail
+          ? [
+              {
+                label: "Add KPI",
+                icon: <Plus className="h-4 w-4" />,
+                variant: "default" as const,
+                onClick: openCreateKpi,
+              },
+            ]
+          : []),
+      ]
+    : [];
 
   const columns: ColumnDef<ShortTermKpi>[] = [
     {
@@ -457,55 +415,51 @@ export function ShortTermPlanView() {
       header: () => <div className="text-right">Actions</div>,
       cell: ({ row }) => {
         const kpi = row.original;
+        const hasAssignment = Boolean(kpi.assignments && kpi.assignments.length > 0);
         return (
           <div className="flex items-center justify-end gap-1">
             <Button
               size="icon"
               variant="ghost"
               className="h-8 w-8"
-              title="View & Report"
-              onClick={() => setDetailKpiId(kpi.short_term_kpi_id)}
+              title="View Detail & Report"
+              onClick={() => router.push(`/short-term-plan/kpis/${kpi.short_term_kpi_id}`)}
             >
               <Eye className="h-4 w-4 text-slate-600" />
             </Button>
-            <Button
-              size="icon"
-              variant="ghost"
-              className="h-8 w-8"
-              title="Edit KPI"
-              onClick={() => openEditKpi(kpi)}
-            >
-              <Edit className="h-4 w-4 text-blue-600" />
-            </Button>
-            <Button
-              size="icon"
-              variant="ghost"
-              className="h-8 w-8"
-              title="Assign to Dept / User"
-              onClick={() => {
-                setAssigningKpi(kpi);
-                setAssignForm({
-                  government_structure_id: planDetail?.government_structure_id || "",
-                  internal_structure_id: "",
-                  assigned_user_id: "",
-                  assignee_label: "",
-                  allocated_target: kpi.total_target ? String(kpi.total_target) : "",
-                  evaluation_mode_override: "",
-                  reporting_frequency_override: "",
-                });
-              }}
-            >
-              <Share2 className="h-4 w-4 text-emerald-600" />
-            </Button>
-            <Button
-              size="icon"
-              variant="ghost"
-              className="h-8 w-8"
-              title="Delete KPI"
-              onClick={() => handleDeleteKpi(kpi)}
-            >
-              <Trash2 className="h-4 w-4 text-red-600" />
-            </Button>
+            {canEditKpi && (
+              <Button
+                size="icon"
+                variant="ghost"
+                className="h-8 w-8"
+                title="Edit KPI"
+                onClick={() => openEditKpi(kpi)}
+              >
+                <Edit className="h-4 w-4 text-blue-600" />
+              </Button>
+            )}
+            {canAssignKpi && (
+              <Button
+                size="icon"
+                variant="ghost"
+                className="h-8 w-8"
+                title={hasAssignment ? "Update Assignment" : "Assign to Dept / User"}
+                onClick={() => setAssigningKpi(kpi)}
+              >
+                <Share2 className="h-4 w-4 text-emerald-600" />
+              </Button>
+            )}
+            {canDeleteKpi && (
+              <Button
+                size="icon"
+                variant="ghost"
+                className="h-8 w-8"
+                title="Delete KPI"
+                onClick={() => handleDeleteKpi(kpi)}
+              >
+                <Trash2 className="h-4 w-4 text-red-600" />
+              </Button>
+            )}
           </div>
         );
       },
@@ -537,15 +491,6 @@ export function ShortTermPlanView() {
           defaultPageSize={10}
         />
       </TableLayout>
-
-      {/* KPI Detail & Reporting Modal */}
-      {planDetail && (
-        <ShortTermKpiDetailModal
-          kpi={detailKpi}
-          planId={planDetail.short_term_plan_id}
-          onClose={() => setDetailKpiId(null)}
-        />
-      )}
 
       {/* Create Short-Term Plan Dialog */}
       <Dialog open={isCreatePlanOpen} onOpenChange={setIsCreatePlanOpen}>

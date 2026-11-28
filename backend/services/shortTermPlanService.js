@@ -235,6 +235,119 @@ class ShortTermPlanService {
     return item;
   }
 
+  async getKpiDetail(kpiId, currentUser = null) {
+    const kpi = await ShortTermKpi.findByPk(kpiId, {
+      include: [
+        {
+          model: ShortTermPlan,
+          as: "plan",
+          include: [
+            { model: GovernmentStructure, as: "sector", attributes: ["government_structure_id", "name"] },
+          ],
+        },
+        {
+          model: ShortTermKpiAssignment,
+          as: "assignments",
+          include: [
+            { model: GovernmentStructure, as: "sector", attributes: ["government_structure_id", "name"] },
+            { model: InternalStructure, as: "department", attributes: ["internal_structure_id", "name"] },
+            { model: User, as: "assignedUser", attributes: ["user_id", "full_name", "email"] },
+            {
+              model: ShortTermPeriodReport,
+              as: "reports",
+              include: [{ model: User, as: "submittedByUser", attributes: ["user_id", "full_name", "email"] }],
+            },
+          ],
+        },
+      ],
+    });
+
+    if (!kpi) {
+      throw Object.assign(new Error("Short-term KPI not found"), { status: 404 });
+    }
+
+    const item = kpi.toJSON();
+    const plan = item.plan;
+    const kpiFreq = normalizeFrequency(item.reporting_frequency || plan?.default_frequency || "weekly");
+    const todayGc = getTodayDateInAddisAbaba();
+
+    item.assignments = (item.assignments || []).map((a) => {
+      const effFreq = normalizeFrequency(a.reporting_frequency_override || kpiFreq);
+      const divisions = generateShortTermDivisions(plan.start_date, plan.end_date, effFreq, plan.calendar_system);
+      const progress = summarizeAssignmentProgress(item, a, divisions, a.reports || []);
+      const access = resolveAssignmentReportingAccess(a, currentUser);
+
+      // Build Month -> Week/Day cascaded classification groups
+      const monthlyPeriods = generateShortTermDivisions(plan.start_date, plan.end_date, "monthly", plan.calendar_system);
+      const monthlyGroups = monthlyPeriods.map((m) => {
+        const childDivs = progress.divisions.filter(
+          (d) => (d.parent_month_label || d.period_label) === m.period_label
+        );
+        const monthLock = computeDivisionLockStatus(m, todayGc);
+
+        let monthTarget = 0;
+        let hasMonthTarget = false;
+        let monthActual = 0;
+        let hasMonthActual = false;
+        let reportedCount = 0;
+
+        childDivs.forEach((d) => {
+          if (d.planned_target !== null && d.planned_target !== undefined) {
+            monthTarget += Number(d.planned_target);
+            hasMonthTarget = true;
+          }
+          if (d.report) {
+            reportedCount += 1;
+            if (d.report.reported_actual !== null && d.report.reported_actual !== undefined) {
+              monthActual += Number(d.report.reported_actual);
+              hasMonthActual = true;
+            }
+          }
+        });
+
+        const evalMode = progress.summary.effective_evaluation_mode;
+        if (evalMode === "percentage" && hasMonthActual) {
+          const lastNumeric = [...childDivs].reverse().find((d) => d.report?.reported_actual != null);
+          if (lastNumeric?.report?.reported_actual != null) {
+            monthActual = Number(lastNumeric.report.reported_actual);
+          }
+        }
+
+        const effectiveTarget = hasMonthTarget ? Math.round(monthTarget * 100) / 100 : null;
+        const effectiveActual = hasMonthActual ? Math.round(monthActual * 100) / 100 : null;
+        const achPct =
+          effectiveTarget && effectiveTarget > 0 && effectiveActual !== null
+            ? Math.min(100, Math.round((effectiveActual / effectiveTarget) * 1000) / 10)
+            : null;
+
+        return {
+          ...m,
+          lock_status: monthLock.lock_status,
+          is_locked: monthLock.is_locked,
+          lock_reason: monthLock.lock_reason,
+          month_target: effectiveTarget,
+          month_actual: effectiveActual,
+          achievement_percent: achPct,
+          reported_count: reportedCount,
+          total_children: childDivs.length,
+          divisions: childDivs,
+        };
+      });
+
+      return {
+        ...a,
+        effective_frequency: effFreq,
+        can_report: access.can_report,
+        access_reason: access.access_reason,
+        divisions: progress.divisions,
+        monthly_groups: monthlyGroups,
+        progress_summary: progress.summary,
+      };
+    });
+
+    return item;
+  }
+
   async addKpi(planId, data) {
     const plan = await ShortTermPlan.findByPk(planId);
     if (!plan) throw Object.assign(new Error("Short-term plan not found"), { status: 404 });
@@ -455,6 +568,9 @@ class ShortTermPlanService {
     const assignment = await ShortTermKpiAssignment.findByPk(assignmentId);
     if (!assignment) throw Object.assign(new Error("Short-term KPI assignment not found"), { status: 404 });
 
+    if (data.government_structure_id !== undefined && data.government_structure_id) {
+      assignment.government_structure_id = data.government_structure_id;
+    }
     if (data.internal_structure_id !== undefined) assignment.internal_structure_id = data.internal_structure_id || null;
     if (data.assigned_user_id !== undefined) assignment.assigned_user_id = data.assigned_user_id || null;
     if (data.assignee_label !== undefined) assignment.assignee_label = data.assignee_label || null;

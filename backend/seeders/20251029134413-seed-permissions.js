@@ -144,6 +144,12 @@ const PERMISSIONS = [
   { resource: "documents", action: "manage" },
   { resource: "documents", action: "share" },
   { resource: "documents", action: "forward" },
+  { resource: "short_term_plan", action: "view" },
+  { resource: "short_term_plan", action: "create" },
+  { resource: "short_term_plan", action: "edit" },
+  { resource: "short_term_plan", action: "delete" },
+  { resource: "short_term_plan", action: "assign" },
+  { resource: "short_term_plan", action: "report" },
 ];
 
 function dedupePermissions(permissions) {

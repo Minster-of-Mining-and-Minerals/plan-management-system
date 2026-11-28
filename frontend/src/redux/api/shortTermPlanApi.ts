@@ -36,6 +36,14 @@ export const shortTermPlanApi = baseApi.injectEndpoints({
       providesTags: (_res, _err, arg) => [{ type: "ShortTermPlan", id: arg.planId }],
     }),
 
+    getShortTermKpiDetail: builder.query<ShortTermKpi, string>({
+      query: (kpiId) => ({
+        url: `/short-term-plans/kpis/${kpiId}`,
+      }),
+      transformResponse: (res: { data: ShortTermKpi }) => res.data,
+      providesTags: (_res, _err, kpiId) => ["ShortTermPlan", { type: "ShortTermPlan", id: kpiId }],
+    }),
+
     getShortTermAnalytics: builder.query<
       ShortTermDashboardAnalytics,
       { planId?: string; government_structure_id?: string } | void
@@ -155,6 +163,10 @@ export const shortTermPlanApi = baseApi.injectEndpoints({
       {
         assignmentId: string;
         planId: string;
+        government_structure_id?: string;
+        internal_structure_id?: string | null;
+        assigned_user_id?: string | null;
+        assignee_label?: string;
         allocated_target?: number | null;
         evaluation_mode_override?: ShortTermEvaluationMode | null;
         reporting_frequency_override?: ShortTermFrequency | null;
@@ -195,6 +207,7 @@ export const shortTermPlanApi = baseApi.injectEndpoints({
 export const {
   useGetShortTermPlansQuery,
   useGetShortTermPlanDetailQuery,
+  useGetShortTermKpiDetailQuery,
   useGetShortTermAnalyticsQuery,
   useCreateShortTermPlanMutation,
   useAddShortTermKpiMutation,

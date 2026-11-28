@@ -92,10 +92,20 @@ async function getDashboardAnalytics(req, res) {
   }
 }
 
+async function getKpiDetail(req, res) {
+  try {
+    const data = await shortTermPlanService.getKpiDetail(req.params.kpiId, req.user);
+    return res.status(200).json({ success: true, data });
+  } catch (err) {
+    return res.status(err.status || 500).json({ success: false, message: err.message });
+  }
+}
+
 module.exports = {
   listPlans,
   createPlan,
   getPlanDetail,
+  getKpiDetail,
   addKpi,
   updateKpi,
   deleteKpi,

@@ -54,6 +54,25 @@ export interface ShortTermDivision {
   } | null;
 }
 
+export interface ShortTermMonthlyGroup {
+  period_index: number;
+  period_label: string;
+  start_date: string;
+  end_date: string;
+  display_start_date: string;
+  display_end_date: string;
+  calendar_system: CalendarSystem;
+  lock_status: "open" | "upcoming" | "closed";
+  is_locked: boolean;
+  lock_reason: string | null;
+  month_target: number | null;
+  month_actual: number | null;
+  achievement_percent: number | null;
+  reported_count: number;
+  total_children: number;
+  divisions: ShortTermDivision[];
+}
+
 export interface ShortTermKpiAssignment {
   assignment_id: string;
   short_term_kpi_id: string;
@@ -72,6 +91,7 @@ export interface ShortTermKpiAssignment {
   department?: { internal_structure_id: string; name: string } | null;
   assignedUser?: { user_id: string; full_name: string; email: string } | null;
   divisions?: ShortTermDivision[];
+  monthly_groups?: ShortTermMonthlyGroup[];
   progress_summary?: {
     total_divisions: number;
     reported_count: number;
@@ -100,6 +120,7 @@ export interface ShortTermKpi {
   requires_narrative: boolean;
   allow_narrative_only_updates: boolean;
   order_index: number;
+  plan?: ShortTermPlan;
   assignments?: ShortTermKpiAssignment[];
 }
 

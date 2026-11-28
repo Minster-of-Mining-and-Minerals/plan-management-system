@@ -24,8 +24,10 @@ import {
   createEmptySelection,
   getSelectionId,
 } from "@/components/assignment-selectors";
-import { DIALOG_SCROLLABLE_CONTENT } from "@/lib/dialogLayout";
-import { useAssignShortTermKpiMutation } from "@/redux/api/shortTermPlanApi";
+import {
+  useAssignShortTermKpiMutation,
+  useUpdateShortTermAssignmentMutation,
+} from "@/redux/api/shortTermPlanApi";
 import type {
   ShortTermEvaluationMode,
   ShortTermFrequency,
@@ -54,6 +56,11 @@ export function AssignShortTermKpiModal({
   onClose,
 }: AssignShortTermKpiModalProps) {
   const [assignKpi, { isLoading: isAssigning }] = useAssignShortTermKpiMutation();
+  const [updateAssignment, { isLoading: isUpdatingAssignment }] = useUpdateShortTermAssignmentMutation();
+
+  const existingAssignment = kpi?.assignments?.[0] || null;
+  const isUpdating = Boolean(existingAssignment);
+  const isSaving = isAssigning || isUpdatingAssignment;
 
   const [selectedSectorId, setSelectedSectorId] = useState<string>(defaultSectorId);
   const [userDeptFilterId, setUserDeptFilterId] = useState<string>("all");
@@ -66,14 +73,43 @@ export function AssignShortTermKpiModal({
 
   useEffect(() => {
     if (!kpi) return;
-    const initSector = defaultSectorId || sectors[0]?.government_structure_id || "";
-    setSelectedSectorId(initSector);
-    setUserDeptFilterId("all");
-    setTargetSelection(createEmptySelection("department"));
-    setAllocatedTarget(kpi.total_target !== null && kpi.total_target !== undefined ? String(kpi.total_target) : "");
-    setEvalModeOverride("");
-    setFreqOverride("");
-  }, [kpi, defaultSectorId, sectors]);
+    if (existingAssignment) {
+      const initSector =
+        existingAssignment.government_structure_id ||
+        defaultSectorId ||
+        sectors[0]?.government_structure_id ||
+        "";
+      setSelectedSectorId(initSector);
+      if (existingAssignment.assigned_user_id) {
+        setUserDeptFilterId(existingAssignment.internal_structure_id || "all");
+        setTargetSelection({
+          ...createEmptySelection("user"),
+          userId: existingAssignment.assigned_user_id,
+        });
+      } else if (existingAssignment.internal_structure_id) {
+        setUserDeptFilterId(existingAssignment.internal_structure_id);
+        setTargetSelection({
+          ...createEmptySelection("department"),
+          internalStructureId: existingAssignment.internal_structure_id,
+        });
+      } else {
+        setUserDeptFilterId("all");
+        setTargetSelection(createEmptySelection("department"));
+      }
+      const targetVal = existingAssignment.allocated_target ?? kpi.total_target;
+      setAllocatedTarget(targetVal !== null && targetVal !== undefined ? String(targetVal) : "");
+      setEvalModeOverride(existingAssignment.evaluation_mode_override || "");
+      setFreqOverride(existingAssignment.reporting_frequency_override || "");
+    } else {
+      const initSector = defaultSectorId || sectors[0]?.government_structure_id || "";
+      setSelectedSectorId(initSector);
+      setUserDeptFilterId("all");
+      setTargetSelection(createEmptySelection("department"));
+      setAllocatedTarget(kpi.total_target !== null && kpi.total_target !== undefined ? String(kpi.total_target) : "");
+      setEvalModeOverride("");
+      setFreqOverride("");
+    }
+  }, [kpi, existingAssignment, defaultSectorId, sectors]);
 
   // Departments scoped to selected Sector
   const sectorDepartments = useMemo(() => {
@@ -155,39 +191,57 @@ export function AssignShortTermKpiModal({
     const selectedDeptObj = departments.find((d) => d.internal_structure_id === selectedDeptId);
     const selectedUserObj = isUser ? users.find((u) => u.user_id === selectedId) : null;
 
-    try {
-      await assignKpi({
-        kpiId: kpi.short_term_kpi_id,
-        planId,
-        government_structure_id: selectedSectorId,
-        internal_structure_id: selectedDeptId,
-        assigned_user_id: isUser ? selectedId : null,
-        assignee_label: isUser
-          ? selectedUserObj?.full_name || ""
-          : selectedDeptObj?.name || "",
-        allocated_target: allocatedTarget !== "" ? Number(allocatedTarget) : null,
-        evaluation_mode_override: evalModeOverride || null,
-        reporting_frequency_override: freqOverride || null,
-      }).unwrap();
+    const payload = {
+      government_structure_id: selectedSectorId,
+      internal_structure_id: selectedDeptId,
+      assigned_user_id: isUser ? selectedId : null,
+      assignee_label: isUser
+        ? selectedUserObj?.full_name || ""
+        : selectedDeptObj?.name || "",
+      allocated_target: allocatedTarget !== "" ? Number(allocatedTarget) : null,
+      evaluation_mode_override: evalModeOverride || null,
+      reporting_frequency_override: freqOverride || null,
+    };
 
-      toast.success(
-        isUser
-          ? `KPI assigned specifically to ${selectedUserObj?.full_name || "user"}`
-          : `KPI assigned to department ${selectedDeptObj?.name || ""}`
-      );
+    try {
+      if (existingAssignment) {
+        await updateAssignment({
+          assignmentId: existingAssignment.assignment_id,
+          planId,
+          ...payload,
+        }).unwrap();
+        toast.success(
+          isUser
+            ? `Assignment updated to ${selectedUserObj?.full_name || "user"}`
+            : `Assignment updated to department ${selectedDeptObj?.name || ""}`
+        );
+      } else {
+        await assignKpi({
+          kpiId: kpi.short_term_kpi_id,
+          planId,
+          ...payload,
+        }).unwrap();
+        toast.success(
+          isUser
+            ? `KPI assigned specifically to ${selectedUserObj?.full_name || "user"}`
+            : `KPI assigned to department ${selectedDeptObj?.name || ""}`
+        );
+      }
       onClose();
     } catch (err: any) {
-      toast.error(err?.data?.message || "Failed to assign KPI");
+      toast.error(err?.data?.message || (isUpdating ? "Failed to update assignment" : "Failed to assign KPI"));
     }
   };
 
   return (
     <Dialog open={!!kpi} onOpenChange={(o) => !o && onClose()}>
-      <DialogContent className={DIALOG_SCROLLABLE_CONTENT}>
+      <DialogContent className="sm:max-w-3xl w-[95vw] max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <GitBranch className="h-4 w-4 text-emerald-600" />
-            <span>Assign Short-Term KPI {kpi ? `(${kpi.code})` : ""}</span>
+            <span>
+              {isUpdating ? "Update Assignment" : "Assign Short-Term KPI"} {kpi ? `(${kpi.code})` : ""}
+            </span>
           </DialogTitle>
         </DialogHeader>
 
@@ -309,8 +363,14 @@ export function AssignShortTermKpiModal({
             <Button type="button" variant="outline" onClick={onClose}>
               Cancel
             </Button>
-            <Button type="submit" disabled={isAssigning}>
-              {isAssigning ? "Assigning..." : "Confirm Assignment"}
+            <Button type="submit" disabled={isSaving}>
+              {isSaving
+                ? isUpdating
+                  ? "Updating..."
+                  : "Assigning..."
+                : isUpdating
+                  ? "Update Assignment"
+                  : "Confirm Assignment"}
             </Button>
           </DialogFooter>
         </form>
