@@ -5,6 +5,7 @@ import {
   RegionalRequirementMapping,
   NationalPublishedRecord,
   NationalDashboardSummary,
+  RegionalNationalDashboardSummary,
   UnitsCatalog,
   RegionNationalReportingConfig,
   DirectFormSubmissionPayload,
@@ -201,11 +202,35 @@ export const nationalReportingApi = baseApi.injectEndpoints({
 
     getNationalDashboardSummary: builder.query<
       NationalDashboardSummary,
-      { reporting_year?: number; reporting_period_label?: string; region_id?: string } | void
+      {
+        reporting_year?: number | string;
+        reporting_period_label?: string;
+        region_id?: string;
+        category?: string;
+        requirement_id?: string;
+      } | void
     >({
       query: (params) => ({
         url: "/national-reporting/dashboard-summary",
         params: params || {},
+      }),
+      transformResponse: (res: any) => res.data,
+      providesTags: ["NationalDashboard"],
+    }),
+
+    getRegionalNationalDashboard: builder.query<
+      RegionalNationalDashboardSummary,
+      {
+        regionId: string;
+        reporting_year?: number | string;
+        reporting_period_label?: string;
+        category?: string;
+        requirement_id?: string;
+      }
+    >({
+      query: ({ regionId, ...params }) => ({
+        url: `/regional/national-reporting/${regionId}/dashboard`,
+        params,
       }),
       transformResponse: (res: any) => res.data,
       providesTags: ["NationalDashboard"],
@@ -471,6 +496,7 @@ export const {
   useGetNationalPublishedRecordByIdQuery,
   useRequestNationalClarificationMutation,
   useGetNationalDashboardSummaryQuery,
+  useGetRegionalNationalDashboardQuery,
   useGetNationalUnitsCatalogQuery,
   useGetNationalCategoriesQuery,
   useCreateNationalCategoryMutation,

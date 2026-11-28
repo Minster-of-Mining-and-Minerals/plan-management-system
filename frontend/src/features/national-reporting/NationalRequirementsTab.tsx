@@ -502,6 +502,39 @@ export function NationalRequirementsTab() {
       },
     },
     {
+      id: "configured_target",
+      header: "Configured Target",
+      cell: ({ row }) => {
+        const req = row.original;
+        const assignments = req.assignments || [];
+        let total = req.totalConfiguredTarget ?? null;
+        let withTargetCount = req.configuredTargetsCount ?? 0;
+        if (total === null && assignments.length > 0) {
+          let sum = 0;
+          assignments.forEach((a) => {
+            if (a.annual_target != null && !isNaN(Number(a.annual_target))) {
+              sum += Number(a.annual_target);
+              withTargetCount += 1;
+            }
+          });
+          if (withTargetCount > 0) total = Math.round(sum * 100) / 100;
+        }
+        return total !== null ? (
+          <div className="space-y-0.5">
+            <div className="font-mono font-semibold text-xs text-slate-800 dark:text-slate-200">
+              {Number(total).toLocaleString()}{" "}
+              <span className="text-[10px] text-slate-400 font-sans">{req.expected_unit}</span>
+            </div>
+            <div className="text-[10px] text-slate-400">
+              Across {withTargetCount} {withTargetCount === 1 ? "region" : "regions"}
+            </div>
+          </div>
+        ) : (
+          <span className="text-xs text-slate-400 italic">Not set</span>
+        );
+      },
+    },
+    {
       accessorKey: "is_active",
       header: "Status",
       cell: ({ row }) => <ActiveStatusBadge isActive={row.original.is_active} />,

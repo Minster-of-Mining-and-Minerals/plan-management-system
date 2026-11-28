@@ -249,8 +249,29 @@ async function getSubmissionVersions(req, res) {
   }
 }
 
+async function getRegionalDashboardSummary(req, res) {
+  try {
+    const regionId = resolveAndVerifyRegionId(req);
+    const summary = await regionalNationalReportingService.getRegionalDashboardSummary(
+      regionId,
+      req.query
+    );
+    return res.status(200).json({
+      success: true,
+      data: summary,
+    });
+  } catch (error) {
+    console.error("Error retrieving regional national dashboard summary:", error);
+    return res.status(error.status || 500).json({
+      success: false,
+      message: error.message || "Failed to retrieve regional national dashboard summary.",
+    });
+  }
+}
+
 module.exports = {
   listAssignedRequirements,
+  getRegionalDashboardSummary,
   createPotentialMapping,
   confirmMapping,
   deleteMapping,

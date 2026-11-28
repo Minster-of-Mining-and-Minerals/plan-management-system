@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import {
   useGetNationalDashboardSummaryQuery,
   useGetNationalCategoriesQuery,
+  useGetNationalRequirementsQuery,
 } from "@/redux/api/nationalReportingApi";
 import { useGetRegionsQuery } from "@/redux/api/regionApi";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -60,10 +61,12 @@ export function NationalDashboardTab() {
   const router = useRouter();
   const currentYear = new Date().getFullYear();
 
-  // Primary filters
-  const [yearFilter, setYearFilter] = useState<string>(String(currentYear));
+  // Primary cascaded filters
+  const [yearFilter, setYearFilter] = useState<string>("all");
   const [periodFilter, setPeriodFilter] = useState<string>("all");
   const [regionFilter, setRegionFilter] = useState<string>("all");
+  const [categoryFilter, setCategoryFilter] = useState<string>("all");
+  const [kpiFilter, setKpiFilter] = useState<string>("all");
 
   // Selected category for expanded analytics view
   const [expandedCategoryCode, setExpandedCategoryCode] = useState<string | null>(null);
@@ -80,12 +83,86 @@ export function NationalDashboardTab() {
 
   const { data: regions = [] } = useGetRegionsQuery({ is_active: true });
   const { data: customCategories = [] } = useGetNationalCategoriesQuery();
+  const { data: allRequirements = [] } = useGetNationalRequirementsQuery({ is_active: true });
 
   const { data: summary, isLoading } = useGetNationalDashboardSummaryQuery({
-    reporting_year: yearFilter !== "all" ? parseInt(yearFilter, 10) : undefined,
+    reporting_year: yearFilter !== "all" ? yearFilter : "all",
     reporting_period_label: periodFilter !== "all" ? periodFilter : undefined,
     region_id: regionFilter !== "all" ? regionFilter : undefined,
+    category: categoryFilter !== "all" ? categoryFilter : undefined,
+    requirement_id: kpiFilter !== "all" ? kpiFilter : undefined,
   });
+
+  // Cascaded Category options based on selected Region
+  const cascadedCategoryOptions = useMemo(() => {
+    const reqsInRegion =
+      regionFilter === "all"
+        ? allRequirements
+        : allRequirements.filter((r) =>
+            (r.assignments || []).some((a) => a.region_id === regionFilter)
+          );
+    const presentCats = new Set(reqsInRegion.map((r) => r.category).filter(Boolean));
+    if (customCategories.length > 0) {
+      return customCategories.filter((c) => presentCats.size === 0 || presentCats.has(c.code));
+    }
+    return Array.from(presentCats).map((code) => ({ code, label: code, icon: "📊" }));
+  }, [allRequirements, customCategories, regionFilter]);
+
+  // Cascaded KPI options based on selected Region + Category
+  const cascadedKpiOptions = useMemo(() => {
+    return allRequirements.filter((r) => {
+      if (regionFilter !== "all") {
+        const assignedToRegion = (r.assignments || []).some((a) => a.region_id === regionFilter);
+        if (!assignedToRegion) return false;
+      }
+      if (categoryFilter !== "all" && r.category !== categoryFilter) {
+        return false;
+      }
+      return true;
+    });
+  }, [allRequirements, regionFilter, categoryFilter]);
+
+  const handleRegionFilterChange = (nextRegion: string) => {
+    setRegionFilter(nextRegion);
+    const reqsInNextRegion =
+      nextRegion === "all"
+        ? allRequirements
+        : allRequirements.filter((r) =>
+            (r.assignments || []).some((a) => a.region_id === nextRegion)
+          );
+    const validCats = new Set(reqsInNextRegion.map((r) => r.category));
+    const nextCat =
+      categoryFilter !== "all" && !validCats.has(categoryFilter) ? "all" : categoryFilter;
+    if (nextCat !== categoryFilter) setCategoryFilter(nextCat);
+
+    const validKpiIds = new Set(
+      reqsInNextRegion
+        .filter((r) => nextCat === "all" || r.category === nextCat)
+        .map((r) => r.requirement_id)
+    );
+    if (kpiFilter !== "all" && !validKpiIds.has(kpiFilter)) {
+      setKpiFilter("all");
+    }
+  };
+
+  const handleCategoryFilterChange = (nextCat: string) => {
+    setCategoryFilter(nextCat);
+    setIndicatorCategoryFilter(nextCat);
+    const validKpiIds = new Set(
+      allRequirements
+        .filter((r) => {
+          if (regionFilter !== "all" && !(r.assignments || []).some((a) => a.region_id === regionFilter)) {
+            return false;
+          }
+          if (nextCat !== "all" && r.category !== nextCat) return false;
+          return true;
+        })
+        .map((r) => r.requirement_id)
+    );
+    if (kpiFilter !== "all" && !validKpiIds.has(kpiFilter)) {
+      setKpiFilter("all");
+    }
+  };
 
   const categoryMap = useMemo(() => {
     const map = new Map<string, { code: string; label: string; icon?: string }>();
@@ -254,6 +331,52 @@ export function NationalDashboardTab() {
             {row.original.missingSubmissionsCount}
           </span>
         ),
+      },
+      {
+        id: "regionTarget",
+        header: "Set Target",
+        cell: ({ row }) => {
+          const val = row.original.totalTarget;
+          return val != null ? (
+            <span className="font-mono font-semibold text-slate-700 dark:text-slate-300 text-xs">
+              {Number(val).toLocaleString()}
+            </span>
+          ) : (
+            <span className="text-slate-400 text-xs">—</span>
+          );
+        },
+      },
+      {
+        id: "regionActual",
+        header: "Reported Actual",
+        cell: ({ row }) => {
+          const val = row.original.totalActual;
+          return val != null ? (
+            <span className="font-mono font-bold text-emerald-700 dark:text-emerald-400 text-xs">
+              {Number(val).toLocaleString()}
+            </span>
+          ) : (
+            <span className="text-slate-400 text-xs italic">—</span>
+          );
+        },
+      },
+      {
+        id: "regionAchievement",
+        header: "Achievement",
+        cell: ({ row }) => {
+          const rate = row.original.achievementRate;
+          return rate != null ? (
+            <span
+              className={`font-mono font-bold text-xs ${
+                rate >= 100 ? "text-emerald-600" : rate >= 70 ? "text-blue-600" : "text-amber-600"
+              }`}
+            >
+              {rate}%
+            </span>
+          ) : (
+            <span className="text-slate-400 text-xs">—</span>
+          );
+        },
       },
       {
         id: "compliance",
@@ -539,55 +662,186 @@ export function NationalDashboardTab() {
         </div>
       </div>
 
-      {/* Filter Bar */}
-      <div className="flex flex-wrap items-center justify-between gap-4 bg-white dark:bg-slate-900 p-4 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm">
-        <div className="flex flex-wrap items-center gap-3">
-          <span className="text-xs font-semibold uppercase text-slate-500 tracking-wider">
-            Monitoring Window:
-          </span>
-          <Select value={yearFilter} onValueChange={setYearFilter}>
-            <SelectTrigger className="w-[140px] bg-slate-50 dark:bg-slate-950 text-xs">
-              <SelectValue placeholder="Year" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value={String(currentYear)}>{currentYear}</SelectItem>
-              <SelectItem value={String(currentYear - 1)}>{currentYear - 1}</SelectItem>
-            </SelectContent>
-          </Select>
+      {/* Cascaded Filter Bar */}
+      <div className="flex flex-col gap-3 bg-white dark:bg-slate-900 p-4 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div className="flex flex-wrap items-center gap-2.5">
+            <span className="text-xs font-semibold uppercase text-slate-500 tracking-wider mr-1">
+              Cascaded Filters:
+            </span>
+            <Select value={yearFilter} onValueChange={setYearFilter}>
+              <SelectTrigger className="w-[140px] bg-slate-50 dark:bg-slate-950 text-xs">
+                <SelectValue placeholder="Year" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Years</SelectItem>
+                <SelectItem value={String(currentYear)}>{currentYear}</SelectItem>
+                <SelectItem value={String(currentYear - 1)}>{currentYear - 1}</SelectItem>
+                <SelectItem value="2026">2026 (2018/19 EC)</SelectItem>
+                <SelectItem value="2027">2027 (2019 EC)</SelectItem>
+                <SelectItem value="2019">2019 E.C.</SelectItem>
+                <SelectItem value="2018">2018 E.C.</SelectItem>
+              </SelectContent>
+            </Select>
 
-          <Select value={periodFilter} onValueChange={setPeriodFilter}>
-            <SelectTrigger className="w-[160px] bg-slate-50 dark:bg-slate-950 text-xs">
-              <SelectValue placeholder="Period" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">Full Year Aggregated</SelectItem>
-              <SelectItem value="Q1">Quarter 1 (Q1)</SelectItem>
-              <SelectItem value="Q2">Quarter 2 (Q2)</SelectItem>
-              <SelectItem value="Q3">Quarter 3 (Q3)</SelectItem>
-              <SelectItem value="Q4">Quarter 4 (Q4)</SelectItem>
-              <SelectItem value="Annual">Annual Review</SelectItem>
-            </SelectContent>
-          </Select>
+            <Select value={periodFilter} onValueChange={setPeriodFilter}>
+              <SelectTrigger className="w-[180px] bg-slate-50 dark:bg-slate-950 text-xs">
+                <SelectValue placeholder="Period" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Full Year Aggregated</SelectItem>
+                <SelectItem value="Hamle (2018)">Hamle (2018 EC)</SelectItem>
+                <SelectItem value="Nehase (2018)">Nehase (2018 EC)</SelectItem>
+                <SelectItem value="Pagume (2018)">Pagume (2018 EC)</SelectItem>
+                <SelectItem value="Meskerem (2019)">Meskerem (2019 EC)</SelectItem>
+                <SelectItem value="Tikimt (2019)">Tikimt (2019 EC)</SelectItem>
+                <SelectItem value="Hidar (2019)">Hidar (2019 EC)</SelectItem>
+                <SelectItem value="Tahsas (2019)">Tahsas (2019 EC)</SelectItem>
+                <SelectItem value="Tir (2019)">Tir (2019 EC)</SelectItem>
+                <SelectItem value="Yekatit (2019)">Yekatit (2019 EC)</SelectItem>
+                <SelectItem value="Megabit (2019)">Megabit (2019 EC)</SelectItem>
+                <SelectItem value="Miazia (2019)">Miazia (2019 EC)</SelectItem>
+                <SelectItem value="Ginbot (2019)">Ginbot (2019 EC)</SelectItem>
+                <SelectItem value="Sene (2019)">Sene (2019 EC)</SelectItem>
+                <SelectItem value="Q1">Quarter 1 (Q1)</SelectItem>
+                <SelectItem value="Q2">Quarter 2 (Q2)</SelectItem>
+                <SelectItem value="Q3">Quarter 3 (Q3)</SelectItem>
+                <SelectItem value="Q4">Quarter 4 (Q4)</SelectItem>
+                <SelectItem value="Annual">Annual Review</SelectItem>
+              </SelectContent>
+            </Select>
 
-          <Select value={regionFilter} onValueChange={setRegionFilter}>
-            <SelectTrigger className="w-[190px] bg-slate-50 dark:bg-slate-950 text-xs">
-              <SelectValue placeholder="All Regional States" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All Regional States</SelectItem>
-              {regions.map((r) => (
-                <SelectItem key={r.region_id} value={r.region_id}>
-                  {r.name}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+            <Select value={regionFilter} onValueChange={handleRegionFilterChange}>
+              <SelectTrigger className="w-[190px] bg-slate-50 dark:bg-slate-950 text-xs">
+                <SelectValue placeholder="All Regional States" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Regional States</SelectItem>
+                {regions.map((r) => (
+                  <SelectItem key={r.region_id} value={r.region_id}>
+                    {r.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+
+            <Select value={categoryFilter} onValueChange={handleCategoryFilterChange}>
+              <SelectTrigger className="w-[220px] bg-slate-50 dark:bg-slate-950 text-xs">
+                <SelectValue placeholder="All KPI Categories" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All KPI Categories ({cascadedCategoryOptions.length})</SelectItem>
+                {cascadedCategoryOptions.map((c) => (
+                  <SelectItem key={c.code} value={c.code}>
+                    {c.icon || "📊"} {c.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+
+            <Select value={kpiFilter} onValueChange={setKpiFilter}>
+              <SelectTrigger className="w-[240px] bg-slate-50 dark:bg-slate-950 text-xs">
+                <SelectValue placeholder="All KPIs / Indicators" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All KPIs ({cascadedKpiOptions.length})</SelectItem>
+                {cascadedKpiOptions.map((req) => (
+                  <SelectItem key={req.requirement_id} value={req.requirement_id}>
+                    {req.code} — {req.title}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+
+            {(regionFilter !== "all" || categoryFilter !== "all" || kpiFilter !== "all" || periodFilter !== "all") && (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => {
+                  setRegionFilter("all");
+                  setCategoryFilter("all");
+                  setIndicatorCategoryFilter("all");
+                  setKpiFilter("all");
+                  setPeriodFilter("all");
+                }}
+                className="h-8 text-xs text-rose-600 hover:text-rose-700 hover:bg-rose-50"
+              >
+                Reset Filters
+              </Button>
+            )}
+          </div>
+
+          <div className="flex items-center gap-2 text-xs text-slate-500">
+            <Sparkles className="h-4 w-4 text-emerald-600" />
+            <span>Region → Category → KPI cascaded analytics</span>
+          </div>
         </div>
+      </div>
 
-        <div className="flex items-center gap-2 text-xs text-slate-500">
-          <Sparkles className="h-4 w-4 text-emerald-600" />
-          <span>Real-time federated reporting intelligence</span>
-        </div>
+      {/* Aggregate Set Target vs Actual Strip (Pinned to Active Cascaded Filters) */}
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+        <Card className="bg-gradient-to-br from-slate-50 to-white dark:from-slate-900 dark:to-slate-950 border-slate-200 dark:border-slate-800 shadow-sm">
+          <CardHeader className="p-4 pb-1">
+            <span className="text-[11px] font-semibold uppercase tracking-wider text-slate-500">
+              Aggregate Configured Target
+            </span>
+          </CardHeader>
+          <CardContent className="p-4 pt-1 flex items-center justify-between">
+            <div>
+              <div className="text-2xl font-bold font-mono text-slate-900 dark:text-slate-100">
+                {kpis.aggregateTarget != null ? Number(kpis.aggregateTarget).toLocaleString() : "—"}
+              </div>
+              <span className="text-[10px] text-slate-500">
+                Sum of configured targets across filtered assignments
+              </span>
+            </div>
+            <div className="p-2.5 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300">
+              <Scale className="h-5 w-5" />
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="bg-gradient-to-br from-emerald-50/70 to-white dark:from-emerald-950/30 dark:to-slate-950 border-emerald-200 dark:border-emerald-900/50 shadow-sm">
+          <CardHeader className="p-4 pb-1">
+            <span className="text-[11px] font-semibold uppercase tracking-wider text-emerald-700 dark:text-emerald-400">
+              Aggregate Reported Actual
+            </span>
+          </CardHeader>
+          <CardContent className="p-4 pt-1 flex items-center justify-between">
+            <div>
+              <div className="text-2xl font-bold font-mono text-emerald-700 dark:text-emerald-400">
+                {kpis.aggregateActual != null ? Number(kpis.aggregateActual).toLocaleString() : "0"}
+              </div>
+              <span className="text-[10px] text-emerald-600/80 dark:text-emerald-400/80">
+                Validated actuals reported against target
+              </span>
+            </div>
+            <div className="p-2.5 rounded-lg bg-emerald-100 dark:bg-emerald-900/60 text-emerald-700 dark:text-emerald-300">
+              <BarChart3 className="h-5 w-5" />
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="bg-gradient-to-br from-teal-50/70 to-white dark:from-teal-950/30 dark:to-slate-950 border-teal-200 dark:border-teal-900/50 shadow-sm">
+          <CardHeader className="p-4 pb-1">
+            <span className="text-[11px] font-semibold uppercase tracking-wider text-teal-700 dark:text-teal-400">
+              Target Realization Rate
+            </span>
+          </CardHeader>
+          <CardContent className="p-4 pt-1 flex items-center justify-between">
+            <div>
+              <div className="text-2xl font-bold font-mono text-teal-700 dark:text-teal-400">
+                {kpis.overallAchievementRate != null ? `${kpis.overallAchievementRate}%` : "0%"}
+              </div>
+              <span className="text-[10px] text-teal-600/80 dark:text-teal-400/80">
+                Actual achievement vs configured target
+              </span>
+            </div>
+            <div className="p-2.5 rounded-lg bg-teal-100 dark:bg-teal-900/60 text-teal-700 dark:text-teal-300">
+              <TrendingUp className="h-5 w-5" />
+            </div>
+          </CardContent>
+        </Card>
       </div>
 
       {/* Top Metric Cards */}
@@ -791,8 +1045,9 @@ export function NationalDashboardTab() {
                     />
                   </div>
                   <div className="flex items-center justify-between text-[11px] text-slate-500">
-                    <span className="text-[10px] font-medium text-emerald-700 dark:text-emerald-400">
-                      {isSelected ? "▲ Click to collapse" : "▼ Click to expand"}
+                    <span className="font-mono text-[10px] text-slate-600 dark:text-slate-400">
+                      Target: {cat.totalTarget != null ? Number(cat.totalTarget).toLocaleString() : "—"}
+                      {cat.totalActual != null ? ` • Actual: ${Number(cat.totalActual).toLocaleString()}` : ""}
                     </span>
                     <span className="font-mono font-bold text-slate-800 dark:text-slate-200">
                       {cat.complianceRate}% Submitted

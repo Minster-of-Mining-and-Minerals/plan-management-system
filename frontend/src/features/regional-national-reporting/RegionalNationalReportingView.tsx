@@ -2,16 +2,17 @@
 
 import React, { useState } from "react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { RegionalNationalDashboardTab } from "./RegionalNationalDashboardTab";
 import { RegionalAssignedRequirementsTab } from "./RegionalAssignedRequirementsTab";
 import { RegionalPublicationHistoryTab } from "./RegionalPublicationHistoryTab";
-import { Globe, Layers, History, ShieldCheck } from "lucide-react";
+import { BarChart3, Globe, Layers, History, ShieldCheck } from "lucide-react";
 
 interface Props {
   regionId: string;
 }
 
 export function RegionalNationalReportingView({ regionId }: Props) {
-  const [activeTab, setActiveTab] = useState("assigned");
+  const [activeTab, setActiveTab] = useState("dashboard");
 
   return (
     <div className="space-y-6">
@@ -35,6 +36,13 @@ export function RegionalNationalReportingView({ regionId }: Props) {
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
         <TabsList className="bg-slate-100 dark:bg-slate-800/60 p-1 border border-slate-200 dark:border-slate-700/50 rounded-xl">
           <TabsTrigger
+            value="dashboard"
+            className="flex items-center gap-2 data-[state=active]:bg-white dark:data-[state=active]:bg-slate-900 data-[state=active]:text-emerald-700 dark:data-[state=active]:text-emerald-400 data-[state=active]:shadow-sm rounded-lg text-xs font-semibold"
+          >
+            <BarChart3 className="h-4 w-4" />
+            National Reporting Dashboard
+          </TabsTrigger>
+          <TabsTrigger
             value="assigned"
             className="flex items-center gap-2 data-[state=active]:bg-white dark:data-[state=active]:bg-slate-900 data-[state=active]:text-emerald-700 dark:data-[state=active]:text-emerald-400 data-[state=active]:shadow-sm rounded-lg text-xs font-semibold"
           >
@@ -49,6 +57,10 @@ export function RegionalNationalReportingView({ regionId }: Props) {
             Publication Receipts & History
           </TabsTrigger>
         </TabsList>
+
+        <TabsContent value="dashboard" className="space-y-6 outline-none">
+          <RegionalNationalDashboardTab regionId={regionId} />
+        </TabsContent>
 
         <TabsContent value="assigned" className="space-y-6 outline-none">
           <RegionalAssignedRequirementsTab regionId={regionId} />

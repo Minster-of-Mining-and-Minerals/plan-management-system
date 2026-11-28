@@ -112,6 +112,7 @@ export function NationalIndicatorDetailView({
 
   // Search and filter state for regional assignments table
   const [searchQuery, setSearchQuery] = useState("");
+  const [regionFilter, setRegionFilter] = useState("all");
   const [statusFilter, setStatusFilter] = useState("all");
   const [mandateFilter, setMandateFilter] = useState("all");
 
@@ -121,9 +122,10 @@ export function NationalIndicatorDetailView({
   const isOverAchieved = achievementRate != null && achievementRate > 100;
   const assignedList: AssignedRegionInfo[] = indicator.assignedRegions || [];
 
-  // Filtered regional assignments for the table
+  // Filtered regional assignments for the table & chart
   const filteredAssignedList = useMemo(() => {
     return assignedList.filter((asgn) => {
+      if (regionFilter !== "all" && asgn.regionId !== regionFilter) return false;
       const hasSubmitted = asgn.status === "published" || asgn.status === "clarification_requested";
       if (statusFilter === "submitted" && !hasSubmitted) return false;
       if (statusFilter === "pending" && hasSubmitted) return false;
@@ -139,11 +141,11 @@ export function NationalIndicatorDetailView({
         (asgn.publicationReference && asgn.publicationReference.toLowerCase().includes(q))
       );
     });
-  }, [assignedList, searchQuery, statusFilter, mandateFilter]);
+  }, [assignedList, searchQuery, regionFilter, statusFilter, mandateFilter]);
 
-  // Chart 1: Target vs Actual by Regional State
+  // Chart 1: Target vs Actual by Regional State (responds to filters)
   const regionalBarChartData = useMemo(() => {
-    return assignedList.map((asgn) => ({
+    return filteredAssignedList.map((asgn) => ({
       name: asgn.regionName,
       code: asgn.regionCode,
       target: asgn.standardizedTarget ?? asgn.plannedTarget ?? 0,
@@ -583,6 +585,21 @@ export function NationalIndicatorDetailView({
             </div>
 
             <div className="flex flex-wrap items-center gap-2">
+              {/* Region Filter */}
+              <Select value={regionFilter} onValueChange={setRegionFilter}>
+                <SelectTrigger className="w-[190px] h-8 text-xs bg-slate-50 dark:bg-slate-950">
+                  <SelectValue placeholder="All Assigned Regions" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Assigned Regions ({assignedList.length})</SelectItem>
+                  {assignedList.map((asgn) => (
+                    <SelectItem key={asgn.regionId} value={asgn.regionId}>
+                      {asgn.regionName} ({asgn.regionCode})
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+
               {/* Submission Status Filter */}
               <Select value={statusFilter} onValueChange={setStatusFilter}>
                 <SelectTrigger className="w-[170px] h-8 text-xs bg-slate-50 dark:bg-slate-950">

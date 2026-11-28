@@ -72,9 +72,40 @@ export function RegionalAssignedRequirementsTab({ regionId }: Props) {
 
   // Filters state
   const [categoryFilter, setCategoryFilter] = useState("all");
+  const [kpiFilter, setKpiFilter] = useState("all");
   const [frequencyFilter, setFrequencyFilter] = useState("all");
   const [progressFilter, setProgressFilter] = useState("all");
   const [mandatoryFilter, setMandatoryFilter] = useState("all");
+
+  // Cascaded KPI options based on Category filter
+  const cascadedKpiOptions = useMemo(() => {
+    const list: Array<{ value: string; label: string }> = [
+      { value: "all", label: "All KPIs" },
+    ];
+    assignments.forEach((a) => {
+      if (!a.requirement) return;
+      if (categoryFilter !== "all" && a.requirement.category !== categoryFilter) return;
+      list.push({
+        value: a.requirement.requirement_id,
+        label: `${a.requirement.code} — ${a.requirement.title}`,
+      });
+    });
+    return list;
+  }, [assignments, categoryFilter]);
+
+  const handleCategoryChange = (nextCat: string) => {
+    setCategoryFilter(nextCat);
+    if (
+      kpiFilter !== "all" &&
+      !assignments.some(
+        (a) =>
+          a.requirement?.requirement_id === kpiFilter &&
+          (nextCat === "all" || a.requirement?.category === nextCat)
+      )
+    ) {
+      setKpiFilter("all");
+    }
+  };
 
   // Category metadata lookup map
   const categoryMap = useMemo(() => {
@@ -122,6 +153,11 @@ export function RegionalAssignedRequirementsTab({ regionId }: Props) {
         return false;
       }
 
+      // Cascaded KPI filter
+      if (kpiFilter !== "all" && req.requirement_id !== kpiFilter) {
+        return false;
+      }
+
       // Frequency filter
       if (frequencyFilter !== "all" && req.frequency !== frequencyFilter) {
         return false;
@@ -157,6 +193,7 @@ export function RegionalAssignedRequirementsTab({ regionId }: Props) {
     assignments,
     searchQuery,
     categoryFilter,
+    kpiFilter,
     frequencyFilter,
     mandatoryFilter,
     progressFilter,
@@ -415,30 +452,40 @@ export function RegionalAssignedRequirementsTab({ regionId }: Props) {
 
   // Filters configuration for TableLayout
   const filters: FilterField[] = [
-    {
-      key: "category",
-      label: "Global Category",
-      type: "select",
-      placeholder: "All Categories",
-      value: categoryFilter,
-      onChange: setCategoryFilter,
-      options: dynamicCategories,
-    },
-    {
-      key: "frequency",
-      label: "Frequency",
-      type: "select",
-      placeholder: "All Frequencies",
-      value: frequencyFilter,
-      onChange: setFrequencyFilter,
-      options: [
-        { label: "All Frequencies", value: "all" },
-        { label: "Monthly", value: "monthly" },
-        { label: "Quarterly", value: "quarterly" },
-        { label: "Semi-Annually", value: "semi_annually" },
-        { label: "Annually", value: "annually" },
-      ],
-    },
+      {
+        key: "category",
+        label: "Category",
+        type: "select",
+        placeholder: "All Categories",
+        value: categoryFilter,
+        onChange: handleCategoryChange,
+        options: dynamicCategories,
+      },
+      {
+        key: "kpi",
+        label: "KPI / Indicator",
+        type: "select",
+        placeholder: "All KPIs",
+        value: kpiFilter,
+        onChange: setKpiFilter,
+        options: cascadedKpiOptions,
+      },
+      {
+        key: "frequency",
+        label: "Frequency",
+        type: "select",
+        placeholder: "All Frequencies",
+        value: frequencyFilter,
+        onChange: setFrequencyFilter,
+        options: [
+          { label: "All Frequencies", value: "all" },
+          { label: "Daily", value: "daily" },
+          { label: "Monthly", value: "monthly" },
+          { label: "Quarterly", value: "quarterly" },
+          { label: "Semi-Annually", value: "semi_annually" },
+          { label: "Annually", value: "annually" },
+        ],
+      },
     {
       key: "progress",
       label: "Reporting Progress",

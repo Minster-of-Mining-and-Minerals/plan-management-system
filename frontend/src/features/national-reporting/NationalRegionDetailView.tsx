@@ -94,6 +94,7 @@ export function NationalRegionDetailView({
   // Filters for Assigned KPIs DataTable
   const [searchQuery, setSearchQuery] = useState("");
   const [categoryFilter, setCategoryFilter] = useState("all");
+  const [kpiFilter, setKpiFilter] = useState("all");
   const [statusFilter, setStatusFilter] = useState("all");
   const [mandateFilter, setMandateFilter] = useState("all");
   const [overachievedOnly, setOverachievedOnly] = useState(false);
@@ -161,10 +162,26 @@ export function NationalRegionDetailView({
         matchingPeriod?.status === "published" ||
         (asgn as any).workflowStatus === "published";
 
+      // Resolve configured assignment target fallback
+      let configuredFallbackTarget: number | null = null;
+      if (periodLabel && periodLabel !== "all" && asgn.period_targets) {
+        const cleanP = periodLabel.trim().toLowerCase();
+        for (const [k, v] of Object.entries(asgn.period_targets)) {
+          const lk = String(k).trim().toLowerCase();
+          if ((lk === cleanP || lk.startsWith(cleanP) || cleanP.startsWith(lk)) && v != null && !isNaN(Number(v))) {
+            configuredFallbackTarget = Number(v);
+            break;
+          }
+        }
+      } else if (asgn.annual_target != null && !isNaN(Number(asgn.annual_target))) {
+        configuredFallbackTarget = Number(asgn.annual_target);
+      }
+
       const plannedTarget =
         matchingPub?.planned_target ??
         matchingPeriod?.planned_target ??
         matchingPeriod?.standardized_target ??
+        configuredFallbackTarget ??
         null;
 
       const reportedActual =
@@ -232,10 +249,30 @@ export function NationalRegionDetailView({
     });
   }, [assignments, publishedRecords, reportingYear, periodLabel, region]);
 
-  // Filtered dataset for DataTable
+  // Cascaded KPI options based on Category filter
+  const cascadedKpiOptions = useMemo(() => {
+    return kpiDataset.filter(
+      (item) => categoryFilter === "all" || item.category === categoryFilter
+    );
+  }, [kpiDataset, categoryFilter]);
+
+  const handleCategoryChange = (nextCat: string) => {
+    setCategoryFilter(nextCat);
+    if (
+      kpiFilter !== "all" &&
+      !kpiDataset.some(
+        (k) => k.requirementId === kpiFilter && (nextCat === "all" || k.category === nextCat)
+      )
+    ) {
+      setKpiFilter("all");
+    }
+  };
+
+  // Filtered dataset for DataTable & Charts
   const filteredKpis = useMemo(() => {
     return kpiDataset.filter((item) => {
       if (categoryFilter !== "all" && item.category !== categoryFilter) return false;
+      if (kpiFilter !== "all" && item.requirementId !== kpiFilter) return false;
       if (statusFilter === "published" && !item.isPublished) return false;
       if (statusFilter === "pending" && item.isPublished) return false;
       if (mandateFilter === "mandatory" && !item.isMandatory) return false;
@@ -257,27 +294,39 @@ export function NationalRegionDetailView({
     kpiDataset,
     searchQuery,
     categoryFilter,
+    kpiFilter,
     statusFilter,
     mandateFilter,
     overachievedOnly,
     categoryMap,
   ]);
 
-  // Executive Rollup Statistics
-  const totalAssignedCount = assignments.length;
-  const publishedCount = kpiDataset.filter((k) => k.isPublished).length;
+  // Executive Rollup Statistics (cascaded with filteredKpis)
+  const totalAssignedCount = filteredKpis.length;
+  const publishedCount = filteredKpis.filter((k) => k.isPublished).length;
   const pendingCount = totalAssignedCount - publishedCount;
   const complianceRate =
     totalAssignedCount > 0
       ? Math.round((publishedCount / totalAssignedCount) * 100)
       : 0;
 
-  const overachievedCount = kpiDataset.filter((k) => k.isOver).length;
+  const overachievedCount = filteredKpis.filter((k) => k.isOver).length;
 
-  const calculatedFulfillmentSum = kpiDataset.reduce((sum, item) => {
+  const regionAggregateTarget = filteredKpis.reduce(
+    (sum, item) => (item.plannedTarget != null ? sum + Number(item.plannedTarget) : sum),
+    0
+  );
+  const hasRegionTarget = filteredKpis.some((item) => item.plannedTarget != null);
+  const regionAggregateActual = filteredKpis.reduce(
+    (sum, item) => (item.reportedActual != null ? sum + Number(item.reportedActual) : sum),
+    0
+  );
+  const hasRegionActual = filteredKpis.some((item) => item.reportedActual != null);
+
+  const calculatedFulfillmentSum = filteredKpis.reduce((sum, item) => {
     return item.achievementPercent != null ? sum + item.achievementPercent : sum;
   }, 0);
-  const itemsWithAchievement = kpiDataset.filter(
+  const itemsWithAchievement = filteredKpis.filter(
     (item) => item.achievementPercent != null
   ).length;
   const avgFulfillmentRate =
@@ -285,10 +334,10 @@ export function NationalRegionDetailView({
       ? Math.round((calculatedFulfillmentSum / itemsWithAchievement) * 10) / 10
       : null;
 
-  // Chart Data: Target vs Actual comparison across assigned KPIs
+  // Chart Data: Target vs Actual comparison across filtered assigned KPIs
   const barChartData = useMemo(() => {
-    return kpiDataset
-      .slice(0, 10) // display top 10 for clean layout
+    return filteredKpis
+      .slice(0, 12)
       .map((k) => ({
         name: k.code,
         title: k.title,
@@ -296,7 +345,7 @@ export function NationalRegionDetailView({
         actual: k.reportedActual != null ? Number(k.reportedActual) : 0,
         unit: k.expectedUnit,
       }));
-  }, [kpiDataset]);
+  }, [filteredKpis]);
 
   // TanStack DataTable Columns
   const columns: ColumnDef<any>[] = useMemo(
@@ -605,6 +654,45 @@ export function NationalRegionDetailView({
               <SelectItem value="all" className="text-xs">
                 All Periods (Annual)
               </SelectItem>
+              <SelectItem value="Hamle (2018)" className="text-xs">
+                Hamle (2018 EC)
+              </SelectItem>
+              <SelectItem value="Nehase (2018)" className="text-xs">
+                Nehase (2018 EC)
+              </SelectItem>
+              <SelectItem value="Pagume (2018)" className="text-xs">
+                Pagume (2018 EC)
+              </SelectItem>
+              <SelectItem value="Meskerem (2019)" className="text-xs">
+                Meskerem (2019 EC)
+              </SelectItem>
+              <SelectItem value="Tikimt (2019)" className="text-xs">
+                Tikimt (2019 EC)
+              </SelectItem>
+              <SelectItem value="Hidar (2019)" className="text-xs">
+                Hidar (2019 EC)
+              </SelectItem>
+              <SelectItem value="Tahsas (2019)" className="text-xs">
+                Tahsas (2019 EC)
+              </SelectItem>
+              <SelectItem value="Tir (2019)" className="text-xs">
+                Tir (2019 EC)
+              </SelectItem>
+              <SelectItem value="Yekatit (2019)" className="text-xs">
+                Yekatit (2019 EC)
+              </SelectItem>
+              <SelectItem value="Megabit (2019)" className="text-xs">
+                Megabit (2019 EC)
+              </SelectItem>
+              <SelectItem value="Miazia (2019)" className="text-xs">
+                Miazia (2019 EC)
+              </SelectItem>
+              <SelectItem value="Ginbot (2019)" className="text-xs">
+                Ginbot (2019 EC)
+              </SelectItem>
+              <SelectItem value="Sene (2019)" className="text-xs">
+                Sene (2019 EC)
+              </SelectItem>
               <SelectItem value="Q1" className="text-xs">
                 Quarter 1 (Q1)
               </SelectItem>
@@ -617,15 +705,70 @@ export function NationalRegionDetailView({
               <SelectItem value="Q4" className="text-xs">
                 Quarter 4 (Q4)
               </SelectItem>
-              <SelectItem value="Semi-Annual 1" className="text-xs">
-                Semi-Annual 1
-              </SelectItem>
               <SelectItem value="Annual" className="text-xs">
                 Full Annual
               </SelectItem>
             </SelectContent>
           </Select>
         </div>
+      </div>
+
+      {/* Aggregate Target & Reported Output Summary Strip */}
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+        <Card className="bg-slate-50/70 dark:bg-slate-900 border-slate-200 dark:border-slate-800 shadow-sm">
+          <CardContent className="p-4 flex items-center justify-between">
+            <div>
+              <span className="text-[11px] font-semibold uppercase tracking-wider text-slate-500">
+                Region Aggregate Target
+              </span>
+              <div className="text-2xl font-bold font-mono text-slate-900 dark:text-slate-100 mt-0.5">
+                {hasRegionTarget ? regionAggregateTarget.toLocaleString() : "—"}
+              </div>
+              <span className="text-[10px] text-slate-400">
+                Sum of configured targets ({filteredKpis.length} KPIs)
+              </span>
+            </div>
+            <Layers className="h-5 w-5 text-slate-500" />
+          </CardContent>
+        </Card>
+
+        <Card className="bg-emerald-50/60 dark:bg-emerald-950/30 border-emerald-200 dark:border-emerald-900/50 shadow-sm">
+          <CardContent className="p-4 flex items-center justify-between">
+            <div>
+              <span className="text-[11px] font-semibold uppercase tracking-wider text-emerald-700 dark:text-emerald-400">
+                Region Reported Output
+              </span>
+              <div className="text-2xl font-bold font-mono text-emerald-700 dark:text-emerald-400 mt-0.5">
+                {hasRegionActual ? regionAggregateActual.toLocaleString() : "0"}
+              </div>
+              <span className="text-[10px] text-emerald-600/80">
+                Validated actuals reported
+              </span>
+            </div>
+            <CheckCircle2 className="h-5 w-5 text-emerald-600" />
+          </CardContent>
+        </Card>
+
+        <Card className="bg-teal-50/60 dark:bg-teal-950/30 border-teal-200 dark:border-teal-900/50 shadow-sm">
+          <CardContent className="p-4 flex items-center justify-between">
+            <div>
+              <span className="text-[11px] font-semibold uppercase tracking-wider text-teal-700 dark:text-teal-400">
+                Target Achievement Rate
+              </span>
+              <div className="text-2xl font-bold font-mono text-teal-700 dark:text-teal-400 mt-0.5">
+                {hasRegionTarget && regionAggregateTarget > 0 && hasRegionActual
+                  ? `${Math.round((regionAggregateActual / regionAggregateTarget) * 1000) / 10}%`
+                  : avgFulfillmentRate != null
+                  ? `${avgFulfillmentRate}%`
+                  : "0%"}
+              </div>
+              <span className="text-[10px] text-teal-600/80">
+                Reported actual vs configured target
+              </span>
+            </div>
+            <TrendingUp className="h-5 w-5 text-teal-600" />
+          </CardContent>
+        </Card>
       </div>
 
       {/* Executive KPI Cards */}
@@ -799,8 +942,8 @@ export function NationalRegionDetailView({
               </div>
 
               {/* Category Filter */}
-              <Select value={categoryFilter} onValueChange={setCategoryFilter}>
-                <SelectTrigger className="w-[180px] h-8 text-xs">
+              <Select value={categoryFilter} onValueChange={handleCategoryChange}>
+                <SelectTrigger className="w-[190px] h-8 text-xs">
                   <SelectValue placeholder="Category" />
                 </SelectTrigger>
                 <SelectContent className="max-h-72">
@@ -813,6 +956,23 @@ export function NationalRegionDetailView({
                         <span>{c.icon || "📊"}</span>
                         <span>{c.label}</span>
                       </span>
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+
+              {/* Cascaded KPI Filter */}
+              <Select value={kpiFilter} onValueChange={setKpiFilter}>
+                <SelectTrigger className="w-[210px] h-8 text-xs">
+                  <SelectValue placeholder="All KPIs" />
+                </SelectTrigger>
+                <SelectContent className="max-h-72">
+                  <SelectItem value="all" className="text-xs">
+                    All KPIs ({cascadedKpiOptions.length})
+                  </SelectItem>
+                  {cascadedKpiOptions.map((k) => (
+                    <SelectItem key={k.requirementId} value={k.requirementId} className="text-xs">
+                      {k.code} — {k.title}
                     </SelectItem>
                   ))}
                 </SelectContent>

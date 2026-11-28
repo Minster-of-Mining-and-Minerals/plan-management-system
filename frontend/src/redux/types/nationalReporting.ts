@@ -24,6 +24,8 @@ export interface NationalReportingRequirement {
   created_at: string;
   updated_at: string;
   assignedRegionsCount?: number;
+  totalConfiguredTarget?: number | null;
+  configuredTargetsCount?: number;
   assignments?: NationalReportingAssignment[];
   periods?: ReportingPeriod[];
   creator?: {
@@ -321,9 +323,11 @@ export interface NationalPublishedRecord {
 
 export interface NationalDashboardSummary {
   filters: {
-    reporting_year: number;
+    reporting_year: number | string;
     reporting_period_label?: string | null;
     region_id?: string | null;
+    category?: string | null;
+    requirement_id?: string | null;
   };
   kpis: {
     totalRequirementsCount: number;
@@ -334,6 +338,9 @@ export interface NationalDashboardSummary {
     totalPublishedSubmissions: number;
     missingSubmissionsCount: number;
     overallNationalComplianceRate: number;
+    aggregateTarget?: number | null;
+    aggregateActual?: number | null;
+    overallAchievementRate?: number | null;
     openWindowsCount?: number;
     lockedWindowsCount?: number;
     overriddenWindowsCount?: number;
@@ -347,15 +354,22 @@ export interface NationalDashboardSummary {
     assignmentsCount: number;
     publishedCount: number;
     complianceRate: number;
+    totalTarget?: number | null;
+    totalActual?: number | null;
+    achievementRate?: number | null;
   }>;
   regionalCompliance: Array<{
     regionId: string;
     regionName: string;
     regionCode: string;
     assignedRequirementsCount: number;
+    configuredTargetsCount?: number;
     publishedSubmissionsCount: number;
     missingSubmissionsCount: number;
     complianceRate: number;
+    totalTarget?: number | null;
+    totalActual?: number | null;
+    achievementRate?: number | null;
     status: "complete" | "partial" | "pending";
   }>;
   requirementSummaries: Array<{
@@ -385,6 +399,7 @@ export interface NationalDashboardSummary {
       submissionMethod?: string | null;
       reportedActual?: number | null;
       plannedTarget?: number | null;
+      annualTarget?: number | null;
       localUnit?: string | null;
       standardizedActual?: number | null;
       standardizedTarget?: number | null;
@@ -407,6 +422,55 @@ export interface NationalDashboardSummary {
       publicationReference?: string | null;
       narrative?: string | null;
     }>;
+  }>;
+}
+
+export interface RegionalNationalDashboardSummary {
+  filters: {
+    reporting_year: number | string;
+    reporting_period_label?: string | null;
+    category?: string | null;
+    requirement_id?: string | null;
+  };
+  kpis: {
+    totalAssignedCount: number;
+    submittedCount: number;
+    pendingCount: number;
+    complianceRate: number;
+    aggregateTarget?: number | null;
+    aggregateActual?: number | null;
+    overallAchievementRate?: number | null;
+  };
+  categoryBreakdown: Array<{
+    category: string;
+    categoryLabel?: string;
+    icon?: string;
+    assignmentsCount: number;
+    publishedCount: number;
+    complianceRate: number;
+    totalTarget?: number | null;
+    totalActual?: number | null;
+    achievementRate?: number | null;
+  }>;
+  indicatorSummaries: Array<{
+    assignmentId: string;
+    requirementId: string;
+    code: string;
+    title: string;
+    category: string;
+    categoryLabel?: string;
+    categoryIcon?: string | null;
+    expectedUnit: string;
+    frequency: string;
+    calendarSystem?: string;
+    isMandatory: boolean;
+    configuredTarget?: number | null;
+    annualTarget?: number | null;
+    reportedActual?: number | null;
+    achievementRate?: number | null;
+    reportedPeriodsCount: number;
+    totalPeriodsCount: number;
+    status: "submitted" | "pending";
   }>;
 }
 

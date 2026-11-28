@@ -1689,6 +1689,221 @@ class RegionalNationalReportingService {
       versions,
     };
   }
+
+  /**
+   * Aggregated Regional National Reporting Dashboard Summary
+   * Supports cascaded filtering by reporting_year, reporting_period_label, category, and requirement_id.
+   */
+  async getRegionalDashboardSummary(regionId, filters = {}) {
+    const periodLabel =
+      filters.reporting_period_label && filters.reporting_period_label !== "all"
+        ? String(filters.reporting_period_label).trim()
+        : null;
+    const categoryFilter =
+      filters.category && filters.category !== "all" ? String(filters.category).trim() : null;
+    const requirementIdFilter =
+      filters.requirement_id && filters.requirement_id !== "all"
+        ? String(filters.requirement_id).trim()
+        : null;
+    const rawYear = filters.reporting_year;
+    const filterYear = rawYear && rawYear !== "all" ? parseInt(rawYear, 10) : null;
+
+    const [allAssigned, customCategories] = await Promise.all([
+      this.listAssignedRequirementsForRegion(regionId, filters),
+      db.NationalReportingCustomCategory
+        ? db.NationalReportingCustomCategory.findAll({
+            attributes: ["category_id", "code", "label", "icon"],
+          })
+        : Promise.resolve([]),
+    ]);
+
+    const categoryMap = new Map();
+    (customCategories || []).forEach((c) => categoryMap.set(c.code, c));
+
+    const filteredAssignments = allAssigned.filter((asgn) => {
+      const req = asgn.requirement;
+      if (!req) return false;
+      if (categoryFilter && req.category !== categoryFilter) return false;
+      if (requirementIdFilter && req.requirement_id !== requirementIdFilter) return false;
+      return true;
+    });
+
+    let totalAssignedCount = filteredAssignments.length;
+    let submittedCount = 0;
+    let aggregateTarget = 0;
+    let targetHasValue = false;
+    let aggregateActual = 0;
+    let actualHasValue = false;
+
+    const categoryBreakdownMap = new Map();
+    const indicatorSummaries = [];
+
+    for (const asgn of filteredAssignments) {
+      const req = asgn.requirement;
+      const periods = asgn.recurringPeriods || [];
+      const catMeta = categoryMap.get(req.category);
+
+      // Resolve configured target for this assignment (period-specific or annual)
+      let configuredTarget = null;
+      if (periodLabel) {
+        const cleanLabel = periodLabel.toLowerCase();
+        const matchingPeriod = periods.find(
+          (p) => String(p.period_label || "").trim().toLowerCase() === cleanLabel
+        );
+        if (matchingPeriod && matchingPeriod.planned_target != null) {
+          configuredTarget = Number(matchingPeriod.planned_target);
+        } else if (asgn.period_targets) {
+          for (const [k, v] of Object.entries(asgn.period_targets)) {
+            const lk = String(k).trim().toLowerCase();
+            if ((lk === cleanLabel || lk.startsWith(cleanLabel) || cleanLabel.startsWith(lk)) && v != null && !isNaN(Number(v))) {
+              configuredTarget = Number(v);
+              break;
+            }
+          }
+        }
+      } else if (asgn.annual_target != null && !isNaN(Number(asgn.annual_target))) {
+        configuredTarget = Number(asgn.annual_target);
+      } else if (asgn.period_targets) {
+        const divKeys = Object.keys(asgn.period_targets).filter((k) => /^division\s+\d+$/i.test(k.trim()));
+        if (divKeys.length > 0) {
+          configuredTarget = divKeys.reduce((acc, k) => acc + (Number(asgn.period_targets[k]) || 0), 0);
+        }
+      }
+
+      // Resolve reported actuals (period-specific or cumulative published)
+      const pubRecords = (asgn.publishedRecords || []).filter((pub) => {
+        if (pub.status !== "published" && pub.status !== "clarification_requested") return false;
+        if (filterYear && pub.reporting_year !== filterYear) return false;
+        if (periodLabel && String(pub.reporting_period_label || "").trim().toLowerCase() !== periodLabel.toLowerCase()) {
+          return false;
+        }
+        return true;
+      });
+
+      let reportedActual = null;
+      if (pubRecords.length > 0) {
+        reportedActual = pubRecords.reduce(
+          (acc, rec) => acc + (rec.standardized_actual != null ? Number(rec.standardized_actual) : Number(rec.reported_actual || 0)),
+          0
+        );
+        reportedActual = Math.round(reportedActual * 100) / 100;
+      }
+
+      const reportedPeriodsCount = periods.filter(
+        (p) =>
+          p.reported_actual !== null &&
+          p.reported_actual !== undefined &&
+          ["published", "submitted"].includes(p.submission_status || p.status)
+      ).length;
+
+      const isSubmitted = pubRecords.length > 0 || (periodLabel ? false : reportedPeriodsCount > 0);
+      if (isSubmitted) submittedCount++;
+
+      if (configuredTarget !== null && !isNaN(configuredTarget)) {
+        aggregateTarget += configuredTarget;
+        targetHasValue = true;
+      }
+      if (reportedActual !== null && !isNaN(reportedActual)) {
+        aggregateActual += reportedActual;
+        actualHasValue = true;
+      }
+
+      const achievementRate =
+        configuredTarget != null && configuredTarget > 0 && reportedActual != null
+          ? Math.round((reportedActual / configuredTarget) * 1000) / 10
+          : null;
+
+      // Category aggregation
+      const catCode = req.category || "general";
+      if (!categoryBreakdownMap.has(catCode)) {
+        categoryBreakdownMap.set(catCode, {
+          category: catCode,
+          categoryLabel: catMeta?.label || catCode,
+          icon: catMeta?.icon || "📊",
+          assignmentsCount: 0,
+          publishedCount: 0,
+          totalTarget: 0,
+          targetHasValue: false,
+          totalActual: 0,
+          actualHasValue: false,
+        });
+      }
+      const catEntry = categoryBreakdownMap.get(catCode);
+      catEntry.assignmentsCount += 1;
+      if (isSubmitted) catEntry.publishedCount += 1;
+      if (configuredTarget !== null) {
+        catEntry.totalTarget += configuredTarget;
+        catEntry.targetHasValue = true;
+      }
+      if (reportedActual !== null) {
+        catEntry.totalActual += reportedActual;
+        catEntry.actualHasValue = true;
+      }
+
+      indicatorSummaries.push({
+        assignmentId: asgn.assignment_id,
+        requirementId: req.requirement_id,
+        code: req.code,
+        title: req.title,
+        category: req.category,
+        categoryLabel: catMeta?.label || req.category,
+        categoryIcon: catMeta?.icon || "📊",
+        expectedUnit: req.expected_unit,
+        frequency: asgn.frequency_override || req.frequency,
+        calendarSystem: asgn.calendar_system_override || req.calendar_system || "EC",
+        isMandatory: asgn.is_mandatory,
+        configuredTarget: configuredTarget !== null ? Math.round(configuredTarget * 100) / 100 : null,
+        annualTarget: asgn.annual_target != null ? Number(asgn.annual_target) : null,
+        reportedActual,
+        achievementRate,
+        reportedPeriodsCount,
+        totalPeriodsCount: periods.length || 12,
+        status: isSubmitted ? "submitted" : "pending",
+      });
+    }
+
+    const categoryBreakdown = Array.from(categoryBreakdownMap.values()).map((c) => {
+      const totalTarget = c.targetHasValue ? Math.round(c.totalTarget * 100) / 100 : null;
+      const totalActual = c.actualHasValue ? Math.round(c.totalActual * 100) / 100 : null;
+      return {
+        category: c.category,
+        categoryLabel: c.categoryLabel,
+        icon: c.icon,
+        assignmentsCount: c.assignmentsCount,
+        publishedCount: c.publishedCount,
+        complianceRate: c.assignmentsCount > 0 ? Math.round((c.publishedCount / c.assignmentsCount) * 100) : 0,
+        totalTarget,
+        totalActual,
+        achievementRate:
+          totalTarget != null && totalTarget > 0 && totalActual != null
+            ? Math.round((totalActual / totalTarget) * 1000) / 10
+            : null,
+      };
+    });
+
+    return {
+      filters: {
+        reporting_year: filterYear || "all",
+        reporting_period_label: periodLabel,
+        category: categoryFilter,
+        requirement_id: requirementIdFilter,
+      },
+      kpis: {
+        totalAssignedCount,
+        submittedCount,
+        pendingCount: Math.max(0, totalAssignedCount - submittedCount),
+        complianceRate: totalAssignedCount > 0 ? Math.round((submittedCount / totalAssignedCount) * 100) : 0,
+        aggregateTarget: targetHasValue ? Math.round(aggregateTarget * 100) / 100 : null,
+        aggregateActual: actualHasValue ? Math.round(aggregateActual * 100) / 100 : null,
+        overallAchievementRate:
+          targetHasValue && aggregateTarget > 0 && actualHasValue
+            ? Math.round((aggregateActual / aggregateTarget) * 1000) / 10
+            : null,
+      },
+      categoryBreakdown,
+      indicatorSummaries,
+    };
+  }
 }
 
 module.exports = new RegionalNationalReportingService();

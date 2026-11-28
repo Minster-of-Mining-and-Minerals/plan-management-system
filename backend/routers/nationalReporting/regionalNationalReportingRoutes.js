@@ -14,6 +14,13 @@ router.get(
   regionalNationalReportingController.listAssignedRequirements
 );
 
+// Regional National Reporting Dashboard Summary
+router.get(
+  "/:regionId/dashboard",
+  checkPermission("regional_national_reporting", "read_assigned"),
+  regionalNationalReportingController.getRegionalDashboardSummary
+);
+
 // Stage A: Create / Update Potential Mapping
 router.post(
   "/:regionId/assignments/:assignmentId/potential-mapping",

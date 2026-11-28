@@ -37,6 +37,61 @@ const {
 const BUILT_IN_CATEGORIES = [];
 
 /**
+ * Resolve configured target for a NationalReportingAssignment, optionally scoped to a periodLabel.
+ * Avoids double-counting aliased keys in period_targets (Division X, Month X, X, EC Month).
+ */
+function resolveAssignmentTarget(assignment, periodLabel = null) {
+  if (!assignment) return null;
+  const periodTargets = assignment.period_targets || {};
+  const isSpecificPeriod = Boolean(periodLabel && periodLabel !== "all");
+
+  if (isSpecificPeriod) {
+    const cleanTargetLabel = String(periodLabel).trim().toLowerCase();
+    // Direct exact or case-insensitive key match
+    for (const [key, val] of Object.entries(periodTargets)) {
+      if (String(key).trim().toLowerCase() === cleanTargetLabel && val != null && !isNaN(Number(val))) {
+        return Number(val);
+      }
+    }
+    // Partial prefix match (e.g. "Hamle" matching "Hamle (2018)")
+    for (const [key, val] of Object.entries(periodTargets)) {
+      const k = String(key).trim().toLowerCase();
+      if ((k.startsWith(cleanTargetLabel) || cleanTargetLabel.startsWith(k)) && val != null && !isNaN(Number(val))) {
+        return Number(val);
+      }
+    }
+    return null;
+  }
+
+  // Full annual scope: prefer explicit annual_target
+  if (assignment.annual_target !== null && assignment.annual_target !== undefined && !isNaN(Number(assignment.annual_target))) {
+    return Number(assignment.annual_target);
+  }
+
+  // Fallback: sum canonical "Division X" keys (or numeric keys) if present without double-counting
+  const divisionKeys = Object.keys(periodTargets).filter((k) => /^division\s+\d+$/i.test(k.trim()));
+  const keysToSum =
+    divisionKeys.length > 0
+      ? divisionKeys
+      : Object.keys(periodTargets).filter((k) => /^\d+$/.test(k.trim()));
+
+  if (keysToSum.length > 0) {
+    let sum = 0;
+    let hasAny = false;
+    for (const k of keysToSum) {
+      const v = Number(periodTargets[k]);
+      if (!isNaN(v)) {
+        sum += v;
+        hasAny = true;
+      }
+    }
+    return hasAny ? Math.round(sum * 10000) / 10000 : null;
+  }
+
+  return null;
+}
+
+/**
  * Federal National Reporting Service
  */
 class NationalReportingService {
@@ -316,6 +371,19 @@ class NationalReportingService {
       item.categoryLabel = catMeta?.label || item.category;
       item.categoryIcon = catMeta?.icon || null;
       item.assignedRegionsCount = item.assignments ? item.assignments.length : 0;
+
+      let totalConfiguredTarget = 0;
+      let configuredTargetsCount = 0;
+      (item.assignments || []).forEach((asgn) => {
+        const resolved = resolveAssignmentTarget(asgn, null);
+        if (resolved !== null) {
+          totalConfiguredTarget += resolved;
+          configuredTargetsCount += 1;
+        }
+      });
+      item.totalConfiguredTarget = configuredTargetsCount > 0 ? Math.round(totalConfiguredTarget * 100) / 100 : null;
+      item.configuredTargetsCount = configuredTargetsCount;
+
       item.periods = generateReportingPeriods(
         item.effective_start_date,
         item.effective_end_date,
@@ -902,25 +970,42 @@ class NationalReportingService {
    * National Monitoring Dashboard Aggregates & Analytics
    */
   async getNationalDashboardSummary(filters = {}) {
-    const currentYear = filters.reporting_year ? parseInt(filters.reporting_year, 10) : new Date().getFullYear();
-    const periodLabel = filters.reporting_period_label || null;
+    const rawYear = filters.reporting_year;
+    const currentYear =
+      rawYear && rawYear !== "all" ? parseInt(rawYear, 10) : new Date().getFullYear();
+    const filterByYear = Boolean(rawYear && rawYear !== "all");
+    const periodLabel = filters.reporting_period_label && filters.reporting_period_label !== "all"
+      ? filters.reporting_period_label
+      : null;
     const regionIdFilter = filters.region_id && filters.region_id !== "all" ? filters.region_id : null;
+    const categoryFilter = filters.category && filters.category !== "all" ? filters.category : null;
+    const requirementIdFilter =
+      filters.requirement_id && filters.requirement_id !== "all" ? filters.requirement_id : null;
 
-    // 1. High-level metric counts
-    const totalRequirementsCount = await NationalReportingRequirement.count({
-      where: { is_active: true },
-    });
+    // 1. High-level metric counts (filtered by category / requirement_id if set)
+    const reqWhere = { is_active: true };
+    if (categoryFilter) reqWhere.category = categoryFilter;
+    if (requirementIdFilter) reqWhere.requirement_id = requirementIdFilter;
+    const totalRequirementsCount = await NationalReportingRequirement.count({ where: reqWhere });
 
     const assignmentWhere = { status: "active" };
     if (regionIdFilter) {
       assignmentWhere.region_id = regionIdFilter;
+    }
+    if (requirementIdFilter) {
+      assignmentWhere.requirement_id = requirementIdFilter;
+    }
+
+    const reqIncludeWhere = { is_active: true };
+    if (categoryFilter) {
+      reqIncludeWhere.category = categoryFilter;
     }
 
     const activeAssignments = await NationalReportingAssignment.findAll({
       where: assignmentWhere,
       include: [
         { model: Region, as: "region", attributes: ["region_id", "name", "code", "national_reporting_method"] },
-        { model: NationalReportingRequirement, as: "requirement" },
+        { model: NationalReportingRequirement, as: "requirement", where: reqIncludeWhere, required: true },
         {
           model: RegionalRequirementMapping,
           as: "mappings",
@@ -942,20 +1027,25 @@ class NationalReportingService {
 
     // Published records for the filter period
     const pubWhere = {
-      reporting_year: currentYear,
       status: { [Op.in]: ["published", "clarification_requested"] },
     };
-    if (periodLabel && periodLabel !== "all") {
+    if (filterByYear) {
+      pubWhere.reporting_year = currentYear;
+    }
+    if (periodLabel) {
       pubWhere.reporting_period_label = periodLabel;
     }
     if (regionIdFilter) {
       pubWhere.region_id = regionIdFilter;
     }
+    if (requirementIdFilter) {
+      pubWhere.requirement_id = requirementIdFilter;
+    }
 
     const publishedRecords = await NationalPublishedRecord.findAll({
       where: pubWhere,
       include: [
-        { model: NationalReportingRequirement, as: "requirement" },
+        { model: NationalReportingRequirement, as: "requirement", where: reqIncludeWhere, required: true },
         { model: Region, as: "region", attributes: ["region_id", "name", "code"] },
       ],
     });
@@ -1021,7 +1111,7 @@ class NationalReportingService {
       }
     }
 
-    // 4. Regional compliance tracking
+    // 4. Regional compliance & target/actual tracking
     const regionalCompliance = [];
     for (const [regionId, region] of assignedRegionMap.entries()) {
       const regionAssignments = activeAssignments.filter((a) => a.region_id === regionId);
@@ -1031,20 +1121,63 @@ class NationalReportingService {
       const submittedCount = regionPublished.length;
       const complianceRate = assignedCount > 0 ? Math.round((submittedCount / assignedCount) * 100) : 0;
 
+      let regTarget = 0;
+      let regTargetHasValue = false;
+      let regConfiguredTargetsCount = 0;
+      let regActual = 0;
+      let regActualHasValue = false;
+
+      const pubByReqId = new Map();
+      regionPublished.forEach((p) => {
+        if (!pubByReqId.has(p.requirement_id)) pubByReqId.set(p.requirement_id, []);
+        pubByReqId.get(p.requirement_id).push(p);
+      });
+
+      regionAssignments.forEach((asgn) => {
+        const subs = pubByReqId.get(asgn.requirement_id) || [];
+        const configured = resolveAssignmentTarget(asgn, periodLabel);
+        if (configured !== null) {
+          regTarget += configured;
+          regTargetHasValue = true;
+          regConfiguredTargetsCount += 1;
+        } else {
+          const subTarget = subs.find((s) => s.standardized_target != null)?.standardized_target;
+          if (subTarget != null) {
+            regTarget += Number(subTarget);
+            regTargetHasValue = true;
+          }
+        }
+        subs.forEach((s) => {
+          if (s.standardized_actual !== null && s.standardized_actual !== undefined) {
+            regActual += Number(s.standardized_actual);
+            regActualHasValue = true;
+          }
+        });
+      });
+
+      const regAchievementRate =
+        regTargetHasValue && regTarget > 0 && regActualHasValue
+          ? Math.round((regActual / regTarget) * 1000) / 10
+          : null;
+
       regionalCompliance.push({
         regionId,
         regionName: region.name,
         regionCode: region.code,
         assignedRequirementsCount: assignedCount,
+        configuredTargetsCount: regConfiguredTargetsCount,
         publishedSubmissionsCount: submittedCount,
         missingSubmissionsCount: Math.max(0, assignedCount - submittedCount),
         complianceRate,
+        totalTarget: regTargetHasValue ? Math.round(regTarget * 100) / 100 : null,
+        totalActual: regActualHasValue ? Math.round(regActual * 100) / 100 : null,
+        achievementRate: regAchievementRate,
         status: complianceRate === 100 ? "complete" : complianceRate > 0 ? "partial" : "pending",
       });
     }
 
-    // Sort regional compliance by highest compliance first
-    regionalCompliance.sort((a, b) => b.complianceRate - a.complianceRate);
+    // Sort regional compliance by highest compliance first, then by configured targets
+    regionalCompliance.sort((a, b) => b.complianceRate - a.complianceRate || b.assignedRequirementsCount - a.assignedRequirementsCount);
 
     // 5. Indicator / Requirement Aggregates (Standardized National Totals)
     const customCategories = await NationalReportingCustomCategory.findAll({
@@ -1082,9 +1215,19 @@ class NationalReportingService {
           mandateLevel: catMeta?.mandate_level || "standard",
           assignmentsCount: 0,
           publishedCount: 0,
+          totalTarget: 0,
+          targetHasValue: false,
+          totalActual: 0,
+          actualHasValue: false,
         });
       }
-      categoryBreakdownMap.get(catCode).assignmentsCount += 1;
+      const catEntry = categoryBreakdownMap.get(catCode);
+      catEntry.assignmentsCount += 1;
+      const cfgTarget = resolveAssignmentTarget(a, periodLabel);
+      if (cfgTarget !== null) {
+        catEntry.totalTarget += cfgTarget;
+        catEntry.targetHasValue = true;
+      }
     });
 
     publishedRecords.forEach((p) => {
@@ -1093,9 +1236,19 @@ class NationalReportingService {
       }
       const catCode = p.requirement?.category || "general";
       if (categoryBreakdownMap.has(catCode)) {
-        categoryBreakdownMap.get(catCode).publishedCount += 1;
+        const catEntry = categoryBreakdownMap.get(catCode);
+        catEntry.publishedCount += 1;
+        if (p.standardized_actual !== null && p.standardized_actual !== undefined) {
+          catEntry.totalActual += Number(p.standardized_actual);
+          catEntry.actualHasValue = true;
+        }
       }
     });
+
+    let globalAggregateTarget = 0;
+    let globalTargetHasValue = false;
+    let globalAggregateActual = 0;
+    let globalActualHasValue = false;
 
     for (const [reqId, info] of requirementsMap.entries()) {
       const req = info.requirement;
@@ -1108,26 +1261,30 @@ class NationalReportingService {
 
       const submissions = info.publishedRecords;
       submissions.forEach((sub) => {
-        if (sub.standardized_target !== null && sub.standardized_target !== undefined) {
-          totalTarget += sub.standardized_target;
-          targetHasValue = true;
-        }
         if (sub.standardized_actual !== null && sub.standardized_actual !== undefined) {
-          totalActual += sub.standardized_actual;
+          totalActual += Number(sub.standardized_actual);
           actualHasValue = true;
         }
       });
 
-      const submittedRegionsCount = submissions.length;
-      const isCompleteData = submittedRegionsCount >= info.assignedRegionsCount;
-
-      const achievementRate =
-        targetHasValue && totalTarget > 0
-          ? Math.round((totalActual / totalTarget) * 1000) / 10
-          : null;
-
       const assignedRegionsBreakdown = (info.assignments || []).map((asgn) => {
         const sub = submissions.find((s) => s.region_id === asgn.region_id);
+        const configuredTarget = resolveAssignmentTarget(asgn, periodLabel);
+        const effectiveTarget = configuredTarget !== null
+          ? configuredTarget
+          : (sub?.standardized_target ?? sub?.planned_target ?? null);
+
+        if (effectiveTarget !== null && effectiveTarget !== undefined) {
+          totalTarget += Number(effectiveTarget);
+          targetHasValue = true;
+        }
+
+        const effectiveActual = sub?.standardized_actual ?? sub?.reported_actual ?? null;
+        let regionAchievement = sub?.achievement_percent ?? null;
+        if (regionAchievement == null && effectiveActual != null && effectiveTarget != null && Number(effectiveTarget) > 0) {
+          regionAchievement = Math.round((Number(effectiveActual) / Number(effectiveTarget)) * 1000) / 10;
+        }
+
         return {
           assignmentId: asgn.assignment_id,
           regionId: asgn.region_id,
@@ -1137,18 +1294,36 @@ class NationalReportingService {
           status: sub ? sub.status : "pending_submission",
           submissionMethod: sub?.submission_method || asgn.region?.national_reporting_method || "form_based",
           reportedActual: sub?.reported_actual ?? null,
-          plannedTarget: sub?.planned_target ?? null,
+          plannedTarget: effectiveTarget,
+          annualTarget: asgn.annual_target ?? null,
           localUnit: sub?.local_unit || req.expected_unit,
           standardizedActual: sub?.standardized_actual ?? null,
-          standardizedTarget: sub?.standardized_target ?? null,
+          standardizedTarget: effectiveTarget,
           standardizedUnit: req.expected_unit,
-          achievementPercent: sub?.achievement_percent ?? null,
+          achievementPercent: regionAchievement,
           publicationReference: sub?.publication_reference || null,
           publishedAt: sub?.published_at || null,
           publishedRecordId: sub?.published_record_id || null,
           narrative: sub?.narrative || null,
         };
       });
+
+      if (targetHasValue) {
+        globalAggregateTarget += totalTarget;
+        globalTargetHasValue = true;
+      }
+      if (actualHasValue) {
+        globalAggregateActual += totalActual;
+        globalActualHasValue = true;
+      }
+
+      const submittedRegionsCount = submissions.length;
+      const isCompleteData = submittedRegionsCount >= info.assignedRegionsCount;
+
+      const achievementRate =
+        targetHasValue && totalTarget > 0 && actualHasValue
+          ? Math.round((totalActual / totalTarget) * 1000) / 10
+          : null;
 
       const catMeta = categoryMap.get(req.category);
 
@@ -1188,16 +1363,39 @@ class NationalReportingService {
       });
     }
 
-    const categoryBreakdown = Array.from(categoryBreakdownMap.values()).map((c) => ({
-      ...c,
-      complianceRate: c.assignmentsCount > 0 ? Math.round((c.publishedCount / c.assignmentsCount) * 100) : 0,
-    }));
+    const categoryBreakdown = Array.from(categoryBreakdownMap.values()).map((c) => {
+      const roundedTarget = c.targetHasValue ? Math.round(c.totalTarget * 100) / 100 : null;
+      const roundedActual = c.actualHasValue ? Math.round(c.totalActual * 100) / 100 : null;
+      const achRate =
+        roundedTarget != null && roundedTarget > 0 && roundedActual != null
+          ? Math.round((roundedActual / roundedTarget) * 1000) / 10
+          : null;
+      return {
+        category: c.category,
+        categoryLabel: c.categoryLabel,
+        icon: c.icon,
+        mandateLevel: c.mandateLevel,
+        assignmentsCount: c.assignmentsCount,
+        publishedCount: c.publishedCount,
+        complianceRate: c.assignmentsCount > 0 ? Math.round((c.publishedCount / c.assignmentsCount) * 100) : 0,
+        totalTarget: roundedTarget,
+        totalActual: roundedActual,
+        achievementRate: achRate,
+      };
+    });
+
+    const overallAchievementRate =
+      globalTargetHasValue && globalAggregateTarget > 0 && globalActualHasValue
+        ? Math.round((globalAggregateActual / globalAggregateTarget) * 1000) / 10
+        : null;
 
     return {
       filters: {
         reporting_year: currentYear,
         reporting_period_label: periodLabel,
         region_id: regionIdFilter,
+        category: categoryFilter,
+        requirement_id: requirementIdFilter,
       },
       kpis: {
         totalRequirementsCount,
@@ -1211,6 +1409,9 @@ class NationalReportingService {
           totalAssignmentsCount > 0
             ? Math.round((totalPublishedSubmissions / totalAssignmentsCount) * 100)
             : 0,
+        aggregateTarget: globalTargetHasValue ? Math.round(globalAggregateTarget * 100) / 100 : null,
+        aggregateActual: globalActualHasValue ? Math.round(globalAggregateActual * 100) / 100 : null,
+        overallAchievementRate,
         openWindowsCount,
         lockedWindowsCount,
         overriddenWindowsCount,
