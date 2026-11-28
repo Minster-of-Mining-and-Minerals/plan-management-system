@@ -8,6 +8,10 @@ module.exports = (sequelize, DataTypes) => {
         foreignKey: "government_structure_id",
         as: "sector",
       });
+      ShortTermPlan.belongsTo(models.ShortTermPlanConfiguration, {
+        foreignKey: "configuration_id",
+        as: "configuration",
+      });
       ShortTermPlan.hasMany(models.ShortTermKpi, {
         foreignKey: "short_term_plan_id",
         as: "kpis",
@@ -25,10 +29,12 @@ module.exports = (sequelize, DataTypes) => {
       },
       title: { type: DataTypes.STRING(255), allowNull: false },
       description: { type: DataTypes.TEXT, allowNull: true },
+      configuration_id: { type: DataTypes.UUID, allowNull: true },
       government_structure_id: { type: DataTypes.UUID, allowNull: true },
       calendar_system: { type: DataTypes.STRING(10), allowNull: false, defaultValue: "EC" },
       start_date: { type: DataTypes.DATEONLY, allowNull: false },
       end_date: { type: DataTypes.DATEONLY, allowNull: false },
+      duration_days: { type: DataTypes.INTEGER, allowNull: false, defaultValue: 100 },
       duration_months: { type: DataTypes.INTEGER, allowNull: false, defaultValue: 3 },
       default_frequency: { type: DataTypes.STRING(30), allowNull: false, defaultValue: "weekly" },
       status: { type: DataTypes.STRING(30), allowNull: false, defaultValue: "active" },

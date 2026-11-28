@@ -8,6 +8,9 @@ const { authenticateToken, checkPermission } = require("../../middlewares/authMi
 router.use(authenticateToken);
 
 router.get("/", checkPermission("short_term_plan", "view"), shortTermPlanController.listPlans);
+router.get("/configurations", checkPermission("short_term_plan", "view"), shortTermPlanController.listConfigurations);
+router.post("/configurations", checkPermission("short_term_plan", "create"), shortTermPlanController.createConfiguration);
+router.put("/configurations/:configurationId", checkPermission("short_term_plan", "edit"), shortTermPlanController.updateConfiguration);
 router.get("/analytics", checkPermission("short_term_plan", "view"), shortTermPlanController.getDashboardAnalytics);
 router.get("/kpis/:kpiId", checkPermission("short_term_plan", "view"), shortTermPlanController.getKpiDetail);
 router.post("/", checkPermission("short_term_plan", "create"), shortTermPlanController.createPlan);

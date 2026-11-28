@@ -2,6 +2,7 @@
 
 const {
   ShortTermPlan,
+  ShortTermPlanConfiguration,
   ShortTermKpi,
   ShortTermKpiAssignment,
   ShortTermPeriodReport,
@@ -22,6 +23,22 @@ const {
   generateShortTermDivisions,
   summarizeAssignmentProgress,
 } = require("../utils/shortTermPlanPeriodUtils");
+
+async function isSectorInHierarchy(targetSectorId, rootSectorId) {
+  if (!rootSectorId || !targetSectorId) return true;
+  if (targetSectorId === rootSectorId) return true;
+
+  let currentId = targetSectorId;
+  const visited = new Set();
+  while (currentId && !visited.has(currentId)) {
+    visited.add(currentId);
+    const sector = await GovernmentStructure.findByPk(currentId, { attributes: ["government_structure_id", "parent_id"] });
+    if (!sector || !sector.parent_id) break;
+    if (sector.parent_id === rootSectorId) return true;
+    currentId = sector.parent_id;
+  }
+  return false;
+}
 
 function resolveAssignmentReportingAccess(assignment, currentUser) {
   if (!currentUser) {
@@ -80,6 +97,7 @@ class ShortTermPlanService {
       where,
       include: [
         { model: GovernmentStructure, as: "sector", attributes: ["government_structure_id", "name"] },
+        { model: ShortTermPlanConfiguration, as: "configuration" },
         {
           model: ShortTermKpi,
           as: "kpis",
@@ -159,14 +177,32 @@ class ShortTermPlanService {
       throw Object.assign(new Error("start_date must be before end_date"), { status: 400 });
     }
 
+    const durationDays = Number(data.duration_days) || (Number(data.duration_months) ? Number(data.duration_months) * 30 : 100);
+    if (durationDays > 365) {
+      throw Object.assign(new Error("Short-term plan duration must be less than or equal to 1 year (365 days)"), { status: 400 });
+    }
+    const diffMs = new Date(endDate).getTime() - new Date(startDate).getTime();
+    const actualDays = Math.round(diffMs / 86400000);
+    if (actualDays > 366) {
+      throw Object.assign(new Error("The difference between start_date and end_date cannot exceed 1 year"), { status: 400 });
+    }
+
+    let configId = data.configuration_id || null;
+    if (!configId) {
+      const defConf = await ShortTermPlanConfiguration.findOne({ where: { is_default: true, is_active: true } });
+      if (defConf) configId = defConf.configuration_id;
+    }
+
     return ShortTermPlan.create({
       title: data.title.trim(),
       description: data.description ? data.description.trim() : null,
+      configuration_id: configId,
       government_structure_id: data.government_structure_id || null,
       calendar_system: cal,
       start_date: startDate,
       end_date: endDate,
-      duration_months: Number(data.duration_months) || 3,
+      duration_days: durationDays,
+      duration_months: Number(data.duration_months) || Math.max(1, Math.round(durationDays / 30)),
       default_frequency: normalizeFrequency(data.default_frequency || "weekly"),
       status: data.status || "active",
       created_by: userId || null,
@@ -177,6 +213,7 @@ class ShortTermPlanService {
     const plan = await ShortTermPlan.findByPk(planId, {
       include: [
         { model: GovernmentStructure, as: "sector", attributes: ["government_structure_id", "name"] },
+        { model: ShortTermPlanConfiguration, as: "configuration" },
         {
           model: ShortTermKpi,
           as: "kpis",
@@ -383,6 +420,16 @@ class ShortTermPlanService {
     const sectorId = payload.government_structure_id || kpi.plan?.government_structure_id;
     if (!sectorId) {
       throw Object.assign(new Error("government_structure_id (Sector) is required for assignment"), { status: 400 });
+    }
+
+    if (kpi.plan?.government_structure_id) {
+      const allowed = await isSectorInHierarchy(sectorId, kpi.plan.government_structure_id);
+      if (!allowed) {
+        throw Object.assign(
+          new Error("Assignment restricted: The selected sector must be the plan's mother sector or one of its child institutions."),
+          { status: 400 }
+        );
+      }
     }
 
     let internalStructureId = payload.internal_structure_id || null;
@@ -801,6 +848,74 @@ class ShortTermPlanService {
       byAssignee,
       kpiProgress,
     };
+  }
+
+  async listConfigurations(filters = {}) {
+    const where = {};
+    if (filters.is_active !== undefined) {
+      where.is_active = filters.is_active === "true" || filters.is_active === true;
+    }
+    return ShortTermPlanConfiguration.findAll({
+      where,
+      order: [
+        ["is_default", "DESC"],
+        ["created_at", "DESC"],
+      ],
+    });
+  }
+
+  async createConfiguration(data, userId) {
+    if (!data.title || !data.code) {
+      throw Object.assign(new Error("title and code are required"), { status: 400 });
+    }
+
+    const durationDays = Number(data.duration_days) || 100;
+    if (durationDays > 365) {
+      throw Object.assign(new Error("duration_days cannot exceed 365"), { status: 400 });
+    }
+
+    if (data.is_default) {
+      await ShortTermPlanConfiguration.update({ is_default: false }, { where: {} });
+    }
+
+    return ShortTermPlanConfiguration.create({
+      title: data.title.trim(),
+      code: data.code.trim().toUpperCase(),
+      description: data.description ? data.description.trim() : null,
+      duration_days: durationDays,
+      subdivision_mode: data.subdivision_mode || "weekly_4_per_month",
+      reporting_window_before_days: Number(data.reporting_window_before_days) >= 0 ? Number(data.reporting_window_before_days) : 3,
+      reporting_window_after_days: Number(data.reporting_window_after_days) >= 0 ? Number(data.reporting_window_after_days) : 5,
+      allow_past_reporting: Boolean(data.allow_past_reporting),
+      require_evidence_default: Boolean(data.require_evidence_default),
+      is_default: Boolean(data.is_default),
+      is_active: data.is_active !== undefined ? Boolean(data.is_active) : true,
+      created_by: userId || null,
+    });
+  }
+
+  async updateConfiguration(configurationId, data) {
+    const conf = await ShortTermPlanConfiguration.findByPk(configurationId);
+    if (!conf) throw Object.assign(new Error("Configuration not found"), { status: 404 });
+
+    if (data.is_default && !conf.is_default) {
+      await ShortTermPlanConfiguration.update({ is_default: false }, { where: {} });
+    }
+
+    const updateFields = {};
+    if (data.title) updateFields.title = data.title.trim();
+    if (data.description !== undefined) updateFields.description = data.description ? data.description.trim() : null;
+    if (data.subdivision_mode) updateFields.subdivision_mode = data.subdivision_mode;
+    if (data.duration_days) updateFields.duration_days = Math.min(365, Number(data.duration_days));
+    if (data.reporting_window_before_days !== undefined) updateFields.reporting_window_before_days = Number(data.reporting_window_before_days);
+    if (data.reporting_window_after_days !== undefined) updateFields.reporting_window_after_days = Number(data.reporting_window_after_days);
+    if (data.allow_past_reporting !== undefined) updateFields.allow_past_reporting = Boolean(data.allow_past_reporting);
+    if (data.require_evidence_default !== undefined) updateFields.require_evidence_default = Boolean(data.require_evidence_default);
+    if (data.is_default !== undefined) updateFields.is_default = Boolean(data.is_default);
+    if (data.is_active !== undefined) updateFields.is_active = Boolean(data.is_active);
+
+    await conf.update(updateFields);
+    return conf;
   }
 }
 

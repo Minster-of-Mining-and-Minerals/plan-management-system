@@ -4,18 +4,37 @@ export type ShortTermFrequency = "monthly" | "weekly" | "daily";
 export type ShortTermEvaluationMode = "number" | "percentage" | "frequency";
 export type ShortTermSubmissionType = "narrative_only" | "actual_and_narrative";
 
+export interface ShortTermPlanConfiguration {
+  configuration_id: string;
+  title: string;
+  code: string;
+  description?: string | null;
+  duration_days: number;
+  subdivision_mode: "weekly_4_per_month" | "10_days" | "15_days" | "monthly";
+  reporting_window_before_days: number;
+  reporting_window_after_days: number;
+  allow_past_reporting: boolean;
+  require_evidence_default: boolean;
+  is_default: boolean;
+  is_active: boolean;
+  created_at?: string;
+}
+
 export interface ShortTermPlan {
   short_term_plan_id: string;
   title: string;
   description?: string | null;
+  configuration_id?: string | null;
   government_structure_id?: string | null;
   calendar_system: CalendarSystem;
   start_date: string;
   end_date: string;
+  duration_days?: number;
   duration_months: number;
   default_frequency: ShortTermFrequency;
   status: string;
   sector?: { government_structure_id: string; name: string } | null;
+  configuration?: ShortTermPlanConfiguration | null;
   stats?: {
     kpi_count: number;
     assignment_count: number;

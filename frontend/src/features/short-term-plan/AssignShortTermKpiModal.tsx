@@ -71,6 +71,15 @@ export function AssignShortTermKpiModal({
   const [evalModeOverride, setEvalModeOverride] = useState<"" | ShortTermEvaluationMode>("");
   const [freqOverride, setFreqOverride] = useState<"" | ShortTermFrequency>("");
 
+  // Constrain available sectors to Mother Sector and its children
+  const allowedSectors = useMemo(() => {
+    if (!defaultSectorId) return sectors;
+    const directMatch = sectors.find((s) => s.government_structure_id === defaultSectorId);
+    const childMatches = sectors.filter((s: any) => s.parent_id === defaultSectorId);
+    const combined = directMatch ? [directMatch, ...childMatches] : sectors;
+    return combined.length > 0 ? combined : sectors;
+  }, [sectors, defaultSectorId]);
+
   useEffect(() => {
     if (!kpi) return;
     if (existingAssignment) {
@@ -257,9 +266,9 @@ export function AssignShortTermKpiModal({
                 <SelectValue placeholder="Select Sector" />
               </SelectTrigger>
               <SelectContent>
-                {sectors.map((s) => (
+                {allowedSectors.map((s) => (
                   <SelectItem key={s.government_structure_id} value={s.government_structure_id}>
-                    {s.name}
+                    {s.name} {s.government_structure_id === defaultSectorId ? "(Mother Sector)" : ""}
                   </SelectItem>
                 ))}
               </SelectContent>

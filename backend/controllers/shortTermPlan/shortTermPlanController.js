@@ -101,6 +101,33 @@ async function getKpiDetail(req, res) {
   }
 }
 
+async function listConfigurations(req, res) {
+  try {
+    const data = await shortTermPlanService.listConfigurations(req.query);
+    return res.status(200).json({ success: true, data });
+  } catch (err) {
+    return res.status(err.status || 500).json({ success: false, message: err.message });
+  }
+}
+
+async function createConfiguration(req, res) {
+  try {
+    const data = await shortTermPlanService.createConfiguration(req.body, req.user?.user_id);
+    return res.status(201).json({ success: true, data });
+  } catch (err) {
+    return res.status(err.status || 500).json({ success: false, message: err.message });
+  }
+}
+
+async function updateConfiguration(req, res) {
+  try {
+    const data = await shortTermPlanService.updateConfiguration(req.params.configurationId, req.body);
+    return res.status(200).json({ success: true, data });
+  } catch (err) {
+    return res.status(err.status || 500).json({ success: false, message: err.message });
+  }
+}
+
 module.exports = {
   listPlans,
   createPlan,
@@ -113,4 +140,7 @@ module.exports = {
   updateAssignment,
   submitPeriodReport,
   getDashboardAnalytics,
+  listConfigurations,
+  createConfiguration,
+  updateConfiguration,
 };

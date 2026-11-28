@@ -1,6 +1,7 @@
 import { baseApi } from "../baseApi";
 import type {
   ShortTermPlan,
+  ShortTermPlanConfiguration,
   ShortTermKpi,
   ShortTermKpiAssignment,
   ShortTermFrequency,
@@ -61,10 +62,12 @@ export const shortTermPlanApi = baseApi.injectEndpoints({
       {
         title: string;
         description?: string;
+        configuration_id?: string | null;
         government_structure_id?: string | null;
         calendar_system?: CalendarSystem;
         start_date: string;
         end_date: string;
+        duration_days?: number;
         duration_months?: number;
         default_frequency?: ShortTermFrequency;
       }
@@ -210,6 +213,43 @@ export const shortTermPlanApi = baseApi.injectEndpoints({
       }),
       invalidatesTags: (_res, _err, arg) => ["ShortTermPlan", { type: "ShortTermPlan", id: arg.planId }],
     }),
+    getShortTermConfigurations: builder.query<
+      ShortTermPlanConfiguration[],
+      { is_active?: boolean } | void
+    >({
+      query: (params) => ({
+        url: "/short-term-plans/configurations",
+        params: params || undefined,
+      }),
+      transformResponse: (res: { data: ShortTermPlanConfiguration[] }) => res.data || [],
+      providesTags: ["ShortTermPlan"],
+    }),
+
+    createShortTermConfiguration: builder.mutation<
+      ShortTermPlanConfiguration,
+      Partial<ShortTermPlanConfiguration>
+    >({
+      query: (body) => ({
+        url: "/short-term-plans/configurations",
+        method: "POST",
+        body,
+      }),
+      transformResponse: (res: { data: ShortTermPlanConfiguration }) => res.data,
+      invalidatesTags: ["ShortTermPlan"],
+    }),
+
+    updateShortTermConfiguration: builder.mutation<
+      ShortTermPlanConfiguration,
+      { configurationId: string; data: Partial<ShortTermPlanConfiguration> }
+    >({
+      query: ({ configurationId, data }) => ({
+        url: `/short-term-plans/configurations/${configurationId}`,
+        method: "PUT",
+        body: data,
+      }),
+      transformResponse: (res: { data: ShortTermPlanConfiguration }) => res.data,
+      invalidatesTags: ["ShortTermPlan"],
+    }),
   }),
 });
 
@@ -218,6 +258,9 @@ export const {
   useGetShortTermPlanDetailQuery,
   useGetShortTermKpiDetailQuery,
   useGetShortTermAnalyticsQuery,
+  useGetShortTermConfigurationsQuery,
+  useCreateShortTermConfigurationMutation,
+  useUpdateShortTermConfigurationMutation,
   useCreateShortTermPlanMutation,
   useAddShortTermKpiMutation,
   useUpdateShortTermKpiMutation,
