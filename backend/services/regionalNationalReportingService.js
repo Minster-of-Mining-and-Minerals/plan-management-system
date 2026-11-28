@@ -1295,6 +1295,16 @@ class RegionalNationalReportingService {
     const requirement = assignment.requirement;
     const expectedUnit = requirement.expected_unit;
 
+    // Verify mandatory evidence if required at requirement or assignment level
+    const isEvidenceMandatory = Boolean(requirement.requires_evidence || assignment.requires_evidence);
+    if (isEvidenceMandatory && sanitizedAttachments.length === 0) {
+      const err = new Error(
+        "Supporting evidence is mandatory for this KPI. Please attach at least one supporting document with a display label and description."
+      );
+      err.status = 400;
+      throw err;
+    }
+
     // 2b. Verify Period Lock & Window Status (Lock Enforcement)
     const frequency = assignment.frequency_override || requirement.frequency || "quarterly";
     const freqKey = String(frequency).toLowerCase().replace(/[\s\-]/g, "_");

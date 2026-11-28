@@ -784,7 +784,7 @@ export const regionalPlanApi = baseApi.injectEndpoints({
       invalidatesTags: ["RegionalPlanNodes", "RegionalPlanDashboard"],
     }),
 
-    submitRegionalAchievement: builder.mutation<RegionalPlanNode, { nodeId: string; region_id: string; data?: { period_actual?: number; narration?: string } }>({
+    submitRegionalAchievement: builder.mutation<RegionalPlanNode, { nodeId: string; region_id: string; data?: { period_actual?: number; narration?: string; evidence_attachment_ids?: any } }>({
       query: ({ nodeId, region_id, data }) => ({
         url: `/regional/plans/nodes/${nodeId}/achievement/submit?region_id=${region_id}`,
         method: "POST",
@@ -834,7 +834,7 @@ export const regionalPlanApi = baseApi.injectEndpoints({
       invalidatesTags: ["RegionalPlanNodes", "RegionalPlanDashboard"],
     }),
 
-    submitRegionalAnnualAchievement: builder.mutation<RegionalPlanNode, { nodeId: string; region_id: string; data: { annual_actual: number; narration?: string } }>({
+    submitRegionalAnnualAchievement: builder.mutation<RegionalPlanNode, { nodeId: string; region_id: string; data: { annual_actual: number; narration?: string; evidence_attachment_ids?: any } }>({
       query: ({ nodeId, region_id, data }) => ({
         url: `/regional/plans/nodes/${nodeId}/annual-achievement/submit?region_id=${region_id}`,
         method: "POST",

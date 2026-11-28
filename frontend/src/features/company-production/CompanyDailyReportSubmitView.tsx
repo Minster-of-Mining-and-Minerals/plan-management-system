@@ -27,6 +27,10 @@ import {
   useSubmitReportMutation,
 } from "@/redux/api/productionApi";
 import type { CompanyProductionAssignment, ProductionItemUnit } from "@/redux/types/production";
+import {
+  LabeledAttachmentInput,
+  type LabeledAttachmentItem,
+} from "@/components/ui/labeled-attachment-input";
 
 function getISOWeekBounds(weekStr: string): { startDate: string; endDate: string; label: string } | null {
   if (!weekStr || !weekStr.includes("-W")) return null;
@@ -92,6 +96,7 @@ export function CompanyDailyReportSubmitView({ companyId: propCompanyId }: { com
   const [quantity, setQuantity] = useState<string>("");
   const [unitId, setUnitId] = useState<string>("");
   const [notes, setNotes] = useState<string>("");
+  const [evidenceAttachments, setEvidenceAttachments] = useState<LabeledAttachmentItem[]>([]);
   const [formError, setFormError] = useState<string>("");
   const [successMessage, setSuccessMessage] = useState<string>("");
 
@@ -252,6 +257,11 @@ export function CompanyDailyReportSubmitView({ companyId: propCompanyId }: { com
       return;
     }
 
+    if (evidenceAttachments.some((a) => !a.label.trim() || !a.description.trim())) {
+      setFormError("Each attachment must include both a display label and a description of its relation to the report.");
+      return;
+    }
+
     try {
       await submitReport({
         company_id: companyId,
@@ -262,7 +272,8 @@ export function CompanyDailyReportSubmitView({ companyId: propCompanyId }: { com
         quantity_reported: numQuantity,
         reported_unit_id: unitId,
         notes: notes || null,
-      }).unwrap();
+        evidence_attachments: evidenceAttachments,
+      } as any).unwrap();
 
       const reportedSymbol = selectedUnit?.measurementUnit?.symbol || (selectedUnit as any)?.unit?.symbol || "";
       setSuccessMessage(
@@ -270,6 +281,7 @@ export function CompanyDailyReportSubmitView({ companyId: propCompanyId }: { com
       );
       setQuantity("");
       setNotes("");
+      setEvidenceAttachments([]);
     } catch (err: any) {
       setFormError(
         err?.data?.message || err?.message || "Failed to submit production report. Please check for duplicate records."
@@ -480,6 +492,13 @@ export function CompanyDailyReportSubmitView({ companyId: propCompanyId }: { com
                   className="w-full p-3 rounded-xl border border-input bg-background text-sm focus:outline-none focus:ring-2 focus:ring-primary"
                 />
               </div>
+
+              {/* Supporting Attachments */}
+              <LabeledAttachmentInput
+                attachments={evidenceAttachments}
+                onChange={setEvidenceAttachments}
+                title="Supporting Documents & Evidence (Optional)"
+              />
 
               {/* Submit Button */}
               <div className="pt-2">

@@ -8,6 +8,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { FileText, Paperclip, Trash2, Upload } from "lucide-react";
 import { toast } from "sonner";
+import { cn } from "@/lib/utils";
 
 export interface LabeledAttachmentItem {
   attachment_id?: string | null;
@@ -23,13 +24,16 @@ interface LabeledAttachmentInputProps {
   attachments: LabeledAttachmentItem[];
   onChange: (next: LabeledAttachmentItem[]) => void;
   title?: string;
+  required?: boolean;
 }
 
 export function LabeledAttachmentInput({
   attachments,
   onChange,
-  title = "Supporting Attachments (Optional)",
+  title,
+  required = false,
 }: LabeledAttachmentInputProps) {
+  const displayTitle = title || (required ? "Supporting Evidence (Required) *" : "Supporting Attachments (Optional)");
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const [isUploading, setIsUploading] = useState(false);
 
@@ -95,7 +99,9 @@ export function LabeledAttachmentInput({
       <div className="flex items-center justify-between gap-2">
         <div className="flex items-center gap-1.5">
           <Paperclip className="h-3.5 w-3.5 text-emerald-600" />
-          <span className="text-xs font-semibold text-slate-800 dark:text-slate-200">{title}</span>
+          <span className={cn("text-xs font-semibold text-slate-800 dark:text-slate-200", required && "text-amber-700 dark:text-amber-400 font-bold")}>
+            {displayTitle}
+          </span>
         </div>
 
         <input

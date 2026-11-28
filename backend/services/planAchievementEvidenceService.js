@@ -8,7 +8,10 @@ const MAX_EVIDENCE_ATTACHMENTS = 20;
 
 function normalizeEvidenceAttachmentIds(value) {
   if (!Array.isArray(value)) return [];
-  return [...new Set(value.map((id) => String(id || "").trim()).filter(Boolean))].slice(
+  return [...new Set(value.map((id) => {
+    if (id && typeof id === "object") return String(id.attachment_id || "").trim();
+    return String(id || "").trim();
+  }).filter(Boolean))].slice(
     0,
     MAX_EVIDENCE_ATTACHMENTS
   );

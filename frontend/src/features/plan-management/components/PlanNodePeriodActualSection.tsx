@@ -39,6 +39,19 @@ import { FileUploadField } from "@/components/common/FileUploadField";
 import { AchievementEvidenceList } from "./AchievementEvidenceList";
 import { usePlanAchievementScope } from "@/hooks/usePlanAchievementScope";
 import { PeriodTargetReallocationIndicator } from "./PeriodTargetReallocationIndicator";
+import {
+    Dialog,
+    DialogContent,
+    DialogDescription,
+    DialogFooter,
+    DialogHeader,
+    DialogTitle,
+} from "@/components/ui/dialog";
+import {
+    LabeledAttachmentInput,
+    type LabeledAttachmentItem,
+} from "@/components/ui/labeled-attachment-input";
+import { Calendar, FileEdit } from "lucide-react";
 
 const NARRATION_MAX = 1000;
 const VARIANCE_EPSILON = 0.001;
@@ -95,6 +108,8 @@ export function PlanNodePeriodActualSection({
     const [periodActualInput, setPeriodActualInput] = useState("");
     const [narrationInput, setNarrationInput] = useState("");
     const [evidenceIds, setEvidenceIds] = useState<string[]>([]);
+    const [labeledAttachments, setLabeledAttachments] = useState<LabeledAttachmentItem[]>([]);
+    const [isReportModalOpen, setIsReportModalOpen] = useState(false);
     const [pendingOverride, setPendingOverride] = useState(false);
 
     const isSaving = isSubmitting || isApproving || isRejecting || isValidating || isValidationRejecting || isOverrideSaving;
@@ -176,6 +191,8 @@ export function PlanNodePeriodActualSection({
         return null;
     }
 
+    const unitSymbol = node.target_unit || "";
+
     const periodTargetValue = formatNodeWeight(
         effectiveTarget,
         nodeWeightMode,
@@ -246,9 +263,16 @@ export function PlanNodePeriodActualSection({
                 );
                 return;
             }
-            if (hasVariance && evidenceIds.length === 0) {
+            const totalEvidenceCount = labeledAttachments.length > 0 ? labeledAttachments.length : evidenceIds.length;
+            if (hasVariance && totalEvidenceCount === 0) {
                 actionFeedback.error(
                     "Attach at least one evidence document when actual achievement differs from the target."
+                );
+                return;
+            }
+            if (labeledAttachments.some((a) => !a.label.trim() || !a.description.trim())) {
+                actionFeedback.error(
+                    "Each attachment must include a display label and a description of its relation to the KPI."
                 );
                 return;
             }
@@ -256,7 +280,7 @@ export function PlanNodePeriodActualSection({
                 id: node.plan_node_id,
                 period_actual: val,
                 narration: narrationInput.trim() || null,
-                evidence_attachment_ids: val == null ? [] : evidenceIds,
+                evidence_attachment_ids: val == null ? [] : (labeledAttachments.length > 0 ? (labeledAttachments as any) : evidenceIds),
             }).unwrap();
             actionFeedback.success(
                 val == null ? "Achievement cleared" : "Achievement submitted for approval"
@@ -478,105 +502,134 @@ export function PlanNodePeriodActualSection({
     const leafEditor =
         showLeafEditor ? (
             <div className="space-y-2" onClick={onClick}>
-                <div
-                    className={cn(
-                        "flex gap-2",
-                        variant === "table"
-                            ? "flex-col sm:flex-row sm:items-end"
-                            : "flex-col sm:flex-row sm:items-end"
-                    )}
-                >
-                    <div className="flex-1 space-y-1 min-w-0">
-                        {variant !== "table" && (
-                            <Label htmlFor={`period_actual_${node.plan_node_id}`} className="text-xs">
-                                Achievement This Period
-                            </Label>
-                        )}
-                        <Input
-                            id={`period_actual_${node.plan_node_id}`}
-                            type="number"
-                            min={0}
-                            step="any"
-                            value={periodActualInput}
-                            onChange={(e) => setPeriodActualInput(e.target.value)}
-                            placeholder={`Target ${periodTarget}`}
-                            className={
-                                variant === "compact"
-                                    ? "h-8 text-xs"
-                                    : variant === "table"
-                                      ? "h-8 text-sm"
-                                      : ""
-                            }
-                        />
-                    </div>
-                    <PermissionGuard requireAll={PLAN_EXECUTE_ACHIEVEMENT_PERMISSIONS}>
-                        <Button
-                            size={variant === "compact" || variant === "table" ? "sm" : "default"}
-                            disabled={isSaving}
-                            onClick={(e) => {
-                                e.stopPropagation();
-                                void handleSubmit();
-                            }}
-                            className="shrink-0"
-                        >
+                <PermissionGuard requireAll={PLAN_EXECUTE_ACHIEVEMENT_PERMISSIONS}>
+                    <Button
+                        size={variant === "compact" || variant === "table" ? "sm" : "default"}
+                        disabled={isSaving}
+                        onClick={(e) => {
+                            e.stopPropagation();
+                            setIsReportModalOpen(true);
+                        }}
+                        className="shrink-0 flex items-center gap-1.5"
+                    >
+                        <FileEdit className="h-3.5 w-3.5" />
+                        <span>
                             {achievementStatus === PLAN_ACHIEVEMENT_STATUS.REJECTED
-                                ? "Resubmit"
-                                : "Submit"}
-                        </Button>
-                    </PermissionGuard>
-                </div>
-                {(narrationRequired || narrationInput.trim().length > 0 || draftActualValid) && (
-                    <div className="space-y-1">
-                        <Label
-                            htmlFor={`period_actual_narration_${node.plan_node_id}`}
-                            className="text-xs"
-                        >
-                            Performance narration
-                            {narrationRequired ? " (required)" : " (optional)"}
-                        </Label>
-                        <Textarea
-                            id={`period_actual_narration_${node.plan_node_id}`}
-                            value={narrationInput}
-                            maxLength={NARRATION_MAX}
-                            onChange={(e) => setNarrationInput(e.target.value)}
-                            placeholder={
-                                narrationRequired
-                                    ? "Explain why actual differs from the target"
-                                    : "Optional note about this period's achievement"
-                            }
-                            className={cn(
-                                "min-h-[72px] text-xs",
-                                variant === "compact" && "min-h-[56px]"
-                            )}
-                            onClick={(e) => e.stopPropagation()}
-                        />
-                        <p className="text-[10px] text-muted-foreground">
-                            {narrationInput.trim().length}/{NARRATION_MAX}
-                        </p>
-                    </div>
-                )}
-                {(narrationRequired || evidenceIds.length > 0) && (
-                    <div className="space-y-1" onClick={(e) => e.stopPropagation()}>
-                        <FileUploadField
-                            id={`period_actual_evidence_${node.plan_node_id}`}
-                            label={
-                                narrationRequired
-                                    ? "Evidence document (required)"
-                                    : "Evidence document (optional)"
-                            }
-                            value={evidenceIds}
-                            onChange={setEvidenceIds}
-                            required={narrationRequired}
-                            error={
-                                narrationRequired && evidenceIds.length === 0
-                                    ? "Attach evidence supporting the over/under achievement"
-                                    : undefined
-                            }
-                            accept="image/*,.pdf,.doc,.docx,.xls,.xlsx"
-                            labelClass="text-xs"
-                        />
-                    </div>
-                )}
+                                ? "Resubmit Achievement"
+                                : node.period_actual != null
+                                  ? "Update Achievement"
+                                  : "Report Achievement"}
+                        </span>
+                    </Button>
+                </PermissionGuard>
+
+                <Dialog open={isReportModalOpen} onOpenChange={setIsReportModalOpen}>
+                    <DialogContent
+                        className="max-w-xl max-h-[90vh] overflow-y-auto"
+                        onClick={(e) => e.stopPropagation()}
+                    >
+                        <DialogHeader>
+                            <DialogTitle className="flex items-center gap-2 text-base font-bold">
+                                <Calendar className="h-4 w-4 text-primary" />
+                                <span>Report Achievement: {node.title}</span>
+                            </DialogTitle>
+                            <DialogDescription className="text-xs">
+                                Target: {periodTarget.toLocaleString()} {unitSymbol}
+                            </DialogDescription>
+                        </DialogHeader>
+
+                        <div className="space-y-4 pt-2">
+                            <div className="p-3 rounded-xl bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 flex items-center justify-between">
+                                <div>
+                                    <span className="text-[10px] uppercase font-bold text-muted-foreground tracking-wider block">
+                                        Planned Period Target
+                                    </span>
+                                    <span className="text-sm font-bold font-mono text-foreground">
+                                        {periodTarget.toLocaleString()} {unitSymbol}
+                                    </span>
+                                </div>
+                                {node.period_actual != null && (
+                                    <div className="text-right border-l border-border pl-4">
+                                        <span className="text-[10px] uppercase font-bold text-muted-foreground tracking-wider block">
+                                            Current Achievement
+                                        </span>
+                                        <span className="text-sm font-bold font-mono text-emerald-600">
+                                            {Number(node.period_actual).toLocaleString()} {unitSymbol}
+                                        </span>
+                                    </div>
+                                )}
+                            </div>
+
+                            <div className="space-y-1.5">
+                                <div className="flex items-center justify-between">
+                                    <Label htmlFor={`modal_actual_${node.plan_node_id}`} className="text-xs font-semibold">
+                                        Reported Actual Achievement ({unitSymbol}) *
+                                    </Label>
+                                    {periodActualInput !== "" && !isNaN(Number(periodActualInput)) && periodTarget > 0 && (
+                                        <span className="text-xs font-mono font-semibold text-primary">
+                                            Achievement: {Math.round((Number(periodActualInput) / periodTarget) * 1000) / 10}%
+                                        </span>
+                                    )}
+                                </div>
+                                <Input
+                                    id={`modal_actual_${node.plan_node_id}`}
+                                    type="number"
+                                    min={0}
+                                    step="any"
+                                    value={periodActualInput}
+                                    onChange={(e) => setPeriodActualInput(e.target.value)}
+                                    placeholder={`Target ${periodTarget}`}
+                                    className="h-9 text-sm"
+                                />
+                            </div>
+
+                            <div className="space-y-1.5">
+                                <div className="flex items-center justify-between">
+                                    <Label htmlFor={`modal_narr_${node.plan_node_id}`} className="text-xs font-semibold">
+                                        Performance Narration {narrationRequired ? "(Required)" : "(Optional)"}
+                                    </Label>
+                                    <span className="text-[10px] text-muted-foreground">
+                                        {narrationInput.trim().length}/{NARRATION_MAX}
+                                    </span>
+                                </div>
+                                <Textarea
+                                    id={`modal_narr_${node.plan_node_id}`}
+                                    value={narrationInput}
+                                    maxLength={NARRATION_MAX}
+                                    onChange={(e) => setNarrationInput(e.target.value)}
+                                    placeholder={
+                                        narrationRequired
+                                            ? "Explain reasons for variance from target..."
+                                            : "Optional performance notes..."
+                                    }
+                                    className="min-h-[72px] text-xs resize-none"
+                                />
+                            </div>
+
+                            <LabeledAttachmentInput
+                                attachments={labeledAttachments}
+                                onChange={setLabeledAttachments}
+                                required={narrationRequired}
+                                title={narrationRequired ? "Evidence Attachments (Required) *" : "Evidence Attachments (Optional)"}
+                            />
+
+                            <DialogFooter className="gap-2 pt-2">
+                                <Button type="button" variant="outline" onClick={() => setIsReportModalOpen(false)}>
+                                    Cancel
+                                </Button>
+                                <Button
+                                    disabled={isSaving}
+                                    onClick={async () => {
+                                        await handleSubmit();
+                                        setIsReportModalOpen(false);
+                                    }}
+                                >
+                                    {isSaving ? "Submitting..." : achievementStatus === PLAN_ACHIEVEMENT_STATUS.REJECTED ? "Resubmit Achievement" : "Submit Achievement"}
+                                </Button>
+                            </DialogFooter>
+                        </div>
+                    </DialogContent>
+                </Dialog>
             </div>
         ) : null;
 

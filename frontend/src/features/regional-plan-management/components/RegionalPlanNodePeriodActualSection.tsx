@@ -2,12 +2,16 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useParams } from "next/navigation";
-import { Pencil } from "lucide-react";
+import { Pencil, Calendar, FileEdit } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
+import {
+  LabeledAttachmentInput,
+  type LabeledAttachmentItem,
+} from "@/components/ui/labeled-attachment-input";
 import type { RegionalPlanNode } from "@/redux/types/regionalPlan";
 import type { PlanNode, PlanRule } from "@/redux/types/plan";
 import type { TargetUnit } from "@/redux/types/planningConfig";
@@ -136,6 +140,8 @@ export function RegionalPlanNodePeriodActualSection({
 
   const [periodActualInput, setPeriodActualInput] = useState("");
   const [narrationInput, setNarrationInput] = useState("");
+  const [labeledAttachments, setLabeledAttachments] = useState<LabeledAttachmentItem[]>([]);
+  const [isReportModalOpen, setIsReportModalOpen] = useState(false);
   const [pendingOverride, setPendingOverride] = useState(false);
   const [isRevising, setIsRevising] = useState(false);
 
@@ -347,12 +353,18 @@ export function RegionalPlanNodePeriodActualSection({
         return;
       }
 
+      if (labeledAttachments.some((a) => !a.label.trim() || !a.description.trim())) {
+        actionFeedback.error("Each attachment must include a display label and a description of its relation to the KPI.");
+        return;
+      }
+
       await submitAchievement({
         nodeId,
         region_id: effectiveRegionId,
         data: {
           period_actual: val == null ? undefined : val,
           narration: narrationInput.trim() || undefined,
+          evidence_attachment_ids: labeledAttachments.length > 0 ? (labeledAttachments as any) : undefined,
         },
       }).unwrap();
 
@@ -577,101 +589,137 @@ export function RegionalPlanNodePeriodActualSection({
 
   const leafEditor = showLeafEditor ? (
     <div className="space-y-2" onClick={onClick}>
-      <div
-        className={cn(
-          "flex gap-2",
-          variant === "table"
-            ? "flex-col sm:flex-row sm:items-end"
-            : "flex-col sm:flex-row sm:items-end"
-        )}
+      <Button
+        size={variant === "compact" || variant === "table" ? "sm" : "default"}
+        disabled={isSaving}
+        onClick={(e) => {
+          e.stopPropagation();
+          setIsReportModalOpen(true);
+        }}
+        className="shrink-0 bg-amber-600 hover:bg-amber-700 text-white font-medium shadow-xs flex items-center gap-1.5"
       >
-        <div className="flex-1 space-y-1 min-w-0">
-          {variant !== "table" && (
-            <Label htmlFor={`period_actual_${nodeId}`} className="text-xs font-medium text-foreground">
-              Achievement This Period
-            </Label>
-          )}
-          <Input
-            id={`period_actual_${nodeId}`}
-            type="number"
-            min={0}
-            step="any"
-            value={periodActualInput}
-            onChange={(e) => setPeriodActualInput(e.target.value)}
-            placeholder={`Target ${periodTarget}`}
-            className={
-              variant === "compact"
-                ? "h-8 text-xs border-amber-300/80 focus-visible:ring-amber-500"
-                : variant === "table"
-                ? "h-8 text-sm border-amber-300/80 focus-visible:ring-amber-500"
-                : "border-amber-300/80 focus-visible:ring-amber-500"
-            }
-          />
-        </div>
-        <Button
-          size={variant === "compact" || variant === "table" ? "sm" : "default"}
-          disabled={isSaving}
-          onClick={(e) => {
-            e.stopPropagation();
-            void handleSubmit();
-          }}
-          className="shrink-0 bg-amber-600 hover:bg-amber-700 text-white font-medium shadow-xs"
-        >
+        <FileEdit className="h-3.5 w-3.5" />
+        <span>
           {achievementStatus === PLAN_ACHIEVEMENT_STATUS.REJECTED || isRevising
-            ? "Resubmit"
-            : "Submit"}
-        </Button>
-        {isRevising && (
-          <Button
-            type="button"
-            variant="ghost"
-            size={variant === "compact" || variant === "table" ? "sm" : "default"}
-            disabled={isSaving}
-            onClick={(e) => {
-              e.stopPropagation();
-              setIsRevising(false);
-              if (node.period_actual != null) {
-                setPeriodActualInput(String(node.period_actual));
-              } else {
-                setPeriodActualInput("");
-              }
-              setNarrationInput((node as any).period_actual_narration ?? "");
-            }}
-          >
-            Cancel
-          </Button>
-        )}
-      </div>
-      {(narrationRequired || narrationInput.trim().length > 0 || draftActualValid) && (
-        <div className="space-y-1">
-          <Label
-            htmlFor={`period_actual_narration_${nodeId}`}
-            className="text-xs text-muted-foreground"
-          >
-            Performance narration
-            {narrationRequired ? " (required)" : " (optional)"}
-          </Label>
-          <Textarea
-            id={`period_actual_narration_${nodeId}`}
-            value={narrationInput}
-            maxLength={NARRATION_MAX}
-            onChange={(e) => setNarrationInput(e.target.value)}
-            placeholder={
-              narrationRequired
-                ? "Explain why actual differs from the target"
-                : "Optional note about this period's achievement"
-            }
-            className={cn(
-              "min-h-[72px] text-xs border-amber-200/80 focus-visible:ring-amber-500",
-              variant === "compact" && "min-h-[56px]"
-            )}
-            onClick={(e) => e.stopPropagation()}
-          />
-          <p className="text-[10px] text-muted-foreground">
-            {narrationInput.trim().length}/{NARRATION_MAX}
-          </p>
-        </div>
-      )}
+            ? "Resubmit Achievement"
+            : node.period_actual != null
+            ? "Update Achievement"
+            : "Report Achievement"}
+        </span>
+      </Button>
+
+      <Dialog open={isReportModalOpen} onOpenChange={setIsReportModalOpen}>
+        <DialogContent
+          className="max-w-xl max-h-[90vh] overflow-y-auto"
+          onClick={(e) => e.stopPropagation()}
+        >
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-base font-bold">
+              <Calendar className="h-4 w-4 text-primary" />
+              <span>Report Achievement: {(node as any).title || (node as any).name}</span>
+            </DialogTitle>
+            <DialogDescription className="text-xs">
+              Target: {periodTarget.toLocaleString()} {node.target_unit || ""}
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4 pt-2">
+            <div className="p-3 rounded-xl bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 flex items-center justify-between">
+              <div>
+                <span className="text-[10px] uppercase font-bold text-muted-foreground tracking-wider block">
+                  Planned Period Target
+                </span>
+                <span className="text-sm font-bold font-mono text-foreground">
+                  {periodTarget.toLocaleString()} {node.target_unit || ""}
+                </span>
+              </div>
+              {node.period_actual != null && (
+                <div className="text-right border-l border-border pl-4">
+                  <span className="text-[10px] uppercase font-bold text-muted-foreground tracking-wider block">
+                    Current Achievement
+                  </span>
+                  <span className="text-sm font-bold font-mono text-emerald-600">
+                    {Number(node.period_actual).toLocaleString()} {node.target_unit || ""}
+                  </span>
+                </div>
+              )}
+            </div>
+
+            <div className="space-y-1.5">
+              <div className="flex items-center justify-between">
+                <Label htmlFor={`modal_actual_${nodeId}`} className="text-xs font-semibold">
+                  Reported Actual Achievement ({node.target_unit || ""}) *
+                </Label>
+                {periodActualInput !== "" && !isNaN(Number(periodActualInput)) && periodTarget > 0 && (
+                  <span className="text-xs font-mono font-semibold text-primary">
+                    Achievement: {Math.round((Number(periodActualInput) / periodTarget) * 1000) / 10}%
+                  </span>
+                )}
+              </div>
+              <Input
+                id={`modal_actual_${nodeId}`}
+                type="number"
+                min={0}
+                step="any"
+                value={periodActualInput}
+                onChange={(e) => setPeriodActualInput(e.target.value)}
+                placeholder={`Target ${periodTarget}`}
+                className="h-9 text-sm border-amber-300/80 focus-visible:ring-amber-500"
+              />
+            </div>
+
+            <div className="space-y-1.5">
+              <div className="flex items-center justify-between">
+                <Label htmlFor={`modal_narr_${nodeId}`} className="text-xs font-semibold">
+                  Performance Narration {narrationRequired ? "(Required)" : "(Optional)"}
+                </Label>
+                <span className="text-[10px] text-muted-foreground">
+                  {narrationInput.trim().length}/{NARRATION_MAX}
+                </span>
+              </div>
+              <Textarea
+                id={`modal_narr_${nodeId}`}
+                value={narrationInput}
+                maxLength={NARRATION_MAX}
+                onChange={(e) => setNarrationInput(e.target.value)}
+                placeholder={
+                  narrationRequired
+                    ? "Explain reasons for variance from target..."
+                    : "Optional performance notes..."
+                }
+                className="min-h-[72px] text-xs resize-none"
+              />
+            </div>
+
+            <LabeledAttachmentInput
+              attachments={labeledAttachments}
+              onChange={setLabeledAttachments}
+              required={narrationRequired}
+              title={narrationRequired ? "Evidence Attachments (Required) *" : "Evidence Attachments (Optional)"}
+            />
+
+            <DialogFooter className="gap-2 pt-2">
+              <Button type="button" variant="outline" onClick={() => setIsReportModalOpen(false)}>
+                Cancel
+              </Button>
+              <Button
+                disabled={isSaving}
+                className="bg-amber-600 hover:bg-amber-700 text-white font-medium"
+                onClick={async () => {
+                  await handleSubmit();
+                  setIsReportModalOpen(false);
+                }}
+              >
+                {isSaving
+                  ? "Submitting..."
+                  : achievementStatus === PLAN_ACHIEVEMENT_STATUS.REJECTED || isRevising
+                  ? "Resubmit Achievement"
+                  : "Submit Achievement"}
+              </Button>
+            </DialogFooter>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   ) : null;
 

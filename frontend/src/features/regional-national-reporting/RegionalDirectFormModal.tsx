@@ -513,6 +513,13 @@ export function RegionalDirectFormModal({
       return false;
     }
 
+    // Check mandatory evidence if required at requirement or assignment level
+    const isEvidenceMandatory = Boolean(req?.requires_evidence || (assignment as any)?.requires_evidence);
+    if (isEvidenceMandatory && evidenceAttachments.length === 0) {
+      toast.error("Supporting evidence document is mandatory for this KPI. Please attach at least one file with label and description.");
+      return false;
+    }
+
     return true;
   };
 
@@ -800,123 +807,119 @@ export function RegionalDirectFormModal({
               </div>
             </div>
 
-            {/* ================= PERIOD SELECTION SECTION ================= */}
-            <div className="p-4 rounded-xl bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 space-y-3">
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-100 dark:border-slate-800 pb-2.5">
-                <div>
-                  <Label className="text-sm font-bold text-slate-900 dark:text-slate-100 flex items-center gap-1.5">
-                    <Layers className="h-4 w-4 text-emerald-600" />
-                    Select Reporting Month / Division *
-                  </Label>
-                  <p className="text-xs text-slate-500">
-                    Choose which sequential division to feed the achievement for. Status reflects active window, deadlines, and prior submissions.
-                  </p>
+            {/* ================= PERIOD INFORMATION SECTION ================= */}
+            {selectedPeriod ? (
+              <div className="p-4 rounded-xl bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                <div className="flex items-center gap-3">
+                  <div className="h-10 w-10 rounded-xl bg-primary/10 border border-primary/20 flex items-center justify-center text-primary shrink-0">
+                    <CalendarRange className="h-5 w-5" />
+                  </div>
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <span className="font-bold text-sm text-foreground">
+                        {selectedPeriodData?.period_label || reportingPeriodLabel}
+                      </span>
+                      {selectedPeriodData?.ethiopianMonth && (
+                        <Badge variant="outline" className="text-xs font-semibold">
+                          {selectedPeriodData.ethiopianMonth}
+                        </Badge>
+                      )}
+                      <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full border ${selectedPeriodData?.statusColor || ""}`}>
+                        {selectedPeriodData?.statusBadgeLabel}
+                      </span>
+                    </div>
+                    <p className="text-xs text-muted-foreground mt-0.5">
+                      {selectedPeriodData?.start_date && selectedPeriodData?.end_date
+                        ? `${selectedPeriodData.start_date} ~ ${selectedPeriodData.end_date}`
+                        : `Reporting Year: ${reportingYear}`}
+                    </p>
+                  </div>
                 </div>
 
-                {/* Quick Select Dropdown */}
-                <div className="w-full sm:w-64">
-                  <select
-                    className="w-full h-9 px-3 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-xs font-medium text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-emerald-500"
-                    value={reportingPeriodLabel}
-                    onChange={(e) => handleSelectPeriod(e.target.value)}
-                  >
-                    <option value="" disabled>
-                      -- Choose a Reporting Month --
-                    </option>
-                    {periodsWithStatus.map((p) => {
-                      const achievementTag = p.hasAchievement
-                        ? ` [Reported: ${p.reportedActualVal} ${expectedFederalUnit}]`
-                        : "";
-                      const statusTag = ` (${p.statusBadgeLabel})`;
-                      return (
+                <div className="flex items-center gap-4 bg-background px-3.5 py-2 rounded-lg border border-border shrink-0">
+                  <div>
+                    <span className="text-[10px] uppercase font-bold text-muted-foreground tracking-wider block">
+                      Target
+                    </span>
+                    <span className="text-sm font-bold font-mono text-foreground">
+                      {effectivePeriodTargetNum != null ? effectivePeriodTargetNum.toLocaleString() : "—"} {expectedFederalUnit}
+                    </span>
+                  </div>
+                  {selectedPeriodData?.reportedActualVal != null && (
+                    <div className="border-l border-border pl-4">
+                      <span className="text-[10px] uppercase font-bold text-muted-foreground tracking-wider block">
+                        Current Actual
+                      </span>
+                      <span className="text-sm font-bold font-mono text-emerald-600">
+                        {Number(selectedPeriodData.reportedActualVal).toLocaleString()} {expectedFederalUnit}
+                      </span>
+                    </div>
+                  )}
+                </div>
+              </div>
+            ) : (
+              /* Fallback selector only if modal opened without pre-selected period */
+              <div className="p-4 rounded-xl bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 space-y-3">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-100 dark:border-slate-800 pb-2.5">
+                  <div>
+                    <Label className="text-sm font-bold text-slate-900 dark:text-slate-100 flex items-center gap-1.5">
+                      <Layers className="h-4 w-4 text-emerald-600" />
+                      Select Reporting Month / Division *
+                    </Label>
+                    <p className="text-xs text-slate-500">
+                      Choose which sequential division to feed the achievement for.
+                    </p>
+                  </div>
+
+                  <div className="w-full sm:w-64">
+                    <select
+                      className="w-full h-9 px-3 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-xs font-medium text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                      value={reportingPeriodLabel}
+                      onChange={(e) => handleSelectPeriod(e.target.value)}
+                    >
+                      <option value="" disabled>
+                        -- Choose a Reporting Month --
+                      </option>
+                      {periodsWithStatus.map((p) => (
                         <option key={p.period_label} value={p.period_label}>
                           {p.period_label} {p.ethiopianMonth ? `- ${p.ethiopianMonth}` : ""}
-                          {achievementTag}
-                          {statusTag}
                         </option>
-                      );
-                    })}
-                  </select>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2.5 max-h-56 overflow-y-auto p-1">
+                  {periodsWithStatus.map((p) => {
+                    const isSelected =
+                      String(p.period_label).toUpperCase() === String(reportingPeriodLabel).toUpperCase();
+                    return (
+                      <button
+                        key={p.period_label}
+                        type="button"
+                        onClick={() => handleSelectPeriod(p.period_label)}
+                        className={`p-2.5 rounded-lg border text-left transition-all relative ${
+                          isSelected
+                            ? "border-emerald-600 bg-emerald-50/80 dark:bg-emerald-950/50 ring-2 ring-emerald-500/30"
+                            : "border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/40 hover:border-slate-300 dark:hover:border-slate-700"
+                        }`}
+                      >
+                        <div className="flex items-center justify-between">
+                          <span className="font-bold text-xs text-slate-900 dark:text-slate-100">
+                            {p.period_label}
+                          </span>
+                          {isSelected && (
+                            <span className="h-4 w-4 rounded-full bg-emerald-600 text-white flex items-center justify-center">
+                              <Check className="h-2.5 w-2.5" />
+                            </span>
+                          )}
+                        </div>
+                      </button>
+                    );
+                  })}
                 </div>
               </div>
-
-              {/* 12-Month Sequential Period Grid with Status Badges */}
-              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2.5 max-h-56 overflow-y-auto p-1">
-                {periodsWithStatus.map((p) => {
-                  const isSelected =
-                    String(p.period_label).toUpperCase() === String(reportingPeriodLabel).toUpperCase();
-
-                  return (
-                    <button
-                      key={p.period_label}
-                      type="button"
-                      onClick={() => handleSelectPeriod(p.period_label)}
-                      className={`p-2.5 rounded-lg border text-left transition-all relative ${
-                        isSelected
-                          ? "border-emerald-600 bg-emerald-50/80 dark:bg-emerald-950/50 ring-2 ring-emerald-500/30"
-                          : "border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/40 hover:border-slate-300 dark:hover:border-slate-700"
-                      }`}
-                    >
-                      <div className="flex items-center justify-between">
-                        <span className="font-bold text-xs text-slate-900 dark:text-slate-100">
-                          {p.period_label}
-                        </span>
-                        {isSelected && (
-                          <span className="h-4 w-4 rounded-full bg-emerald-600 text-white flex items-center justify-center">
-                            <Check className="h-2.5 w-2.5" />
-                          </span>
-                        )}
-                      </div>
-
-                      {p.ethiopianMonth && (
-                        <div className="text-[11px] font-medium text-slate-600 dark:text-slate-400 mt-0.5">
-                          {p.ethiopianMonth}
-                        </div>
-                      )}
-
-                      <div className="text-[10px] text-slate-400 mt-1">
-                        {p.start_date && p.end_date ? `${p.start_date} ~ ${p.end_date}` : ""}
-                      </div>
-
-                      {/* Configured Target display */}
-                      <div className="text-[11px] font-mono font-semibold text-emerald-700 dark:text-emerald-400 mt-1">
-                        Target: {p.targetValue != null ? `${p.targetValue.toLocaleString()} ${expectedFederalUnit}` : "—"}
-                      </div>
-
-                      {/* Status Badges */}
-                      <div className="flex flex-wrap gap-1 mt-1.5">
-                        {p.hasAchievement ? (
-                          <Badge className="bg-emerald-600 text-white text-[9px] px-1.5 py-0 leading-tight">
-                            Reported: {p.reportedActualVal} {expectedFederalUnit}
-                          </Badge>
-                        ) : p.lockState === "active_open" ? (
-                          <Badge className="bg-emerald-100 text-emerald-800 text-[9px] px-1.5 py-0 leading-tight">
-                            Active Window
-                          </Badge>
-                        ) : p.lockState === "unlocked_on_demand" ? (
-                          <Badge className="bg-cyan-100 text-cyan-800 text-[9px] px-1.5 py-0 leading-tight flex items-center gap-0.5">
-                            <Unlock className="h-2 w-2" />
-                            Unlocked
-                          </Badge>
-                        ) : p.lockState === "deadline_passed" ? (
-                          <Badge className="bg-amber-100 text-amber-800 text-[9px] px-1.5 py-0 leading-tight">
-                            Deadline Passed
-                          </Badge>
-                        ) : p.lockState === "future" ? (
-                          <Badge className="bg-slate-200 text-slate-700 text-[9px] px-1.5 py-0 leading-tight">
-                            Future
-                          </Badge>
-                        ) : (
-                          <Badge className="bg-rose-100 text-rose-800 text-[9px] px-1.5 py-0 leading-tight">
-                            Locked
-                          </Badge>
-                        )}
-                      </div>
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
+            )}
 
             {/* Selected Period Alert or Selection Prompt */}
             {!reportingPeriodLabel ? (
@@ -1300,6 +1303,7 @@ export function RegionalDirectFormModal({
                 <LabeledAttachmentInput
                   attachments={evidenceAttachments}
                   onChange={setEvidenceAttachments}
+                  required={Boolean(req?.requires_evidence || (assignment as any)?.requires_evidence)}
                 />
               </>
             )}

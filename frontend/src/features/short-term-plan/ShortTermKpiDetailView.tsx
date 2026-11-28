@@ -23,6 +23,14 @@ import type {
   ShortTermSubmissionType,
 } from "@/redux/types/shortTermPlan";
 import { AssignShortTermKpiModal } from "./AssignShortTermKpiModal";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -856,7 +864,6 @@ export function ShortTermKpiDetailView({ kpiId }: ShortTermKpiDetailViewProps) {
                     {selectedMonth.divisions.map((div, idx) => {
                       const isOpen = div.lock_status === "open";
                       const canUserSubmit = isOpen && Boolean(activeAssignment.can_report) && canReportPerm;
-                      const isEditingThis = reportingDivision?.period_label === div.period_label;
                       const divApp = getColorAppearance(
                         div.report?.achievement_percent,
                         Boolean(div.report && div.report.reported_actual !== null),
@@ -943,81 +950,15 @@ export function ShortTermKpiDetailView({ kpiId }: ShortTermKpiDetailViewProps) {
                               <div className="text-[11px] text-amber-700">{activeAssignment.access_reason}</div>
                             )}
 
-                            {canUserSubmit && !isEditingThis && (
+                            {canUserSubmit && (
                               <Button
                                 size="sm"
                                 variant={div.report ? "outline" : "default"}
-                                className="w-full"
+                                className="w-full mt-2"
                                 onClick={() => openReportForm(div)}
                               >
                                 {div.report ? "Update Report" : "Submit Report"}
                               </Button>
-                            )}
-
-                            {isEditingThis && (
-                              <form onSubmit={handleReportSubmit} className="space-y-3 border-t pt-3">
-                                {kpi.allow_narrative_only_updates && (
-                                  <div>
-                                    <Label className="text-xs">Submission Type</Label>
-                                    <Select
-                                      value={submissionType}
-                                      onValueChange={(v) => setSubmissionType(v as ShortTermSubmissionType)}
-                                    >
-                                      <SelectTrigger className="h-8 text-xs bg-white">
-                                        <SelectValue />
-                                      </SelectTrigger>
-                                      <SelectContent>
-                                        <SelectItem value="actual_and_narrative">Actual Value + Narrative</SelectItem>
-                                        <SelectItem value="narrative_only">Narrative Update Only</SelectItem>
-                                      </SelectContent>
-                                    </Select>
-                                  </div>
-                                )}
-
-                                {submissionType === "actual_and_narrative" && (
-                                  <div>
-                                    <Label className="text-xs">Reported Actual ({kpi.unit})</Label>
-                                    <Input
-                                      type="number"
-                                      step="any"
-                                      className="h-8 text-xs bg-white"
-                                      value={reportedActual}
-                                      onChange={(e) => setReportedActual(e.target.value)}
-                                      required
-                                    />
-                                  </div>
-                                )}
-
-                                <div>
-                                  <Label className="text-xs">Narrative / Progress Notes</Label>
-                                  <Textarea
-                                    rows={2}
-                                    className="text-xs bg-white"
-                                    value={narrative}
-                                    onChange={(e) => setNarrative(e.target.value)}
-                                    placeholder="Describe progress, milestones, or blockers..."
-                                  />
-                                </div>
-
-                                <LabeledAttachmentInput
-                                  attachments={evidenceAttachments}
-                                  onChange={setEvidenceAttachments}
-                                />
-
-                                <div className="flex items-center justify-end gap-2">
-                                  <Button
-                                    type="button"
-                                    size="sm"
-                                    variant="ghost"
-                                    onClick={() => setReportingDivision(null)}
-                                  >
-                                    Cancel
-                                  </Button>
-                                  <Button type="submit" size="sm" disabled={isSubmitting}>
-                                    {isSubmitting ? "Saving..." : "Submit Report"}
-                                  </Button>
-                                </div>
-                              </form>
                             )}
                           </CardContent>
                         </Card>
@@ -1030,6 +971,126 @@ export function ShortTermKpiDetailView({ kpiId }: ShortTermKpiDetailViewProps) {
           )}
         </TabsContent>
       </Tabs>
+
+      {/* Short Term KPI Reporting Modal */}
+      <Dialog
+        open={Boolean(reportingDivision)}
+        onOpenChange={(open) => {
+          if (!open) setReportingDivision(null);
+        }}
+      >
+        <DialogContent className="max-w-xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-base font-bold">
+              <Calendar className="h-4 w-4 text-primary" />
+              <span>Submit Report: {reportingDivision?.period_label}</span>
+            </DialogTitle>
+            <DialogDescription className="text-xs">
+              {kpi.title} ({kpi.code}) • {activeAssignment?.assignee_label || "Assigned Entity"}
+            </DialogDescription>
+          </DialogHeader>
+
+          {reportingDivision && (
+            <form onSubmit={handleReportSubmit} className="space-y-4 pt-2">
+              {/* Period Target Banner */}
+              <div className="p-3 rounded-xl bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 flex items-center justify-between">
+                <div>
+                  <span className="text-[10px] uppercase font-bold text-muted-foreground tracking-wider block">
+                    Planned Target
+                  </span>
+                  <span className="text-sm font-bold font-mono text-foreground">
+                    {reportingDivision.planned_target != null
+                      ? reportingDivision.planned_target.toLocaleString()
+                      : "—"}{" "}
+                    {kpi.unit}
+                  </span>
+                </div>
+                {reportingDivision.report?.reported_actual != null && (
+                  <div className="text-right border-l border-border pl-4">
+                    <span className="text-[10px] uppercase font-bold text-muted-foreground tracking-wider block">
+                      Current Actual
+                    </span>
+                    <span className="text-sm font-bold font-mono text-emerald-600">
+                      {Number(reportingDivision.report.reported_actual).toLocaleString()} {kpi.unit} (
+                      {reportingDivision.report.achievement_percent}%)
+                    </span>
+                  </div>
+                )}
+              </div>
+
+              {kpi.allow_narrative_only_updates && (
+                <div className="space-y-1.5">
+                  <Label className="text-xs font-semibold">Submission Type</Label>
+                  <Select
+                    value={submissionType}
+                    onValueChange={(v) => setSubmissionType(v as ShortTermSubmissionType)}
+                  >
+                    <SelectTrigger className="h-9 text-xs bg-white dark:bg-slate-900">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="actual_and_narrative">Actual Value + Narrative</SelectItem>
+                      <SelectItem value="narrative_only">Narrative Update Only</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
+
+              {submissionType === "actual_and_narrative" && (
+                <div className="space-y-1.5">
+                  <div className="flex items-center justify-between">
+                    <Label className="text-xs font-semibold">Reported Actual ({kpi.unit}) *</Label>
+                    {reportedActual !== "" && !isNaN(Number(reportedActual)) && reportingDivision.planned_target && (
+                      <span className="text-xs font-mono font-semibold text-primary">
+                        Achievement: {Math.round((Number(reportedActual) / reportingDivision.planned_target) * 1000) / 10}%
+                      </span>
+                    )}
+                  </div>
+                  <Input
+                    type="number"
+                    step="any"
+                    className="h-9 text-sm bg-white dark:bg-slate-900"
+                    placeholder={`e.g. ${reportingDivision.planned_target ?? 0}`}
+                    value={reportedActual}
+                    onChange={(e) => setReportedActual(e.target.value)}
+                    required
+                  />
+                </div>
+              )}
+
+              <div className="space-y-1.5">
+                <Label className="text-xs font-semibold">Progress Narrative / Executive Justification</Label>
+                <Textarea
+                  rows={3}
+                  className="text-xs bg-white dark:bg-slate-900 resize-none"
+                  value={narrative}
+                  onChange={(e) => setNarrative(e.target.value)}
+                  placeholder="Describe progress, field achievements, or operational blockers..."
+                />
+              </div>
+
+              <LabeledAttachmentInput
+                attachments={evidenceAttachments}
+                onChange={setEvidenceAttachments}
+                title="Supporting Attachments & Verification Documents (Optional)"
+              />
+
+              <DialogFooter className="gap-2 pt-2">
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => setReportingDivision(null)}
+                >
+                  Cancel
+                </Button>
+                <Button type="submit" disabled={isSubmitting}>
+                  {isSubmitting ? "Saving..." : "Submit Report"}
+                </Button>
+              </DialogFooter>
+            </form>
+          )}
+        </DialogContent>
+      </Dialog>
 
       {/* Enlarged Update / Assign Modal */}
       {isAssignModalOpen && (

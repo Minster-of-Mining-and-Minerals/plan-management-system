@@ -103,6 +103,10 @@ import { CompanyTargetAmendmentModal } from "./CompanyTargetAmendmentModal";
 import { CompanyTargetAmendmentComparisonModal } from "./CompanyTargetAmendmentComparisonModal";
 import { CompanyProductionReportingHierarchyView } from "./CompanyProductionReportingHierarchyView";
 import { Scale } from "lucide-react";
+import {
+  LabeledAttachmentInput,
+  type LabeledAttachmentItem,
+} from "@/components/ui/labeled-attachment-input";
 
 export function CompanyProductionDetailView({
   overrideCompanyId,
@@ -178,6 +182,7 @@ export function CompanyProductionDetailView({
   const [isReportModalOpen, setIsReportModalOpen] = useState(false);
   const [selectedTargetPeriodId, setSelectedTargetPeriodId] = useState<string | null>(null);
   const [selectedPeriodLabel, setSelectedPeriodLabel] = useState<string | null>(null);
+  const [evidenceAttachments, setEvidenceAttachments] = useState<LabeledAttachmentItem[]>([]);
 
   // Versionized Report Revision State
   const [isReportUpdate, setIsReportUpdate] = useState<boolean>(false);
@@ -545,6 +550,13 @@ export function CompanyProductionDetailView({
       return;
     }
 
+    if (evidenceAttachments.some((a) => !a.label.trim() || !a.description.trim())) {
+      actionFeedback.error("Each attachment must include both a display label and a description of its relation to the report.", {
+        title: "Attachment Details Required",
+      });
+      return;
+    }
+
     try {
       await submitReport({
         assignment_id: assignmentId || "",
@@ -555,6 +567,7 @@ export function CompanyProductionDetailView({
         target_period_id: selectedTargetPeriodId || undefined,
         period_label: selectedPeriodLabel || undefined,
         notes: reportNotes,
+        evidence_attachments: evidenceAttachments,
         revision_reason: isReportUpdate ? reportRevisionReason.trim() : undefined,
         parent_report_id: isReportUpdate && parentReportId ? parentReportId : undefined,
       } as any).unwrap();
@@ -572,6 +585,7 @@ export function CompanyProductionDetailView({
       setIsReportUpdate(false);
       setExistingReportQuantity(null);
       setParentReportId(null);
+      setEvidenceAttachments([]);
       setIsReportModalOpen(false);
       refetchDetail();
     } catch (err: any) {
@@ -2047,6 +2061,12 @@ export function CompanyProductionDetailView({
                         className="text-xs h-20"
                       />
                     </div>
+
+                    <LabeledAttachmentInput
+                      attachments={evidenceAttachments}
+                      onChange={setEvidenceAttachments}
+                      title="Supporting Documents & Evidence (Optional)"
+                    />
 
                     <DialogFooter className="pt-2">
                       <Button

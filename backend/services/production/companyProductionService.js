@@ -885,6 +885,29 @@ async function submitReport(data, userId, companyScope = null) {
 
   const resolvedTargetPeriodId = linkedTargetPeriod ? linkedTargetPeriod.target_id : (approvedTarget ? approvedTarget.target_id : null);
 
+  const sanitizedAttachments = Array.isArray(data.evidence_attachments)
+    ? data.evidence_attachments.map((att, idx) => {
+        const label = String(att?.label || "").trim();
+        const description = String(att?.description || "").trim();
+        if (!label || !description) {
+          const err = new Error(
+            `Attachment #${idx + 1} must include both a display label and a description of its relation to the KPI.`
+          );
+          err.status = 400;
+          throw err;
+        }
+        return {
+          attachment_id: att.attachment_id || null,
+          file_name: att.file_name || label,
+          file_path: att.file_path || att.file_url || "",
+          mime_type: att.mime_type || null,
+          size: att.size ?? null,
+          label,
+          description,
+        };
+      })
+    : [];
+
   const report = await CompanyProductionReport.create({
     company_id: assignment.company_id,
     assignment_id: assignment.assignment_id,
@@ -905,6 +928,7 @@ async function submitReport(data, userId, companyScope = null) {
     revision_reason: revisionReason,
     status,
     notes: notes ? notes.trim() : null,
+    evidence_attachments: sanitizedAttachments,
     submitted_by: userId,
   });
 

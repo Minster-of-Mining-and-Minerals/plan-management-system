@@ -158,6 +158,11 @@ module.exports = (sequelize, DataTypes) => {
         type: DataTypes.TEXT,
         allowNull: true,
       },
+      evidence_attachments: {
+        type: DataTypes.JSONB,
+        allowNull: true,
+        defaultValue: [],
+      },
       submitted_by: {
         type: DataTypes.UUID,
         allowNull: true,
