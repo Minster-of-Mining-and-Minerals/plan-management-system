@@ -605,36 +605,67 @@ export function RegionalPlanHierarchyView() {
   );
 
   const detailTabToggle = showAnnualDashboard ? (
-    <div className="inline-flex rounded-lg border border-border bg-card p-1 flex-wrap shadow-2xs">
+    <div
+      role="tablist"
+      aria-label="Regional plan views"
+      className="flex flex-wrap items-center gap-2.5 rounded-2xl border border-border bg-card p-2.5 shadow-xs w-fit max-w-full"
+    >
       <Button
-        variant={activeTab === "hierarchy" ? "default" : "ghost"}
-        size="sm"
-        className="gap-2 h-8"
+        type="button"
+        role="tab"
+        aria-selected={activeTab === "hierarchy"}
+        variant={activeTab === "hierarchy" ? "default" : "outline"}
         onClick={() => setActiveTab("hierarchy")}
+        className={cn(
+          "h-10 rounded-xl px-4 text-xs font-semibold shadow-none transition-all gap-2",
+          activeTab === "hierarchy"
+            ? "bg-primary text-primary-foreground shadow-xs border-primary"
+            : "border-border bg-background text-muted-foreground hover:bg-muted hover:text-foreground"
+        )}
       >
         <ListTree className="h-4 w-4" />
         <span>Plan Hierarchy</span>
       </Button>
       <Button
-        variant={activeTab === "annual" ? "default" : "ghost"}
-        size="sm"
-        className="gap-2 h-8"
+        type="button"
+        role="tab"
+        aria-selected={activeTab === "annual"}
+        variant={activeTab === "annual" ? "default" : "outline"}
         onClick={() => setActiveTab("annual")}
+        className={cn(
+          "h-10 rounded-xl px-4 text-xs font-semibold shadow-none transition-all gap-2",
+          activeTab === "annual"
+            ? "bg-primary text-primary-foreground shadow-xs border-primary"
+            : "border-border bg-background text-muted-foreground hover:bg-muted hover:text-foreground"
+        )}
       >
         <CalendarDays className="h-4 w-4" />
         <span>Annual Execution</span>
         {annualVersions.length > 0 && (
-          <Badge variant="secondary" className="ml-1 text-[11px] px-1.5 py-0 h-5">
+          <Badge
+            variant="secondary"
+            className={cn(
+              "ml-1 text-[11px] px-1.5 py-0 h-5",
+              activeTab === "annual" ? "bg-primary-foreground/20 text-primary-foreground" : "bg-muted text-muted-foreground"
+            )}
+          >
             {annualVersions.length}
           </Badge>
         )}
       </Button>
       {showReviewTab && (
         <Button
-          variant={activeTab === "review" ? "default" : "ghost"}
-          size="sm"
-          className="gap-2 h-8"
+          type="button"
+          role="tab"
+          aria-selected={activeTab === "review"}
+          variant={activeTab === "review" ? "default" : "outline"}
           onClick={() => setActiveTab("review")}
+          className={cn(
+            "h-10 rounded-xl px-4 text-xs font-semibold shadow-none transition-all gap-2",
+            activeTab === "review"
+              ? "bg-primary text-primary-foreground shadow-xs border-primary"
+              : "border-border bg-background text-muted-foreground hover:bg-muted hover:text-foreground"
+          )}
         >
           <ShieldCheck className="h-4 w-4" />
           <span>Review Dashboard</span>
@@ -642,36 +673,67 @@ export function RegionalPlanHierarchyView() {
       )}
     </div>
   ) : showPeriodDashboard ? (
-    <div className="inline-flex rounded-lg border border-border bg-card p-1 flex-wrap shadow-2xs">
+    <div
+      role="tablist"
+      aria-label="Regional plan views"
+      className="flex flex-wrap items-center gap-2.5 rounded-2xl border border-border bg-card p-2.5 shadow-xs w-fit max-w-full"
+    >
       <Button
-        variant={activeTab === "hierarchy" ? "default" : "ghost"}
-        size="sm"
-        className="gap-2 h-8"
+        type="button"
+        role="tab"
+        aria-selected={activeTab === "hierarchy"}
+        variant={activeTab === "hierarchy" ? "default" : "outline"}
         onClick={() => setActiveTab("hierarchy")}
+        className={cn(
+          "h-10 rounded-xl px-4 text-xs font-semibold shadow-none transition-all gap-2",
+          activeTab === "hierarchy"
+            ? "bg-primary text-primary-foreground shadow-xs border-primary"
+            : "border-border bg-background text-muted-foreground hover:bg-muted hover:text-foreground"
+        )}
       >
         <ListTree className="h-4 w-4" />
         <span>Plan Hierarchy</span>
       </Button>
       <Button
-        variant={activeTab === "periods" ? "default" : "ghost"}
-        size="sm"
-        className="gap-2 h-8"
+        type="button"
+        role="tab"
+        aria-selected={activeTab === "periods"}
+        variant={activeTab === "periods" ? "default" : "outline"}
         onClick={() => setActiveTab("periods")}
+        className={cn(
+          "h-10 rounded-xl px-4 text-xs font-semibold shadow-none transition-all gap-2",
+          activeTab === "periods"
+            ? "bg-primary text-primary-foreground shadow-xs border-primary"
+            : "border-border bg-background text-muted-foreground hover:bg-muted hover:text-foreground"
+        )}
       >
         <Clock className="h-4 w-4" />
         <span>Execution Periods</span>
         {executionPeriods.length > 0 && (
-          <Badge variant="secondary" className="ml-1 text-[11px] px-1.5 py-0 h-5">
+          <Badge
+            variant="secondary"
+            className={cn(
+              "ml-1 text-[11px] px-1.5 py-0 h-5",
+              activeTab === "periods" ? "bg-primary-foreground/20 text-primary-foreground" : "bg-muted text-muted-foreground"
+            )}
+          >
             {executionPeriods.length}
           </Badge>
         )}
       </Button>
       {showReviewTab && (
         <Button
-          variant={activeTab === "review" ? "default" : "ghost"}
-          size="sm"
-          className="gap-2 h-8"
+          type="button"
+          role="tab"
+          aria-selected={activeTab === "review"}
+          variant={activeTab === "review" ? "default" : "outline"}
           onClick={() => setActiveTab("review")}
+          className={cn(
+            "h-10 rounded-xl px-4 text-xs font-semibold shadow-none transition-all gap-2",
+            activeTab === "review"
+              ? "bg-primary text-primary-foreground shadow-xs border-primary"
+              : "border-border bg-background text-muted-foreground hover:bg-muted hover:text-foreground"
+          )}
         >
           <ShieldCheck className="h-4 w-4" />
           <span>Review Dashboard</span>
@@ -679,21 +741,39 @@ export function RegionalPlanHierarchyView() {
       )}
     </div>
   ) : showReviewTab ? (
-    <div className="inline-flex rounded-lg border border-border bg-card p-1 flex-wrap shadow-2xs">
+    <div
+      role="tablist"
+      aria-label="Regional plan views"
+      className="flex flex-wrap items-center gap-2.5 rounded-2xl border border-border bg-card p-2.5 shadow-xs w-fit max-w-full"
+    >
       <Button
-        variant={activeTab === "hierarchy" ? "default" : "ghost"}
-        size="sm"
-        className="gap-2 h-8"
+        type="button"
+        role="tab"
+        aria-selected={activeTab === "hierarchy"}
+        variant={activeTab === "hierarchy" ? "default" : "outline"}
         onClick={() => setActiveTab("hierarchy")}
+        className={cn(
+          "h-10 rounded-xl px-4 text-xs font-semibold shadow-none transition-all gap-2",
+          activeTab === "hierarchy"
+            ? "bg-primary text-primary-foreground shadow-xs border-primary"
+            : "border-border bg-background text-muted-foreground hover:bg-muted hover:text-foreground"
+        )}
       >
         <ListTree className="h-4 w-4" />
         <span>Plan Hierarchy</span>
       </Button>
       <Button
-        variant={activeTab === "review" ? "default" : "ghost"}
-        size="sm"
-        className="gap-2 h-8"
+        type="button"
+        role="tab"
+        aria-selected={activeTab === "review"}
+        variant={activeTab === "review" ? "default" : "outline"}
         onClick={() => setActiveTab("review")}
+        className={cn(
+          "h-10 rounded-xl px-4 text-xs font-semibold shadow-none transition-all gap-2",
+          activeTab === "review"
+            ? "bg-primary text-primary-foreground shadow-xs border-primary"
+            : "border-border bg-background text-muted-foreground hover:bg-muted hover:text-foreground"
+        )}
       >
         <ShieldCheck className="h-4 w-4" />
         <span>Review Dashboard</span>

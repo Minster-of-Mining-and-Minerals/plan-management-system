@@ -351,12 +351,12 @@ export function ShortTermKpiDetailView({ kpiId }: ShortTermKpiDetailViewProps) {
 
       {/* Two-Tab Navigation: Status & Report */}
       <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as "status" | "report")} className="w-full space-y-5">
-        <TabsList className="grid w-full max-w-md grid-cols-2">
-          <TabsTrigger value="status" className="gap-2">
+        <TabsList>
+          <TabsTrigger value="status">
             <BarChart3 className="h-4 w-4" />
             Status &amp; Analytics
           </TabsTrigger>
-          <TabsTrigger value="report" className="gap-2">
+          <TabsTrigger value="report">
             <FileText className="h-4 w-4" />
             Report (Cascaded Periods)
           </TabsTrigger>

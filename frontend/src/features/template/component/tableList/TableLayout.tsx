@@ -2,6 +2,7 @@ import React, { useCallback } from "react";
 import { Search } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
 import { ActionButton, PageLayoutProps } from "@/types/tableLayout";
 import { FilterPopover } from "./FilterDrawer";
 import { useSearchParams, useRouter } from "next/navigation";
@@ -84,23 +85,40 @@ export const TableLayout: React.FC<PageLayoutProps> = ({
           )}
           <div className="flex w-fit">
             {sideActions && sideActions.length > 0 && (
-              <div className="flex flex-wrap items-center gap-3">
-                {sideActions.map((action: ActionButton, index: number) => (
-                  <Button
-                    key={index}
-                    type="button"
-                    variant={action.variant || "default"}
-                    size={action.size || "default"}
-                    onClick={action.onClick}
-                    disabled={action.disabled || action.loading}
-                    className="flex items-center space-x-2"
-                  >
-                    {action.icon && (
-                      <span className="h-4 w-4">{action.icon}</span>
-                    )}
-                    <span>{action.label}</span>
-                  </Button>
-                ))}
+              <div
+                role="tablist"
+                className="flex flex-wrap items-center gap-2.5 rounded-2xl border border-border bg-card p-2.5 shadow-xs w-fit max-w-full"
+              >
+                {sideActions.map((action: ActionButton, index: number) => {
+                  const isActive = action.variant === "default";
+                  return (
+                    <Button
+                      key={index}
+                      type="button"
+                      role="tab"
+                      aria-selected={isActive}
+                      variant={action.variant || "default"}
+                      size={action.size || "default"}
+                      onClick={action.onClick}
+                      disabled={action.disabled || action.loading}
+                      className={cn(
+                        "h-10 rounded-xl px-4 text-xs font-semibold shadow-none transition-all flex items-center space-x-2",
+                        isActive
+                          ? "bg-primary text-primary-foreground shadow-xs border-primary"
+                          : "border-border bg-background text-muted-foreground hover:bg-muted hover:text-foreground"
+                      )}
+                    >
+                      {action.loading ? (
+                        <div className="h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent" />
+                      ) : (
+                        action.icon && (
+                          <span className="h-4 w-4">{action.icon}</span>
+                        )
+                      )}
+                      <span>{action.label}</span>
+                    </Button>
+                  );
+                })}
               </div>
             )}
           </div>

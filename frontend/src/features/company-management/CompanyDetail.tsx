@@ -113,6 +113,38 @@ export function CompanyDetail({ companyId }: { companyId: string }) {
     },
   ];
 
+  const renderTabs = () => (
+    <div
+      role="tablist"
+      aria-label="Company management tabs"
+      className="flex flex-wrap items-center gap-2.5 rounded-2xl border border-border bg-card p-2.5 shadow-xs w-fit max-w-full"
+    >
+      {sideActionTabs.map((action, idx) => {
+        const isActive = action.variant === "default";
+        return (
+          <Button
+            key={idx}
+            type="button"
+            role="tab"
+            aria-selected={isActive}
+            variant={action.variant || "default"}
+            onClick={action.onClick}
+            disabled={action.disabled || action.loading}
+            className={cn(
+              "h-10 rounded-xl px-4 text-xs font-semibold shadow-none transition-all flex items-center space-x-2",
+              isActive
+                ? "bg-primary text-primary-foreground shadow-xs border-primary"
+                : "border-border bg-background text-muted-foreground hover:bg-muted hover:text-foreground"
+            )}
+          >
+            {action.icon && <span className="h-4 w-4">{action.icon}</span>}
+            <span>{action.label}</span>
+          </Button>
+        );
+      })}
+    </div>
+  );
+
   if (isLoading) {
     return <Loading01 />;
   }
@@ -232,22 +264,7 @@ export function CompanyDetail({ companyId }: { companyId: string }) {
       <div>
         {activeTab === "licenses" && (
           <div className="space-y-6">
-            <div className="flex flex-wrap items-center justify-end gap-2 bg-card p-3 rounded-lg border shadow-xs">
-              {sideActionTabs.map((action, idx) => (
-                <Button
-                  key={idx}
-                  type="button"
-                  variant={action.variant || "default"}
-                  size={action.size || "default"}
-                  onClick={action.onClick}
-                  disabled={action.disabled || action.loading}
-                  className="flex items-center space-x-2"
-                >
-                  {action.icon && <span className="h-4 w-4">{action.icon}</span>}
-                  <span>{action.label}</span>
-                </Button>
-              ))}
-            </div>
+            {renderTabs()}
             <CompanyLicenseList
               companyId={company.company_id}
               companyName={company.name}
@@ -257,22 +274,7 @@ export function CompanyDetail({ companyId }: { companyId: string }) {
         )}
         {activeTab === "map" && (
           <div className="space-y-6">
-            <div className="flex flex-wrap items-center justify-end gap-2 bg-card p-3 rounded-lg border shadow-xs">
-              {sideActionTabs.map((action, idx) => (
-                <Button
-                  key={idx}
-                  type="button"
-                  variant={action.variant || "default"}
-                  size={action.size || "default"}
-                  onClick={action.onClick}
-                  disabled={action.disabled || action.loading}
-                  className="flex items-center space-x-2"
-                >
-                  {action.icon && <span className="h-4 w-4">{action.icon}</span>}
-                  <span>{action.label}</span>
-                </Button>
-              ))}
-            </div>
+            {renderTabs()}
             <CompanyLicenseMapTab
               companyId={company.company_id}
               companyName={company.name}
@@ -304,43 +306,13 @@ export function CompanyDetail({ companyId }: { companyId: string }) {
         )}
         {activeTab === "permissions" && (
           <div className="space-y-6">
-            <div className="flex flex-wrap items-center justify-end gap-2 bg-card p-3 rounded-lg border shadow-xs">
-              {sideActionTabs.map((action, idx) => (
-                <Button
-                  key={idx}
-                  type="button"
-                  variant={action.variant || "default"}
-                  size={action.size || "default"}
-                  onClick={action.onClick}
-                  disabled={action.disabled || action.loading}
-                  className="flex items-center space-x-2"
-                >
-                  {action.icon && <span className="h-4 w-4">{action.icon}</span>}
-                  <span>{action.label}</span>
-                </Button>
-              ))}
-            </div>
+            {renderTabs()}
             <PermissionList isCompanyOnly />
           </div>
         )}
         {activeTab === "production" && (
           <div className="space-y-6">
-            <div className="flex flex-wrap items-center justify-end gap-2 bg-card p-3 rounded-lg border shadow-xs">
-              {sideActionTabs.map((action, idx) => (
-                <Button
-                  key={idx}
-                  type="button"
-                  variant={action.variant || "default"}
-                  size={action.size || "default"}
-                  onClick={action.onClick}
-                  disabled={action.disabled || action.loading}
-                  className="flex items-center space-x-2"
-                >
-                  {action.icon && <span className="h-4 w-4">{action.icon}</span>}
-                  <span>{action.label}</span>
-                </Button>
-              ))}
-            </div>
+            {renderTabs()}
             <CompanyProductionDetailTab
               companyId={company.company_id}
             />
@@ -348,22 +320,7 @@ export function CompanyDetail({ companyId }: { companyId: string }) {
         )}
         {activeTab === "branding" && (
           <div className="space-y-6">
-            <div className="flex flex-wrap items-center justify-end gap-2 bg-card p-3 rounded-lg border shadow-xs">
-              {sideActionTabs.map((action, idx) => (
-                <Button
-                  key={idx}
-                  type="button"
-                  variant={action.variant || "default"}
-                  size={action.size || "default"}
-                  onClick={action.onClick}
-                  disabled={action.disabled || action.loading}
-                  className="flex items-center space-x-2"
-                >
-                  {action.icon && <span className="h-4 w-4">{action.icon}</span>}
-                  <span>{action.label}</span>
-                </Button>
-              ))}
-            </div>
+            {renderTabs()}
             <CompanySettingsAndBranding
               companyId={company.company_id}
               companyName={company.name}

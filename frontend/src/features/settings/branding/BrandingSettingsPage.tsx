@@ -17,6 +17,7 @@ import {
 import { actionFeedback } from "@/components/action-feedback";
 import { TableTabBar } from "@/components/common/TableTabBar";
 import { Button } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
@@ -145,7 +146,11 @@ function BrandingSectionTabs({
   onTabChange: (tab: BrandingTab) => void;
 }) {
   return (
-    <div className="flex flex-wrap items-center gap-2">
+    <div
+      role="tablist"
+      aria-label="Branding sections"
+      className="flex flex-wrap items-center gap-2.5 rounded-2xl border border-border bg-card p-2.5 shadow-xs w-fit max-w-full"
+    >
       {TAB_OPTIONS.map((option) => {
         const Icon = option.icon;
         const active = option.key === activeTab;
@@ -153,10 +158,16 @@ function BrandingSectionTabs({
           <Button
             key={option.key}
             type="button"
-            size="sm"
+            role="tab"
+            aria-selected={active}
             variant={active ? "default" : "outline"}
             onClick={() => onTabChange(option.key)}
-            className="flex items-center space-x-2"
+            className={cn(
+              "h-10 rounded-xl px-4 text-xs font-semibold shadow-none transition-all gap-2",
+              active
+                ? "bg-primary text-primary-foreground shadow-xs border-primary"
+                : "border-border bg-background text-muted-foreground hover:bg-muted hover:text-foreground"
+            )}
           >
             <Icon className="h-4 w-4" />
             <span>{option.label}</span>

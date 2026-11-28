@@ -438,18 +438,18 @@ export function UserSessionsAdminView({
 
       {/* Main Tabs Container */}
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-        <TabsList className="bg-muted/40 p-1 rounded-xl">
-          <TabsTrigger value="sessions" className="text-xs font-semibold rounded-lg">
+        <TabsList>
+          <TabsTrigger value="sessions">
             Active Sessions ({meta.total || 0})
           </TabsTrigger>
-          <TabsTrigger value="devices" className="text-xs font-semibold rounded-lg">
+          <TabsTrigger value="devices">
             Device Restrictions ({metrics?.restricted_devices ?? 0})
           </TabsTrigger>
-          <TabsTrigger value="ips" className="text-xs font-semibold rounded-lg">
+          <TabsTrigger value="ips">
             IP Restrictions ({metrics?.restricted_ips ?? 0})
           </TabsTrigger>
           {canViewAudit && (
-            <TabsTrigger value="audit" className="text-xs font-semibold rounded-lg">
+            <TabsTrigger value="audit">
               Security Audit Logs
             </TabsTrigger>
           )}

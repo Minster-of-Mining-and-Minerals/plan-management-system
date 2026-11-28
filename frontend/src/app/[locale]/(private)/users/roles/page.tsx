@@ -35,34 +35,22 @@ export default function RolesPage() {
   return (
     <div className="space-y-4">
       <Tabs value={currentTab} onValueChange={handleTabChange} className="w-full">
-        <div className="border-b bg-card/60 backdrop-blur-sm px-6 py-2.5 rounded-xl border flex items-center justify-between">
-          <TabsList className="grid grid-cols-4 h-10 w-full sm:w-[760px] bg-muted/60 p-1">
-            <TabsTrigger
-              value="system"
-              className="flex items-center gap-2 text-sm font-medium data-[state=active]:bg-background data-[state=active]:text-primary data-[state=active]:shadow-sm transition-all"
-            >
+        <div>
+          <TabsList>
+            <TabsTrigger value="system">
               <Shield className="h-4 w-4" />
               <span>System & Sector Roles</span>
             </TabsTrigger>
-            <TabsTrigger
-              value="regional"
-              className="flex items-center gap-2 text-sm font-medium data-[state=active]:bg-background data-[state=active]:text-primary data-[state=active]:shadow-sm transition-all"
-            >
-              <MapPin className="h-4 w-4 text-indigo-500" />
+            <TabsTrigger value="regional">
+              <MapPin className="h-4 w-4" />
               <span>Regional Roles</span>
             </TabsTrigger>
-            <TabsTrigger
-              value="company"
-              className="flex items-center gap-2 text-sm font-medium data-[state=active]:bg-background data-[state=active]:text-primary data-[state=active]:shadow-sm transition-all"
-            >
-              <Building2 className="h-4 w-4 text-emerald-500" />
+            <TabsTrigger value="company">
+              <Building2 className="h-4 w-4" />
               <span>Company Roles</span>
             </TabsTrigger>
-            <TabsTrigger
-              value="purchasing_center"
-              className="flex items-center gap-2 text-sm font-medium data-[state=active]:bg-background data-[state=active]:text-primary data-[state=active]:shadow-sm transition-all"
-            >
-              <Store className="h-4 w-4 text-amber-500" />
+            <TabsTrigger value="purchasing_center">
+              <Store className="h-4 w-4" />
               <span>Purchasing Center Roles</span>
             </TabsTrigger>
           </TabsList>

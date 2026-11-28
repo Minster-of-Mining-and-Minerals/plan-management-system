@@ -34,25 +34,16 @@ export function RegionalNationalReportingView({ regionId }: Props) {
 
       {/* Navigation Tabs */}
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-        <TabsList className="bg-slate-100 dark:bg-slate-800/60 p-1 border border-slate-200 dark:border-slate-700/50 rounded-xl">
-          <TabsTrigger
-            value="dashboard"
-            className="flex items-center gap-2 data-[state=active]:bg-white dark:data-[state=active]:bg-slate-900 data-[state=active]:text-emerald-700 dark:data-[state=active]:text-emerald-400 data-[state=active]:shadow-sm rounded-lg text-xs font-semibold"
-          >
+        <TabsList>
+          <TabsTrigger value="dashboard">
             <BarChart3 className="h-4 w-4" />
             National Reporting Dashboard
           </TabsTrigger>
-          <TabsTrigger
-            value="assigned"
-            className="flex items-center gap-2 data-[state=active]:bg-white dark:data-[state=active]:bg-slate-900 data-[state=active]:text-emerald-700 dark:data-[state=active]:text-emerald-400 data-[state=active]:shadow-sm rounded-lg text-xs font-semibold"
-          >
+          <TabsTrigger value="assigned">
             <Layers className="h-4 w-4" />
             Assigned Indicators & Mappings
           </TabsTrigger>
-          <TabsTrigger
-            value="history"
-            className="flex items-center gap-2 data-[state=active]:bg-white dark:data-[state=active]:bg-slate-900 data-[state=active]:text-emerald-700 dark:data-[state=active]:text-emerald-400 data-[state=active]:shadow-sm rounded-lg text-xs font-semibold"
-          >
+          <TabsTrigger value="history">
             <History className="h-4 w-4" />
             Publication Receipts & History
           </TabsTrigger>

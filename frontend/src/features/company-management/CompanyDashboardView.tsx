@@ -295,33 +295,28 @@ export function CompanyDashboardView({
           2. DASHBOARD VIEW SELECTOR TABS
       ========================================================================= */}
       <div
-        className="flex flex-wrap items-center gap-3 rounded-xl border border-border bg-white p-3 sm:p-4 shadow-xs"
+        className="flex flex-wrap items-center gap-2.5 rounded-2xl border border-border bg-card p-2.5 shadow-xs w-fit max-w-full"
         role="tablist"
         aria-label="Company Dashboard Views"
       >
-        <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mr-1">
-          Views:
-        </span>
         <button
           type="button"
           role="tab"
           aria-selected={activeTab === "overview"}
           onClick={() => setActiveTab("overview")}
           className={cn(
-            "flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-semibold transition-all shadow-xs",
+            "inline-flex h-10 items-center justify-center gap-2 rounded-xl px-4 text-xs font-semibold shadow-none transition-all",
             activeTab === "overview"
-              ? "text-white shadow-sm"
-              : "border border-border bg-card text-foreground hover:bg-muted/70"
+              ? "bg-primary text-primary-foreground shadow-xs border border-primary"
+              : "border border-border bg-background text-muted-foreground hover:bg-muted hover:text-foreground"
           )}
-          style={
-            activeTab === "overview"
-              ? { backgroundColor: primaryTone.color }
-              : undefined
-          }
         >
           <Building2 className="h-4 w-4" />
           <span>Operational Overview</span>
-          <span className="ml-1 text-[11px] font-mono px-1.5 py-0.2 rounded-full bg-white/20">
+          <span className={cn(
+            "ml-1 text-[11px] font-mono px-1.5 py-0.2 rounded-full",
+            activeTab === "overview" ? "bg-primary-foreground/20 text-primary-foreground" : "bg-muted text-muted-foreground"
+          )}>
             Live
           </span>
         </button>
@@ -332,20 +327,18 @@ export function CompanyDashboardView({
           aria-selected={activeTab === "production"}
           onClick={() => setActiveTab("production")}
           className={cn(
-            "flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-medium transition-all shadow-xs",
+            "inline-flex h-10 items-center justify-center gap-2 rounded-xl px-4 text-xs font-semibold shadow-none transition-all",
             activeTab === "production"
-              ? "text-white shadow-sm"
-              : "border border-border bg-card text-muted-foreground hover:bg-muted/70 hover:text-foreground"
+              ? "bg-primary text-primary-foreground shadow-xs border border-primary"
+              : "border border-border bg-background text-muted-foreground hover:bg-muted hover:text-foreground"
           )}
-          style={
-            activeTab === "production"
-              ? { backgroundColor: primaryTone.color }
-              : undefined
-          }
         >
           <Factory className="h-4 w-4" />
           <span>Production Reporting</span>
-          <span className="text-[10px] font-semibold uppercase px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 border border-emerald-200 dark:bg-emerald-950 dark:text-emerald-300">
+          <span className={cn(
+            "text-[10px] font-semibold uppercase px-2 py-0.5 rounded-full",
+            activeTab === "production" ? "bg-primary-foreground/20 text-primary-foreground" : "bg-emerald-100 text-emerald-800 border border-emerald-200 dark:bg-emerald-950 dark:text-emerald-300"
+          )}>
             Live
           </span>
         </button>
@@ -356,20 +349,18 @@ export function CompanyDashboardView({
           aria-selected={activeTab === "compliance-preview"}
           onClick={() => setActiveTab("compliance-preview")}
           className={cn(
-            "flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-medium transition-all shadow-xs",
+            "inline-flex h-10 items-center justify-center gap-2 rounded-xl px-4 text-xs font-semibold shadow-none transition-all",
             activeTab === "compliance-preview"
-              ? "text-white shadow-sm"
-              : "border border-border bg-card text-muted-foreground hover:bg-muted/70 hover:text-foreground"
+              ? "bg-primary text-primary-foreground shadow-xs border border-primary"
+              : "border border-border bg-background text-muted-foreground hover:bg-muted hover:text-foreground"
           )}
-          style={
-            activeTab === "compliance-preview"
-              ? { backgroundColor: primaryTone.color }
-              : undefined
-          }
         >
           <FileCheck2 className="h-4 w-4" />
           <span>Mineral Compliance & Reporting</span>
-          <span className="text-[10px] font-semibold uppercase px-2 py-0.5 rounded-full bg-amber-100 text-amber-800 border border-amber-200">
+          <span className={cn(
+            "text-[10px] font-semibold uppercase px-2 py-0.5 rounded-full",
+            activeTab === "compliance-preview" ? "bg-primary-foreground/20 text-primary-foreground" : "bg-amber-100 text-amber-800 border border-amber-200"
+          )}>
             Coming soon
           </span>
         </button>

@@ -227,12 +227,12 @@ export function FederalProductionTargetReviewModal({
               onValueChange={(v) => setActiveMode(v as any)}
               className="w-full"
             >
-              <TabsList className="h-8">
-                <TabsTrigger value="submission" className="text-xs px-3">
+              <TabsList>
+                <TabsTrigger value="submission">
                   Initial Target Submission
                 </TabsTrigger>
-                <TabsTrigger value="amendment" className="text-xs px-3 gap-1.5">
-                  <Scale className="h-3.5 w-3.5 text-amber-600" />
+                <TabsTrigger value="amendment">
+                  <Scale className="h-3.5 w-3.5" />
                   Amendment Request ({pendingAmendment?.amendment_reference || "Pending"})
                 </TabsTrigger>
               </TabsList>

@@ -47,16 +47,16 @@ export default function IssuesPage() {
             </p>
           </div>
 
-          <TabsList className="bg-muted/80 p-1">
+          <TabsList>
             {canAccessFederalIssues && (
-              <TabsTrigger value="federal" className="flex items-center gap-2 text-xs sm:text-sm font-medium">
+              <TabsTrigger value="federal">
                 <Layers className="h-4 w-4" />
                 Federal Issues
               </TabsTrigger>
             )}
             {canAccessRegionalIssues && (
-              <TabsTrigger value="regional" className="flex items-center gap-2 text-xs sm:text-sm font-medium">
-                <Building2 className="h-4 w-4 text-amber-600" />
+              <TabsTrigger value="regional">
+                <Building2 className="h-4 w-4" />
                 Regional Issues
               </TabsTrigger>
             )}

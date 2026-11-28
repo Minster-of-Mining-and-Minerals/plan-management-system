@@ -44,7 +44,7 @@ export function CompanyProductionTabsHeader({ companyId: propCompanyId }: { comp
 
   return (
     <div
-      className="flex flex-wrap items-center gap-2 rounded-2xl border border-border bg-card p-2 shadow-xs mb-6"
+      className="flex flex-wrap items-center gap-2.5 rounded-2xl border border-border bg-card p-2.5 shadow-xs mb-6 w-fit max-w-full"
       role="tablist"
       aria-label="Company Production Management Navigation"
     >
@@ -61,10 +61,10 @@ export function CompanyProductionTabsHeader({ companyId: propCompanyId }: { comp
             role="tab"
             aria-selected={isActive}
             className={cn(
-              "inline-flex items-center gap-2 rounded-xl px-4 py-2.5 text-sm font-medium transition-all duration-200",
+              "inline-flex h-10 items-center justify-center gap-2 rounded-xl px-4 text-xs font-semibold shadow-none transition-all",
               isActive
-                ? "bg-primary text-primary-foreground shadow-sm"
-                : "text-muted-foreground hover:bg-muted hover:text-foreground"
+                ? "bg-primary text-primary-foreground shadow-xs border border-primary"
+                : "border border-border bg-background text-muted-foreground hover:bg-muted hover:text-foreground"
             )}
           >
             <Icon className="h-4 w-4" />

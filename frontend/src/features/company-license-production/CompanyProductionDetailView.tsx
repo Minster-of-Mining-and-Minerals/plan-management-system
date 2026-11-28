@@ -820,39 +820,30 @@ export function CompanyProductionDetailView({
       <Tabs value={activeTab} onValueChange={handleTabChange} className="space-y-6">
         {/* 5 ACTION-STYLE TABS NAVIGATION */}
         <div className="flex items-center overflow-x-auto pb-1 -mx-1 px-1">
-          <TabsList className="flex flex-wrap sm:inline-flex items-center gap-2 p-1.5 bg-slate-100/90 dark:bg-slate-900/90 border border-slate-200 dark:border-slate-800 rounded-2xl h-auto shadow-xs">
+          <TabsList>
             {/* TAB 1: ANALYTICS (1ST) */}
-            <TabsTrigger
-              value="analytics"
-              className="flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-semibold transition-all duration-200 border border-transparent data-[state=active]:border-amber-400/80 data-[state=active]:bg-gradient-to-r data-[state=active]:from-amber-500/20 data-[state=active]:via-amber-500/10 data-[state=active]:to-amber-500/5 data-[state=active]:text-amber-950 dark:data-[state=active]:text-amber-200 data-[state=active]:shadow-sm data-[state=active]:ring-1 data-[state=active]:ring-amber-500/30 data-[state=inactive]:text-slate-600 dark:data-[state=inactive]:text-slate-400 data-[state=inactive]:hover:bg-white/70 dark:data-[state=inactive]:hover:bg-slate-800/70"
-            >
-              <BarChart3 className="h-4 w-4 text-amber-600 dark:text-amber-400" />
+            <TabsTrigger value="analytics">
+              <BarChart3 className="h-4 w-4" />
               <span>Production Analytics</span>
-              <Badge variant="outline" className="text-[10px] px-1.5 py-0 h-4 border-amber-300 dark:border-amber-700 bg-amber-50 dark:bg-amber-950/60 text-amber-700 dark:text-amber-300">
+              <Badge variant="outline" className="text-[10px] px-1.5 py-0 h-4 border-current/30 bg-background/20">
                 Live
               </Badge>
             </TabsTrigger>
 
             {/* TAB 2: TARGET ALLOCATION (2ND) */}
-            <TabsTrigger
-              value="target-allocation"
-              className="flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-semibold transition-all duration-200 border border-transparent data-[state=active]:border-amber-400/80 data-[state=active]:bg-gradient-to-r data-[state=active]:from-amber-500/20 data-[state=active]:via-amber-500/10 data-[state=active]:to-amber-500/5 data-[state=active]:text-amber-950 dark:data-[state=active]:text-amber-200 data-[state=active]:shadow-sm data-[state=active]:ring-1 data-[state=active]:ring-amber-500/30 data-[state=inactive]:text-slate-600 dark:data-[state=inactive]:text-slate-400 data-[state=inactive]:hover:bg-white/70 dark:data-[state=inactive]:hover:bg-slate-800/70"
-            >
-              <Target className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
+            <TabsTrigger value="target-allocation">
+              <Target className="h-4 w-4" />
               <span>Target Allocation</span>
               {approvedTarget && (
-                <Badge variant="outline" className="text-[10px] px-1.5 py-0 h-4 border-emerald-300 text-emerald-700 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-950/50">
+                <Badge variant="outline" className="text-[10px] px-1.5 py-0 h-4 border-current/30 bg-background/20">
                   v{approvedTarget.version_number}
                 </Badge>
               )}
             </TabsTrigger>
 
             {/* TAB 3: REPORTING (3RD) */}
-            <TabsTrigger
-              value="reporting"
-              className="flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-semibold transition-all duration-200 border border-transparent data-[state=active]:border-amber-400/80 data-[state=active]:bg-gradient-to-r data-[state=active]:from-amber-500/20 data-[state=active]:via-amber-500/10 data-[state=active]:to-amber-500/5 data-[state=active]:text-amber-950 dark:data-[state=active]:text-amber-200 data-[state=active]:shadow-sm data-[state=active]:ring-1 data-[state=active]:ring-amber-500/30 data-[state=inactive]:text-slate-600 dark:data-[state=inactive]:text-slate-400 data-[state=inactive]:hover:bg-white/70 dark:data-[state=inactive]:hover:bg-slate-800/70"
-            >
-              <Calendar className="h-4 w-4 text-blue-600 dark:text-blue-400" />
+            <TabsTrigger value="reporting">
+              <Calendar className="h-4 w-4" />
               <span>Periodic Reporting</span>
               {isReportingUnlocked ? (
                 <span className="flex h-2 w-2 relative">
@@ -860,25 +851,19 @@ export function CompanyProductionDetailView({
                   <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
                 </span>
               ) : (
-                <Lock className="h-3.5 w-3.5 text-muted-foreground/60" />
+                <Lock className="h-3.5 w-3.5 opacity-60" />
               )}
             </TabsTrigger>
 
             {/* TAB 4: OVERVIEW (4TH) */}
-            <TabsTrigger
-              value="overview"
-              className="flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-semibold transition-all duration-200 border border-transparent data-[state=active]:border-amber-400/80 data-[state=active]:bg-gradient-to-r data-[state=active]:from-amber-500/20 data-[state=active]:via-amber-500/10 data-[state=active]:to-amber-500/5 data-[state=active]:text-amber-950 dark:data-[state=active]:text-amber-200 data-[state=active]:shadow-sm data-[state=active]:ring-1 data-[state=active]:ring-amber-500/30 data-[state=inactive]:text-slate-600 dark:data-[state=inactive]:text-slate-400 data-[state=inactive]:hover:bg-white/70 dark:data-[state=inactive]:hover:bg-slate-800/70"
-            >
-              <Factory className="h-4 w-4 text-indigo-600 dark:text-indigo-400" />
+            <TabsTrigger value="overview">
+              <Factory className="h-4 w-4" />
               <span>Overview</span>
             </TabsTrigger>
 
             {/* TAB 5: RESPONSIBILITIES (5TH) */}
-            <TabsTrigger
-              value="responsibilities"
-              className="flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-semibold transition-all duration-200 border border-transparent data-[state=active]:border-amber-400/80 data-[state=active]:bg-gradient-to-r data-[state=active]:from-amber-500/20 data-[state=active]:via-amber-500/10 data-[state=active]:to-amber-500/5 data-[state=active]:text-amber-950 dark:data-[state=active]:text-amber-200 data-[state=active]:shadow-sm data-[state=active]:ring-1 data-[state=active]:ring-amber-500/30 data-[state=inactive]:text-slate-600 dark:data-[state=inactive]:text-slate-400 data-[state=inactive]:hover:bg-white/70 dark:data-[state=inactive]:hover:bg-slate-800/70"
-            >
-              <Users className="h-4 w-4 text-purple-600 dark:text-purple-400" />
+            <TabsTrigger value="responsibilities">
+              <Users className="h-4 w-4" />
               <span>Department Roles</span>
             </TabsTrigger>
           </TabsList>

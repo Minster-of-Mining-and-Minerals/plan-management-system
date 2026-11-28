@@ -470,7 +470,7 @@ export function RegionalDashboardView({
     <div className="-m-6 min-h-full space-y-6 bg-slate-100/70 p-6 animate-in fade-in-50 duration-300 dark:bg-transparent">
       {/* Dashboard view switcher */}
       <div
-        className="inline-flex max-w-full flex-wrap items-center gap-1 rounded-2xl border border-border/70 bg-card p-1.5 shadow-2xs"
+        className="flex flex-wrap items-center gap-2.5 rounded-2xl border border-border bg-card p-2.5 shadow-xs w-fit max-w-full"
         role="tablist"
         aria-label="Dashboard views"
       >
@@ -485,11 +485,11 @@ export function RegionalDashboardView({
               aria-selected={selected}
               onClick={() => setActiveTab(tab.id)}
               className={cn(
-                "inline-flex h-10 items-center gap-2 rounded-xl px-4 text-sm font-medium transition-colors",
+                "inline-flex h-10 items-center justify-center gap-2 rounded-xl px-4 text-xs font-semibold shadow-none transition-all",
                 "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40",
                 selected
-                  ? "bg-primary text-primary-foreground shadow-xs"
-                  : "text-muted-foreground hover:bg-muted hover:text-foreground"
+                  ? "bg-primary text-primary-foreground shadow-xs border border-primary"
+                  : "border border-border bg-background text-muted-foreground hover:bg-muted hover:text-foreground"
               )}
             >
               <Icon className="h-4 w-4 shrink-0" aria-hidden="true" />

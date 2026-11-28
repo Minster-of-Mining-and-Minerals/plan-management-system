@@ -340,35 +340,23 @@ export function NationalReportingConfigView() {
 
       {/* Configuration Tabs */}
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-        <TabsList className="bg-slate-100 dark:bg-slate-800/60 p-1 border border-slate-200 dark:border-slate-700/50 rounded-xl">
-          <TabsTrigger
-            value="categories"
-            className="flex items-center gap-2 data-[state=active]:bg-white dark:data-[state=active]:bg-slate-900 data-[state=active]:text-emerald-700 dark:data-[state=active]:text-emerald-400 data-[state=active]:shadow-sm rounded-lg text-xs font-semibold"
-          >
+        <TabsList>
+          <TabsTrigger value="categories">
             <Layers className="h-4 w-4" />
             KPI Category
           </TabsTrigger>
 
-          <TabsTrigger
-            value="periods"
-            className="flex items-center gap-2 data-[state=active]:bg-white dark:data-[state=active]:bg-slate-900 data-[state=active]:text-emerald-700 dark:data-[state=active]:text-emerald-400 data-[state=active]:shadow-sm rounded-lg text-xs font-semibold"
-          >
+          <TabsTrigger value="periods">
             <CalendarRange className="h-4 w-4" />
             Reporting Frequency
           </TabsTrigger>
 
-          <TabsTrigger
-            value="measurement"
-            className="flex items-center gap-2 data-[state=active]:bg-white dark:data-[state=active]:bg-slate-900 data-[state=active]:text-emerald-700 dark:data-[state=active]:text-emerald-400 data-[state=active]:shadow-sm rounded-lg text-xs font-semibold"
-          >
+          <TabsTrigger value="measurement">
             <Boxes className="h-4 w-4" />
             Measurement Categories
           </TabsTrigger>
 
-          <TabsTrigger
-            value="units"
-            className="flex items-center gap-2 data-[state=active]:bg-white dark:data-[state=active]:bg-slate-900 data-[state=active]:text-emerald-700 dark:data-[state=active]:text-emerald-400 data-[state=active]:shadow-sm rounded-lg text-xs font-semibold"
-          >
+          <TabsTrigger value="units">
             <Scale className="h-4 w-4" />
             National Unit Configuration
           </TabsTrigger>

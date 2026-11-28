@@ -225,18 +225,12 @@ export function UserSessionsSection() {
 
       <CardContent className="p-0">
         <Tabs defaultValue="sessions" className="w-full">
-          <div className="border-b px-4 pt-2 bg-muted/5">
-            <TabsList className="bg-transparent h-9 p-0 gap-4">
-              <TabsTrigger
-                value="sessions"
-                className="data-[state=active]:border-b-2 data-[state=active]:border-primary data-[state=active]:shadow-none rounded-none px-2 pb-2 text-xs font-semibold"
-              >
+          <div className="p-3 pb-0">
+            <TabsList>
+              <TabsTrigger value="sessions">
                 Active Sessions ({activeSessions.length})
               </TabsTrigger>
-              <TabsTrigger
-                value="devices"
-                className="data-[state=active]:border-b-2 data-[state=active]:border-primary data-[state=active]:shadow-none rounded-none px-2 pb-2 text-xs font-semibold"
-              >
+              <TabsTrigger value="devices">
                 Recognized Devices ({devices.length})
               </TabsTrigger>
             </TabsList>

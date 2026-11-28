@@ -20,6 +20,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { ProfileHeroBanner } from "@/components/common/ProfileHeroBanner";
 import { usePermissions } from "@/hooks/usePermissions";
 import Loading01 from "@/features/template/component/Loading/Loading01";
+import { cn } from "@/lib/utils";
 
 import {
   useGetRegionalPlanVersionByIdQuery,
@@ -261,13 +262,24 @@ export function RegionalPlanVersionDetailsView() {
       </ProfileHeroBanner>
 
       {/* Detail Sections Tabs */}
-      <nav className="flex flex-wrap items-center gap-2" aria-label="Plan detail sections">
+      <nav
+        role="tablist"
+        className="flex flex-wrap items-center gap-2.5 rounded-2xl border border-border bg-card p-2.5 shadow-xs w-fit max-w-full"
+        aria-label="Plan detail sections"
+      >
         {DETAIL_TABS.map(({ id, label, icon: Icon }) => (
           <Button
             key={id}
             type="button"
+            role="tab"
+            aria-selected={activeTab === id}
             variant={activeTab === id ? "default" : "outline"}
-            className="gap-2"
+            className={cn(
+              "h-10 rounded-xl px-4 text-xs font-semibold shadow-none transition-all gap-2",
+              activeTab === id
+                ? "bg-primary text-primary-foreground shadow-xs border-primary"
+                : "border-border bg-background text-muted-foreground hover:bg-muted hover:text-foreground"
+            )}
             onClick={() => setActiveTab(id)}
             aria-current={activeTab === id ? "page" : undefined}
           >

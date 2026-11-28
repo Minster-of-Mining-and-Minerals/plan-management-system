@@ -354,16 +354,16 @@ export function LicenseDetailView({ licenseId }: { licenseId: string }) {
 
       {/* Tabs Layout */}
       <Tabs defaultValue="overview" className="space-y-4">
-        <TabsList className="bg-slate-100 dark:bg-slate-800 p-1">
-          <TabsTrigger value="overview" className="text-xs gap-1.5">
+        <TabsList>
+          <TabsTrigger value="overview">
             <MapIcon className="h-3.5 w-3.5" />
             GIS Boundary & Coordinates
           </TabsTrigger>
-          <TabsTrigger value="production" className="text-xs gap-1.5">
+          <TabsTrigger value="production">
             <Factory className="h-3.5 w-3.5" />
             Assigned Production Reporting ({assignments.length})
           </TabsTrigger>
-          <TabsTrigger value="details" className="text-xs gap-1.5">
+          <TabsTrigger value="details">
             <FileText className="h-3.5 w-3.5" />
             Administrative Details
           </TabsTrigger>

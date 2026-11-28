@@ -49,7 +49,12 @@ export function PlanDashboardSectionTabs({
       role="tablist"
       aria-label="Dashboard sections"
     >
-      <div className="flex flex-wrap items-center gap-3">
+      <div
+        className={cn(
+          "flex flex-wrap items-center gap-2.5 rounded-2xl border border-border bg-card p-2.5 shadow-xs w-fit max-w-full",
+          onPrimary && "border-primary-foreground/20 bg-primary-foreground/10"
+        )}
+      >
         {DASHBOARD_SECTIONS.map(({ id, label, icon: Icon }) => {
           const active = activeSection === id;
           return (
@@ -62,12 +67,12 @@ export function PlanDashboardSectionTabs({
               size="default"
               onClick={() => onSectionChange(id)}
               className={cn(
-                "h-10 rounded-xl px-4 py-2.5 shadow-none transition-all duration-200",
+                "h-10 rounded-xl px-4 text-xs font-semibold shadow-none transition-all gap-2",
                 active
-                  ? "border-transparent bg-sidebar-nav-active text-sidebar-nav-active-foreground shadow-sm hover:bg-sidebar-nav-active/90"
+                  ? "bg-primary text-primary-foreground shadow-xs border-primary"
                   : onPrimary
-                    ? "border-primary-foreground/25 bg-primary-foreground/10 text-primary-foreground hover:border-golden-dark/35 hover:bg-golden-dark10 hover:text-primary-foreground"
-                    : "border-border bg-white text-muted-foreground hover:border-golden-dark/35 hover:bg-golden-dark10 hover:text-golden-dark"
+                    ? "border-primary-foreground/25 bg-transparent text-primary-foreground hover:bg-primary-foreground/10"
+                    : "border-border bg-background text-muted-foreground hover:bg-muted hover:text-foreground"
               )}
             >
               <Icon className="h-4 w-4 shrink-0" />

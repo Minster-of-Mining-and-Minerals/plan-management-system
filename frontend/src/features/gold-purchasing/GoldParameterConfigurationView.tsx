@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { cn } from "@/lib/utils";
 import {
   Sliders,
   CheckCircle2,
@@ -254,44 +255,57 @@ export function GoldParameterConfigurationView() {
       )}
 
       {/* Navigation Switcher Tabs */}
-      <div className="flex flex-wrap items-center gap-2 border-b border-border pb-3">
+      <div
+        role="tablist"
+        aria-label="Gold parameter configuration sections"
+        className="flex flex-wrap items-center gap-2.5 rounded-2xl border border-border bg-card p-2.5 shadow-xs w-fit max-w-full"
+      >
         <Button
-          size="sm"
+          type="button"
+          role="tab"
+          aria-selected={activeTab === "karat"}
           variant={activeTab === "karat" ? "default" : "outline"}
           onClick={() => setActiveTab("karat")}
-          className={`h-9 px-4 text-xs font-semibold gap-2 ${
+          className={cn(
+            "h-10 rounded-xl px-4 text-xs font-semibold shadow-none transition-all gap-2",
             activeTab === "karat"
-              ? "bg-amber-600 hover:bg-amber-700 text-white shadow-xs"
-              : "text-muted-foreground hover:text-foreground"
-          }`}
+              ? "bg-primary text-primary-foreground shadow-xs border-primary"
+              : "border-border bg-background text-muted-foreground hover:bg-muted hover:text-foreground"
+          )}
         >
           <Scale className="h-4 w-4" />
           Karat Grades & Purity % ({karatGrades.filter((k) => k.is_available).length} Active)
         </Button>
 
         <Button
-          size="sm"
+          type="button"
+          role="tab"
+          aria-selected={activeTab === "gold_type"}
           variant={activeTab === "gold_type" ? "default" : "outline"}
           onClick={() => setActiveTab("gold_type")}
-          className={`h-9 px-4 text-xs font-semibold gap-2 ${
+          className={cn(
+            "h-10 rounded-xl px-4 text-xs font-semibold shadow-none transition-all gap-2",
             activeTab === "gold_type"
-              ? "bg-amber-600 hover:bg-amber-700 text-white shadow-xs"
-              : "text-muted-foreground hover:text-foreground"
-          }`}
+              ? "bg-primary text-primary-foreground shadow-xs border-primary"
+              : "border-border bg-background text-muted-foreground hover:bg-muted hover:text-foreground"
+          )}
         >
           <Coins className="h-4 w-4" />
           Gold Physical Types ({goldTypes.filter((g) => g.is_available).length} Active)
         </Button>
 
         <Button
-          size="sm"
+          type="button"
+          role="tab"
+          aria-selected={activeTab === "quality"}
           variant={activeTab === "quality" ? "default" : "outline"}
           onClick={() => setActiveTab("quality")}
-          className={`h-9 px-4 text-xs font-semibold gap-2 ${
+          className={cn(
+            "h-10 rounded-xl px-4 text-xs font-semibold shadow-none transition-all gap-2",
             activeTab === "quality"
-              ? "bg-amber-600 hover:bg-amber-700 text-white shadow-xs"
-              : "text-muted-foreground hover:text-foreground"
-          }`}
+              ? "bg-primary text-primary-foreground shadow-xs border-primary"
+              : "border-border bg-background text-muted-foreground hover:bg-muted hover:text-foreground"
+          )}
         >
           <Award className="h-4 w-4" />
           Quality Grading Standards ({qualityGrades.filter((q) => q.is_available).length} Active)
