@@ -81,6 +81,59 @@ export const shortTermPlanApi = baseApi.injectEndpoints({
       invalidatesTags: ["ShortTermPlan"],
     }),
 
+    updateShortTermPlan: builder.mutation<
+      ShortTermPlan,
+      {
+        planId: string;
+        data: {
+          title?: string;
+          description?: string;
+          government_structure_id?: string | null;
+          configuration_id?: string | null;
+          start_date?: string;
+          end_date?: string;
+          duration_days?: number;
+          status?: string;
+        };
+      }
+    >({
+      query: ({ planId, data }) => ({
+        url: `/short-term-plans/${planId}`,
+        method: "PUT",
+        body: data,
+      }),
+      transformResponse: (res: { data: ShortTermPlan }) => res.data,
+      invalidatesTags: ["ShortTermPlan"],
+    }),
+
+    deleteShortTermPlan: builder.mutation<{ success: boolean; message: string }, string>({
+      query: (planId) => ({
+        url: `/short-term-plans/${planId}`,
+        method: "DELETE",
+      }),
+      invalidatesTags: ["ShortTermPlan"],
+    }),
+
+    duplicateShortTermPlan: builder.mutation<
+      ShortTermPlan,
+      {
+        planId: string;
+        data: {
+          title?: string;
+          start_date?: string;
+          end_date?: string;
+        };
+      }
+    >({
+      query: ({ planId, data }) => ({
+        url: `/short-term-plans/${planId}/duplicate`,
+        method: "POST",
+        body: data,
+      }),
+      transformResponse: (res: { data: ShortTermPlan }) => res.data,
+      invalidatesTags: ["ShortTermPlan"],
+    }),
+
     addShortTermKpi: builder.mutation<
       ShortTermKpi,
       {
@@ -262,6 +315,9 @@ export const {
   useCreateShortTermConfigurationMutation,
   useUpdateShortTermConfigurationMutation,
   useCreateShortTermPlanMutation,
+  useUpdateShortTermPlanMutation,
+  useDeleteShortTermPlanMutation,
+  useDuplicateShortTermPlanMutation,
   useAddShortTermKpiMutation,
   useUpdateShortTermKpiMutation,
   useDeleteShortTermKpiMutation,

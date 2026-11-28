@@ -128,9 +128,39 @@ async function updateConfiguration(req, res) {
   }
 }
 
+async function updatePlan(req, res) {
+  try {
+    const data = await shortTermPlanService.updatePlan(req.params.planId, req.body, req.user?.user_id);
+    return res.status(200).json({ success: true, data });
+  } catch (err) {
+    return res.status(err.status || 500).json({ success: false, message: err.message });
+  }
+}
+
+async function deletePlan(req, res) {
+  try {
+    const data = await shortTermPlanService.deletePlan(req.params.planId, req.user?.user_id);
+    return res.status(200).json(data);
+  } catch (err) {
+    return res.status(err.status || 500).json({ success: false, message: err.message });
+  }
+}
+
+async function duplicatePlan(req, res) {
+  try {
+    const data = await shortTermPlanService.duplicatePlan(req.params.planId, req.body, req.user?.user_id);
+    return res.status(201).json({ success: true, data });
+  } catch (err) {
+    return res.status(err.status || 500).json({ success: false, message: err.message });
+  }
+}
+
 module.exports = {
   listPlans,
   createPlan,
+  updatePlan,
+  deletePlan,
+  duplicatePlan,
   getPlanDetail,
   getKpiDetail,
   addKpi,

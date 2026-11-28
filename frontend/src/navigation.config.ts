@@ -349,6 +349,16 @@ export const PRIVATE_CATEGORIZED_NAVIGATION: NavCategory[] = [
               "SHORT_TERM_PLAN:REPORT",
             ],
           },
+          {
+            title: "Configurations",
+            url: "/short-term-plan/configurations",
+            icon: Settings,
+            anyPermissions: [
+              "SHORT_TERM_PLAN:VIEW",
+              "SHORT_TERM_PLAN:CREATE",
+              "SHORT_TERM_PLAN:EDIT",
+            ],
+          },
         ],
       },
       {

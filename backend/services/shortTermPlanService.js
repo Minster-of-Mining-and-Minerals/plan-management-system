@@ -209,6 +209,145 @@ class ShortTermPlanService {
     });
   }
 
+  async updatePlan(planId, data, userId) {
+    const plan = await ShortTermPlan.findByPk(planId);
+    if (!plan) {
+      throw Object.assign(new Error("Short-term plan not found"), { status: 404 });
+    }
+
+    const updates = {};
+    if (data.title !== undefined) updates.title = String(data.title).trim();
+    if (data.description !== undefined) updates.description = data.description ? String(data.description).trim() : null;
+    if (data.government_structure_id !== undefined) updates.government_structure_id = data.government_structure_id || null;
+    if (data.configuration_id !== undefined) updates.configuration_id = data.configuration_id || null;
+    if (data.status !== undefined) updates.status = data.status;
+    if (data.default_frequency !== undefined) updates.default_frequency = normalizeFrequency(data.default_frequency);
+    if (data.calendar_system !== undefined) updates.calendar_system = normalizeCalendarSystem(data.calendar_system, "EC");
+
+    let startDate = data.start_date !== undefined ? String(data.start_date).trim() : plan.start_date;
+    let endDate = data.end_date !== undefined ? String(data.end_date).trim() : plan.end_date;
+
+    if (data.start_date !== undefined || data.end_date !== undefined) {
+      if (new Date(startDate) >= new Date(endDate)) {
+        throw Object.assign(new Error("start_date must be before end_date"), { status: 400 });
+      }
+      updates.start_date = startDate;
+      updates.end_date = endDate;
+      const diffMs = new Date(endDate).getTime() - new Date(startDate).getTime();
+      const actualDays = Math.round(diffMs / 86400000);
+      updates.duration_days = Number(data.duration_days) || actualDays;
+      updates.duration_months = Math.max(1, Math.round(updates.duration_days / 30));
+    } else if (data.duration_days !== undefined) {
+      updates.duration_days = Number(data.duration_days);
+      updates.duration_months = Math.max(1, Math.round(updates.duration_days / 30));
+    }
+
+    await plan.update(updates);
+    return this.getPlanDetail(planId);
+  }
+
+  async deletePlan(planId, userId) {
+    const plan = await ShortTermPlan.findByPk(planId, {
+      include: [
+        {
+          model: ShortTermKpi,
+          as: "kpis",
+          include: [{ model: ShortTermKpiAssignment, as: "assignments" }],
+        },
+      ],
+    });
+
+    if (!plan) {
+      throw Object.assign(new Error("Short-term plan not found"), { status: 404 });
+    }
+
+    // Cascade delete reports, assignments, kpis, and plan
+    for (const kpi of plan.kpis || []) {
+      for (const asgn of kpi.assignments || []) {
+        await ShortTermPeriodReport.destroy({ where: { assignment_id: asgn.assignment_id } });
+        await asgn.destroy();
+      }
+      await kpi.destroy();
+    }
+
+    await plan.destroy();
+    return { success: true, message: "Short-term plan deleted successfully" };
+  }
+
+  async duplicatePlan(planId, data = {}, userId) {
+    const sourcePlan = await ShortTermPlan.findByPk(planId, {
+      include: [
+        {
+          model: ShortTermKpi,
+          as: "kpis",
+          include: [
+            {
+              model: ShortTermKpiAssignment,
+              as: "assignments",
+            },
+          ],
+        },
+      ],
+    });
+
+    if (!sourcePlan) {
+      throw Object.assign(new Error("Source short-term plan not found"), { status: 404 });
+    }
+
+    const newTitle = data.title ? String(data.title).trim() : `Copy of ${sourcePlan.title}`;
+    const newStartDate = data.start_date || sourcePlan.start_date;
+    const newEndDate = data.end_date || sourcePlan.end_date;
+
+    const newPlan = await ShortTermPlan.create({
+      title: newTitle,
+      description: sourcePlan.description,
+      configuration_id: sourcePlan.configuration_id,
+      government_structure_id: sourcePlan.government_structure_id,
+      calendar_system: sourcePlan.calendar_system,
+      start_date: newStartDate,
+      end_date: newEndDate,
+      duration_days: sourcePlan.duration_days,
+      duration_months: sourcePlan.duration_months,
+      default_frequency: sourcePlan.default_frequency,
+      status: "draft",
+      created_by: userId || null,
+    });
+
+    // Duplicate all KPIs and their assignments (excluding period reports)
+    for (const kpi of sourcePlan.kpis || []) {
+      const newKpi = await ShortTermKpi.create({
+        short_term_plan_id: newPlan.short_term_plan_id,
+        code: `${kpi.code}`,
+        title: kpi.title,
+        description: kpi.description,
+        unit: kpi.unit,
+        total_target: kpi.total_target,
+        target_mode: kpi.target_mode,
+        evaluation_mode: kpi.evaluation_mode,
+        reporting_frequency: kpi.reporting_frequency,
+        is_active: kpi.is_active,
+        created_by: userId || null,
+      });
+
+      for (const asgn of kpi.assignments || []) {
+        await ShortTermKpiAssignment.create({
+          short_term_kpi_id: newKpi.short_term_kpi_id,
+          government_structure_id: asgn.government_structure_id,
+          internal_structure_id: asgn.internal_structure_id,
+          assigned_user_id: asgn.assigned_user_id,
+          allocated_target: asgn.allocated_target,
+          period_targets: asgn.period_targets,
+          reporting_frequency_override: asgn.reporting_frequency_override,
+          evaluation_mode_override: asgn.evaluation_mode_override,
+          can_report: asgn.can_report,
+          created_by: userId || null,
+        });
+      }
+    }
+
+    return this.getPlanDetail(newPlan.short_term_plan_id);
+  }
+
   async getPlanDetail(planId, filters = {}, currentUser = null) {
     const plan = await ShortTermPlan.findByPk(planId, {
       include: [

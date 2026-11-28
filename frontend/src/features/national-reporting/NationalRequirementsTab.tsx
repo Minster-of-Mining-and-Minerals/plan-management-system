@@ -11,6 +11,9 @@ import {
   useGetNationalCategoriesQuery,
 } from "@/redux/api/nationalReportingApi";
 import { useGetRegionsQuery } from "@/redux/api/regionApi";
+import { useGetGovernmentStructuresQuery } from "@/redux/api/governmentStructureApi";
+import { useGetInternalStructuresQuery } from "@/redux/api/internalStructureApi";
+import { useGetUsersQuery } from "@/redux/api/userApi";
 import { NationalReportingRequirement } from "@/redux/types/nationalReporting";
 import { DataTable } from "@/features/template/component/tableList/DataTable";
 import { TableLayout } from "@/features/template/component/tableList/TableLayout";
@@ -122,6 +125,15 @@ export function NationalRequirementsTab() {
   const [deleteRequirement] = useDeleteNationalRequirementMutation();
   const [assignToRegions, { isLoading: isAssigning }] = useAssignRequirementToRegionsMutation();
 
+  const { data: sectors = [] } = useGetGovernmentStructuresQuery({ is_active: true });
+  const { data: internalDepts = [] } = useGetInternalStructuresQuery({ is_active: true });
+  const { data: users = [] } = useGetUsersQuery({ limit: 200 });
+
+  // Optional Mother Sector & Personnel Cascading at Creation
+  const [creationSectorId, setCreationSectorId] = useState<string>("none");
+  const [creationDeptId, setCreationDeptId] = useState<string>("all");
+  const [creationUserId, setCreationUserId] = useState<string>("none");
+
   // Form State for Create / Edit
   const [formData, setFormData] = useState({
     code: "",
@@ -167,6 +179,9 @@ export function NationalRequirementsTab() {
       is_active: true,
     });
     setEditingReq(null);
+    setCreationSectorId("none");
+    setCreationDeptId("all");
+    setCreationUserId("none");
     setIsCreateOpen(true);
   };
 
@@ -1107,6 +1122,94 @@ export function NationalRequirementsTab() {
                     checked={formData.requires_evidence}
                     onCheckedChange={(val) => setFormData({ ...formData, requires_evidence: val })}
                   />
+                </div>
+              </div>
+            </div>
+
+            {/* Optional Sector & Cascaded Assignment at Creation */}
+            <div className="p-4 rounded-xl border bg-slate-50/50 dark:bg-slate-900/50 space-y-3">
+              <div>
+                <Label className="text-xs font-bold text-slate-800 dark:text-slate-200">
+                  Mother Sector &amp; Cascaded Assignment (Optional at Creation)
+                </Label>
+                <p className="text-[11px] text-muted-foreground mt-0.5">
+                  Optionally map this indicator to a mother sector and cascade down to an internal department or personnel.
+                </p>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <div className="space-y-1">
+                  <Label className="text-[11px] font-semibold text-slate-600">Mother Sector</Label>
+                  <Select value={creationSectorId} onValueChange={(v) => {
+                    setCreationSectorId(v);
+                    setCreationDeptId("all");
+                    setCreationUserId("none");
+                  }}>
+                    <SelectTrigger className="h-8 text-xs bg-white dark:bg-slate-950">
+                      <SelectValue placeholder="Select Sector..." />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="none">No Specific Sector</SelectItem>
+                      {sectors.map((s) => (
+                        <SelectItem key={s.government_structure_id} value={s.government_structure_id}>
+                          {s.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="space-y-1">
+                  <Label className="text-[11px] font-semibold text-slate-600">Department / Division</Label>
+                  <Select
+                    value={creationDeptId}
+                    onValueChange={(v) => {
+                      setCreationDeptId(v);
+                      setCreationUserId("none");
+                    }}
+                    disabled={creationSectorId === "none"}
+                  >
+                    <SelectTrigger className="h-8 text-xs bg-white dark:bg-slate-950">
+                      <SelectValue placeholder="All Departments" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">Entire Sector (All)</SelectItem>
+                      {internalDepts
+                        .filter((d) => d.government_structure_id === creationSectorId)
+                        .map((d) => (
+                          <SelectItem key={d.internal_structure_id} value={d.internal_structure_id}>
+                            {d.name}
+                          </SelectItem>
+                        ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="space-y-1">
+                  <Label className="text-[11px] font-semibold text-slate-600">Assigned Person</Label>
+                  <Select
+                    value={creationUserId}
+                    onValueChange={setCreationUserId}
+                    disabled={creationSectorId === "none"}
+                  >
+                    <SelectTrigger className="h-8 text-xs bg-white dark:bg-slate-950">
+                      <SelectValue placeholder="Open to Team" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="none">Open to Team (No specific user)</SelectItem>
+                      {users
+                        .filter((u) => {
+                          if (creationSectorId && u.government_structure_id && u.government_structure_id !== creationSectorId) return false;
+                          if (creationDeptId !== "all" && u.internal_structure_id !== creationDeptId) return false;
+                          return true;
+                        })
+                        .map((u) => (
+                          <SelectItem key={u.user_id} value={u.user_id}>
+                            {u.full_name}
+                          </SelectItem>
+                        ))}
+                    </SelectContent>
+                  </Select>
                 </div>
               </div>
             </div>

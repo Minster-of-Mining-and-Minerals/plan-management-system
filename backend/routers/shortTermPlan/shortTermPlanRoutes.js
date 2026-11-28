@@ -15,6 +15,9 @@ router.get("/analytics", checkPermission("short_term_plan", "view"), shortTermPl
 router.get("/kpis/:kpiId", checkPermission("short_term_plan", "view"), shortTermPlanController.getKpiDetail);
 router.post("/", checkPermission("short_term_plan", "create"), shortTermPlanController.createPlan);
 router.get("/:planId", checkPermission("short_term_plan", "view"), shortTermPlanController.getPlanDetail);
+router.put("/:planId", checkPermission("short_term_plan", "edit"), shortTermPlanController.updatePlan);
+router.delete("/:planId", checkPermission("short_term_plan", "delete"), shortTermPlanController.deletePlan);
+router.post("/:planId/duplicate", checkPermission("short_term_plan", "create"), shortTermPlanController.duplicatePlan);
 router.post("/:planId/kpis", checkPermission("short_term_plan", "create"), shortTermPlanController.addKpi);
 router.put("/kpis/:kpiId", checkPermission("short_term_plan", "edit"), shortTermPlanController.updateKpi);
 router.delete("/kpis/:kpiId", checkPermission("short_term_plan", "delete"), shortTermPlanController.deleteKpi);

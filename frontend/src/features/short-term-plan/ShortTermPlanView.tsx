@@ -48,8 +48,11 @@ import { DualCalendarDatePicker } from "@/components/ui/dual-calendar-date-picke
 import type { CalendarSystem } from "@/utils/calendarUtils";
 import { AssignShortTermKpiModal } from "./AssignShortTermKpiModal";
 import { ShortTermConfigurationModal } from "./ShortTermConfigurationModal";
+import { DuplicateShortTermPlanModal } from "./DuplicateShortTermPlanModal";
+import { EditShortTermPlanModal } from "./EditShortTermPlanModal";
 import { ShortTermDashboardTab } from "./ShortTermDashboardTab";
 import { usePermissions } from "@/hooks/usePermissions";
+import { useDeleteShortTermPlanMutation } from "@/redux/api/shortTermPlanApi";
 import { actionFeedback } from "@/components/action-feedback";
 import {
   Plus,
@@ -57,6 +60,7 @@ import {
   Eye,
   Edit,
   Trash2,
+  Copy,
   Settings,
   ArrowLeft,
   Building2,
@@ -124,8 +128,21 @@ export function ShortTermPlanView() {
   const [updateKpi, { isLoading: isUpdatingKpi }] = useUpdateShortTermKpiMutation();
   const [deleteKpi] = useDeleteShortTermKpiMutation();
 
-  // Configuration Modal
-  const [isConfigModalOpen, setIsConfigModalOpen] = useState(false);
+  const [deletePlan] = useDeleteShortTermPlanMutation();
+  const [editingPlan, setEditingPlan] = useState<ShortTermPlan | null>(null);
+  const [duplicatingPlan, setDuplicatingPlan] = useState<ShortTermPlan | null>(null);
+
+  const handleDeletePlan = async (plan: ShortTermPlan) => {
+    if (!confirm(`Are you sure you want to delete "${plan.title}"? This will permanently remove all associated KPIs and assignments.`)) {
+      return;
+    }
+    try {
+      await deletePlan(plan.short_term_plan_id).unwrap();
+      toast.success("Short-term plan deleted successfully");
+    } catch (err: any) {
+      toast.error(err?.data?.message || "Failed to delete plan");
+    }
+  };
 
   // Table Filters
   const [frequencyFilter, setFrequencyFilter] = useState<string>("all");
@@ -560,19 +577,52 @@ export function ShortTermPlanView() {
         cell: ({ row }) => {
           const p = row.original;
           return (
-            <div className="flex items-center justify-end gap-1.5">
+            <div className="flex items-center justify-end gap-1">
               <Button
-                size="sm"
-                variant="default"
-                className="h-8 gap-1.5 text-xs font-semibold"
+                size="icon"
+                variant="ghost"
+                className="h-8 w-8 text-slate-700 hover:text-primary hover:bg-slate-100 dark:hover:bg-slate-800"
+                title="View Hierarchy & KPIs"
                 onClick={() => {
                   setSelectedPlanId(p.short_term_plan_id);
                   setViewMode("workspace");
                 }}
               >
-                <Eye className="h-3.5 w-3.5" />
-                <span>Open Plan</span>
+                <Eye className="h-4 w-4" />
               </Button>
+              {canCreatePlan && (
+                <Button
+                  size="icon"
+                  variant="ghost"
+                  className="h-8 w-8 text-blue-600 hover:text-blue-700 hover:bg-blue-50 dark:hover:bg-blue-950/20"
+                  title="Edit Plan Metadata"
+                  onClick={() => setEditingPlan(p)}
+                >
+                  <Edit className="h-4 w-4" />
+                </Button>
+              )}
+              {canCreatePlan && (
+                <Button
+                  size="icon"
+                  variant="ghost"
+                  className="h-8 w-8 text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50 dark:hover:bg-emerald-950/20"
+                  title="Duplicate Plan (Copy KPIs & Targets)"
+                  onClick={() => setDuplicatingPlan(p)}
+                >
+                  <Copy className="h-4 w-4" />
+                </Button>
+              )}
+              {canCreatePlan && (
+                <Button
+                  size="icon"
+                  variant="ghost"
+                  className="h-8 w-8 text-red-500 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-950/20"
+                  title="Delete Plan"
+                  onClick={() => handleDeletePlan(p)}
+                >
+                  <Trash2 className="h-4 w-4" />
+                </Button>
+              )}
             </div>
           );
         },
@@ -624,169 +674,46 @@ export function ShortTermPlanView() {
     };
   }, [plans]);
 
+  const directoryActions: ActionButton[] = canCreatePlan
+    ? [
+        {
+          label: "New Short-Term Plan",
+          icon: <Plus className="h-4 w-4" />,
+          variant: "default",
+          onClick: () => setIsCreatePlanOpen(true),
+        },
+      ]
+    : [];
+
+  const directoryFilters: FilterField[] = [
+    {
+      key: "sector",
+      label: "Mother Sector",
+      type: "select",
+      placeholder: "All Sectors",
+      value: sectorFilter,
+      onChange: setSectorFilter,
+      options: [
+        { label: "All Sectors", value: "all" },
+        ...sectors.map((s) => ({
+          label: s.name,
+          value: s.government_structure_id,
+        })),
+      ],
+    },
+  ];
+
   return (
     <div className="space-y-6">
       {/* 1. SHORT-TERM PLAN DIRECTORY (LANDING VIEW) */}
       {viewMode === "directory" ? (
-        <div className="space-y-6">
-          {/* Header Banner */}
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 p-6 rounded-2xl bg-card border border-border/80 shadow-sm">
-            <div>
-              <div className="flex items-center gap-2">
-                <span className="p-2 rounded-xl bg-primary/10 text-primary">
-                  <Layers className="h-6 w-6" />
-                </span>
-                <div>
-                  <h1 className="text-xl font-bold tracking-tight text-foreground">
-                    Short-Term Action Plans (የአጭር ጊዜ ዕቅዶች)
-                  </h1>
-                  <p className="text-xs text-muted-foreground mt-0.5">
-                    100-day institutional action plans, mother-sector cascading, period divisions, and live achievement reporting.
-                  </p>
-                </div>
-              </div>
-            </div>
-
-            <div className="flex items-center gap-2">
-              <Button
-                variant="outline"
-                size="sm"
-                className="gap-1.5 text-xs"
-                onClick={() => setIsConfigModalOpen(true)}
-              >
-                <Settings className="h-3.5 w-3.5 text-muted-foreground" />
-                <span>Configurations</span>
-              </Button>
-              {canCreatePlan && (
-                <Button
-                  size="sm"
-                  className="gap-1.5 text-xs bg-primary hover:bg-primary/90 text-primary-foreground font-semibold"
-                  onClick={() => setIsCreatePlanOpen(true)}
-                >
-                  <Plus className="h-4 w-4" />
-                  <span>New Short-Term Plan</span>
-                </Button>
-              )}
-            </div>
-          </div>
-
-          {/* Metrics Summary Row */}
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-            <div className="p-4 rounded-xl bg-card border border-border/70 flex items-center gap-3">
-              <div className="p-2.5 rounded-lg bg-blue-50 dark:bg-blue-950/40 text-blue-600">
-                <Layers className="h-5 w-5" />
-              </div>
-              <div>
-                <span className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider block">
-                  Total Plans
-                </span>
-                <span className="text-lg font-bold font-mono text-foreground">{directoryMetrics.totalPlans}</span>
-              </div>
-            </div>
-
-            <div className="p-4 rounded-xl bg-card border border-border/70 flex items-center gap-3">
-              <div className="p-2.5 rounded-lg bg-emerald-50 dark:bg-emerald-950/40 text-emerald-600">
-                <CheckCircle2 className="h-5 w-5" />
-              </div>
-              <div>
-                <span className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider block">
-                  Active Execution
-                </span>
-                <span className="text-lg font-bold font-mono text-emerald-600">{directoryMetrics.activePlans}</span>
-              </div>
-            </div>
-
-            <div className="p-4 rounded-xl bg-card border border-border/70 flex items-center gap-3">
-              <div className="p-2.5 rounded-lg bg-amber-50 dark:bg-amber-950/40 text-amber-600">
-                <Clock className="h-5 w-5" />
-              </div>
-              <div>
-                <span className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider block">
-                  Total KPIs
-                </span>
-                <span className="text-lg font-bold font-mono text-foreground">{directoryMetrics.totalKpis}</span>
-              </div>
-            </div>
-
-            <div className="p-4 rounded-xl bg-card border border-border/70 flex items-center gap-3">
-              <div className="p-2.5 rounded-lg bg-primary/10 text-primary">
-                <TrendingUp className="h-5 w-5" />
-              </div>
-              <div>
-                <span className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider block">
-                  Global Achievement
-                </span>
-                <span className="text-lg font-bold font-mono text-primary">{directoryMetrics.globalAvgAchievement}%</span>
-              </div>
-            </div>
-          </div>
-
-          {/* Filter Bar with Search, Sector and Table/Grid Toggle */}
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3 rounded-xl bg-card border border-border/60">
-            <div className="flex flex-wrap items-center gap-3">
-              <div className="relative w-64">
-                <Search className="absolute left-2.5 top-2.5 h-3.5 w-3.5 text-muted-foreground" />
-                <Input
-                  value={planSearch}
-                  onChange={(e) => setPlanSearch(e.target.value)}
-                  placeholder="Search plan by name or sector..."
-                  className="pl-8 h-8 text-xs"
-                />
-              </div>
-
-              <div className="flex items-center gap-2">
-                <span className="text-xs font-semibold text-muted-foreground">Sector:</span>
-                <Select value={sectorFilter} onValueChange={setSectorFilter}>
-                  <SelectTrigger className="w-[200px] h-8 text-xs">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">All Sectors</SelectItem>
-                    {sectors.map((s) => (
-                      <SelectItem key={s.government_structure_id} value={s.government_structure_id}>
-                        {s.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-
-            <div className="flex items-center gap-2 self-end sm:self-auto">
-              <span className="text-xs text-muted-foreground mr-1">
-                {filteredPlans.length} plan draft(s)
-              </span>
-
-              <div className="inline-flex items-center rounded-lg border border-border p-0.5 bg-slate-50 dark:bg-slate-900">
-                <button
-                  type="button"
-                  title="Tabular Table View"
-                  onClick={() => setDisplayFormat("table")}
-                  className={`p-1.5 rounded-md text-xs transition-all ${
-                    displayFormat === "table"
-                      ? "bg-primary text-primary-foreground shadow-sm"
-                      : "text-muted-foreground hover:text-foreground"
-                  }`}
-                >
-                  <LayoutList className="h-4 w-4" />
-                </button>
-                <button
-                  type="button"
-                  title="Card Grid View"
-                  onClick={() => setDisplayFormat("cards")}
-                  className={`p-1.5 rounded-md text-xs transition-all ${
-                    displayFormat === "cards"
-                      ? "bg-primary text-primary-foreground shadow-sm"
-                      : "text-muted-foreground hover:text-foreground"
-                  }`}
-                >
-                  <LayoutGrid className="h-4 w-4" />
-                </button>
-              </div>
-            </div>
-          </div>
-
-          {/* Tabular Table or Cards Display */}
+        <TableLayout
+          title="Short-Term Plan Drafts (የአጭር ጊዜ ዕቅዶች)"
+          description="Sub-annual and 100-day institutional action plans, mother-sector cascading, period divisions, and live achievement reporting."
+          actions={directoryActions}
+          filters={directoryFilters}
+        >
+          {/* Tabular Table Display */}
           {isLoadingPlans ? (
             <div className="p-12 text-center text-xs text-muted-foreground">Loading short-term plans...</div>
           ) : filteredPlans.length === 0 ? (
@@ -803,8 +730,7 @@ export function ShortTermPlanView() {
                 </Button>
               )}
             </div>
-          ) : displayFormat === "table" ? (
-            /* Tabular Option (Parity with Plan Management Plan Draft Table) */
+          ) : (
             <div className="rounded-xl border border-border/80 bg-card overflow-hidden shadow-sm">
               <DataTable
                 columns={planColumns}
@@ -815,93 +741,8 @@ export function ShortTermPlanView() {
                 defaultPageSize={10}
               />
             </div>
-          ) : (
-            /* Cards Option */
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
-              {filteredPlans.map((p) => {
-                const achievementVal = p.stats?.avg_achievement_percent || 0;
-                return (
-                  <div
-                    key={p.short_term_plan_id}
-                    className="p-5 rounded-2xl border border-border/80 bg-card hover:border-primary/50 hover:shadow-md transition-all flex flex-col justify-between space-y-4"
-                  >
-                    <div className="space-y-2.5">
-                      <div className="flex items-start justify-between gap-2">
-                        <Badge
-                          variant="outline"
-                          className="border-primary/30 bg-primary/5 text-primary text-[10px] font-semibold"
-                        >
-                          {p.duration_days || 100} Days Duration
-                        </Badge>
-                        <Badge
-                          variant={p.status === "active" ? "default" : "secondary"}
-                          className="capitalize text-[10px]"
-                        >
-                          {p.status}
-                        </Badge>
-                      </div>
-
-                      <h3 className="font-bold text-sm text-foreground leading-snug line-clamp-2">
-                        {p.title}
-                      </h3>
-
-                      <div className="space-y-1.5 pt-1 text-xs text-muted-foreground">
-                        <div className="flex items-center gap-1.5">
-                          <Building2 className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
-                          <span className="truncate font-medium text-foreground/80">
-                            {p.sector?.name || "All Institution Sectors"}
-                          </span>
-                        </div>
-                        <div className="flex items-center gap-1.5">
-                          <Calendar className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
-                          <span>
-                            {p.start_date} – {p.end_date} ({p.calendar_system})
-                          </span>
-                        </div>
-                        <div className="flex items-center gap-1.5">
-                          <Clock className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
-                          <span className="truncate">
-                            {p.configuration?.title || "100-Day Standard • 4 Weeks/Month"}
-                          </span>
-                        </div>
-                      </div>
-                    </div>
-
-                    <div className="space-y-3 pt-3 border-t border-border/60">
-                      <div className="flex items-center justify-between text-xs">
-                        <span className="text-muted-foreground font-medium">
-                          {p.stats?.kpi_count || 0} KPIs • {p.stats?.assignment_count || 0} Assigned
-                        </span>
-                        <span className="font-mono font-bold text-primary">
-                          {achievementVal}% Achieved
-                        </span>
-                      </div>
-                      <div className="w-full bg-slate-100 dark:bg-slate-800 rounded-full h-2 overflow-hidden">
-                        <div
-                          className="bg-primary h-full rounded-full transition-all"
-                          style={{ width: `${Math.min(100, Math.max(0, achievementVal))}%` }}
-                        />
-                      </div>
-
-                      <Button
-                        variant="default"
-                        size="sm"
-                        className="w-full text-xs font-semibold gap-1.5 mt-2"
-                        onClick={() => {
-                          setSelectedPlanId(p.short_term_plan_id);
-                          setViewMode("workspace");
-                        }}
-                      >
-                        <span>Open Plan Workspace</span>
-                        <span>→</span>
-                      </Button>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
           )}
-        </div>
+        </TableLayout>
       ) : (
         /* 2. DEDICATED PLAN WORKSPACE VIEW */
         <div className="space-y-6">
@@ -923,7 +764,7 @@ export function ShortTermPlanView() {
                   variant="outline"
                   size="sm"
                   className="gap-1.5 text-xs"
-                  onClick={() => setIsConfigModalOpen(true)}
+                  onClick={() => router.push("/short-term-plan/configurations")}
                 >
                   <Settings className="h-3.5 w-3.5 text-muted-foreground" />
                   <span>Configurations</span>
@@ -1173,7 +1014,20 @@ export function ShortTermPlanView() {
                   min={10}
                   max={365}
                   value={planForm.duration_days}
-                  onChange={(e) => setPlanForm({ ...planForm, duration_days: Number(e.target.value) })}
+                  onChange={(e) => {
+                    const days = Number(e.target.value);
+                    let newEnd = planForm.end_date;
+                    if (planForm.start_date && days > 0) {
+                      const d = new Date(planForm.start_date);
+                      d.setDate(d.getDate() + days);
+                      newEnd = d.toISOString().split("T")[0];
+                    }
+                    setPlanForm({
+                      ...planForm,
+                      duration_days: days,
+                      end_date: newEnd,
+                    });
+                  }}
                   required
                 />
               </div>
@@ -1194,7 +1048,15 @@ export function ShortTermPlanView() {
                 <DualCalendarDatePicker
                   value={planForm.start_date}
                   calendarSystem={planForm.calendar_system}
-                  onChange={(d) => setPlanForm({ ...planForm, start_date: d })}
+                  onChange={(d) => {
+                    let newEnd = planForm.end_date;
+                    if (d && planForm.duration_days > 0) {
+                      const dt = new Date(d);
+                      dt.setDate(dt.getDate() + Number(planForm.duration_days));
+                      newEnd = dt.toISOString().split("T")[0];
+                    }
+                    setPlanForm({ ...planForm, start_date: d, end_date: newEnd });
+                  }}
                 />
               </div>
               <div>
@@ -1202,7 +1064,17 @@ export function ShortTermPlanView() {
                 <DualCalendarDatePicker
                   value={planForm.end_date}
                   calendarSystem={planForm.calendar_system}
-                  onChange={(d) => setPlanForm({ ...planForm, end_date: d })}
+                  onChange={(d) => {
+                    let newDays = planForm.duration_days;
+                    if (planForm.start_date && d) {
+                      const diffMs = new Date(d).getTime() - new Date(planForm.start_date).getTime();
+                      const days = Math.round(diffMs / 86400000);
+                      if (days > 0 && days <= 365) {
+                        newDays = days;
+                      }
+                    }
+                    setPlanForm({ ...planForm, end_date: d, duration_days: newDays });
+                  }}
                 />
               </div>
             </div>
@@ -1301,12 +1173,29 @@ export function ShortTermPlanView() {
         onClose={() => setAssigningKpi(null)}
       />
 
-      {/* Configuration Management Modal */}
-      <ShortTermConfigurationModal
-        open={isConfigModalOpen}
-        onOpenChange={setIsConfigModalOpen}
-        canManage={canCreatePlan}
-      />
+      {/* Edit Short-Term Plan Modal */}
+      {editingPlan && (
+        <EditShortTermPlanModal
+          isOpen={Boolean(editingPlan)}
+          onClose={() => setEditingPlan(null)}
+          plan={editingPlan}
+          sectors={sectors}
+          configurations={configs}
+        />
+      )}
+
+      {/* Duplicate Short-Term Plan Modal */}
+      {duplicatingPlan && (
+        <DuplicateShortTermPlanModal
+          isOpen={Boolean(duplicatingPlan)}
+          onClose={() => setDuplicatingPlan(null)}
+          plan={duplicatingPlan}
+          onDuplicated={(newP) => {
+            setSelectedPlanId(newP.short_term_plan_id);
+            setViewMode("workspace");
+          }}
+        />
+      )}
     </div>
   );
 }
