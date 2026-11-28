@@ -338,7 +338,7 @@ export const PRIVATE_CATEGORIZED_NAVIGATION: NavCategory[] = [
             ],
           },
           {
-            title: "KPI List",
+            title: "Plan Draft",
             url: "/short-term-plan",
             icon: ListTree,
             anyPermissions: [

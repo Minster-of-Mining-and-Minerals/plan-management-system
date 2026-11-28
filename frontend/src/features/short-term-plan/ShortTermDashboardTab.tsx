@@ -36,19 +36,23 @@ import {
 interface ShortTermDashboardTabProps {
   planId?: string;
   sectorId?: string;
+  nameFilter?: string;
 }
 
-export function ShortTermDashboardTab({ planId, sectorId }: ShortTermDashboardTabProps) {
+export function ShortTermDashboardTab({ planId, sectorId, nameFilter = "" }: ShortTermDashboardTabProps) {
   const { data: analytics, isLoading } = useGetShortTermAnalyticsQuery({
     planId: planId || undefined,
     government_structure_id: sectorId || undefined,
   });
 
   const [assigneeSearch, setAssigneeSearch] = useState("");
+  const [internalKpiSearch, setInternalKpiSearch] = useState("");
+
+  const effectiveKpiSearch = (nameFilter || internalKpiSearch).trim().toLowerCase();
 
   const filteredAssignees = useMemo(() => {
     const list = analytics?.byAssignee || [];
-    const q = assigneeSearch.trim().toLowerCase();
+    const q = (assigneeSearch || nameFilter).trim().toLowerCase();
     if (!q) return list;
     return list.filter(
       (a) =>
@@ -56,7 +60,18 @@ export function ShortTermDashboardTab({ planId, sectorId }: ShortTermDashboardTa
         a.sector_name.toLowerCase().includes(q) ||
         a.assignee_type.toLowerCase().includes(q)
     );
-  }, [analytics?.byAssignee, assigneeSearch]);
+  }, [analytics?.byAssignee, assigneeSearch, nameFilter]);
+
+  const filteredKpiProgress = useMemo(() => {
+    const list = analytics?.kpiProgress || [];
+    if (!effectiveKpiSearch) return list;
+    return list.filter(
+      (k) =>
+        k.title.toLowerCase().includes(effectiveKpiSearch) ||
+        k.code.toLowerCase().includes(effectiveKpiSearch) ||
+        k.sector_name.toLowerCase().includes(effectiveKpiSearch)
+    );
+  }, [analytics?.kpiProgress, effectiveKpiSearch]);
 
   if (isLoading) {
     return (
@@ -297,7 +312,25 @@ export function ShortTermDashboardTab({ planId, sectorId }: ShortTermDashboardTa
       {/* Per-KPI Achievement Summary */}
       <Card>
         <CardHeader className="pb-2">
-          <CardTitle className="text-base">KPI Achievement Against Target ({kpiProgress.length} KPIs)</CardTitle>
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <div>
+              <CardTitle className="text-base">KPI Achievement Against Target ({filteredKpiProgress.length} KPIs)</CardTitle>
+              <CardDescription className="text-xs">
+                Performance against target across quantitative and qualitative indicators
+              </CardDescription>
+            </div>
+            {!nameFilter && (
+              <div className="relative w-72">
+                <Search className="absolute left-2.5 top-2.5 h-3.5 w-3.5 text-muted-foreground" />
+                <Input
+                  value={internalKpiSearch}
+                  onChange={(e) => setInternalKpiSearch(e.target.value)}
+                  placeholder="Filter by KPI title, code, or sector..."
+                  className="pl-8 h-8 text-xs"
+                />
+              </div>
+            )}
+          </div>
         </CardHeader>
         <CardContent>
           <div className="rounded-md border overflow-x-auto max-h-[360px] overflow-y-auto">
@@ -314,29 +347,37 @@ export function ShortTermDashboardTab({ planId, sectorId }: ShortTermDashboardTa
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {kpiProgress.map((k) => (
-                  <TableRow key={k.short_term_kpi_id}>
-                    <TableCell className="font-mono text-xs">{k.code}</TableCell>
-                    <TableCell className="text-xs max-w-md truncate" title={k.title}>{k.title}</TableCell>
-                    <TableCell className="text-xs">{k.sector_name}</TableCell>
-                    <TableCell>
-                      <Badge variant="secondary" className="capitalize text-[10px]">{k.evaluation_mode}</Badge>
-                    </TableCell>
-                    <TableCell className="text-right text-xs">
-                      {k.total_target ?? "—"} ({k.unit})
-                    </TableCell>
-                    <TableCell className="text-right text-xs font-medium">
-                      {k.achieved_actual !== null ? k.achieved_actual : "—"}
-                    </TableCell>
-                    <TableCell className="text-right text-xs font-semibold">
-                      {k.achievement_percent !== null ? (
-                        <span className="text-emerald-700">{k.achievement_percent}%</span>
-                      ) : (
-                        <span className="text-slate-400">Pending</span>
-                      )}
+                {filteredKpiProgress.length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={7} className="text-center text-xs text-muted-foreground py-6">
+                      No matching KPIs found.
                     </TableCell>
                   </TableRow>
-                ))}
+                ) : (
+                  filteredKpiProgress.map((k) => (
+                    <TableRow key={k.short_term_kpi_id}>
+                      <TableCell className="font-mono text-xs">{k.code}</TableCell>
+                      <TableCell className="text-xs max-w-md truncate" title={k.title}>{k.title}</TableCell>
+                      <TableCell className="text-xs">{k.sector_name}</TableCell>
+                      <TableCell>
+                        <Badge variant="secondary" className="capitalize text-[10px]">{k.evaluation_mode}</Badge>
+                      </TableCell>
+                      <TableCell className="text-right text-xs">
+                        {k.total_target ?? "—"} ({k.unit})
+                      </TableCell>
+                      <TableCell className="text-right text-xs font-medium">
+                        {k.achieved_actual !== null ? k.achieved_actual : "—"}
+                      </TableCell>
+                      <TableCell className="text-right text-xs font-semibold">
+                        {k.achievement_percent !== null ? (
+                          <span className="text-emerald-700 font-mono">{k.achievement_percent}%</span>
+                        ) : (
+                          <span className="text-muted-foreground">Pending</span>
+                        )}
+                      </TableCell>
+                    </TableRow>
+                  ))
+                )}
               </TableBody>
             </Table>
           </div>

@@ -6,6 +6,7 @@ import { useGetGovernmentStructuresQuery } from "@/redux/api/governmentStructure
 import { ShortTermDashboardTab } from "./ShortTermDashboardTab";
 import { Card, CardContent } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
+import { Input } from "@/components/ui/input";
 import {
   Select,
   SelectContent,
@@ -13,10 +14,12 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Search } from "lucide-react";
 
 export function ShortTermDashboardPageView() {
   const [sectorFilter, setSectorFilter] = useState<string>("all");
   const [planFilter, setPlanFilter] = useState<string>("all");
+  const [nameFilter, setNameFilter] = useState<string>("");
 
   const { data: sectors = [] } = useGetGovernmentStructuresQuery({ is_active: true });
   const { data: plans = [] } = useGetShortTermPlansQuery(
@@ -70,12 +73,25 @@ export function ShortTermDashboardPageView() {
               </SelectContent>
             </Select>
           </div>
+          <div className="w-64">
+            <Label className="text-xs text-slate-500">Filter by KPI Name / Code</Label>
+            <div className="relative mt-1">
+              <Search className="absolute left-2.5 top-2.5 h-3.5 w-3.5 text-muted-foreground" />
+              <Input
+                placeholder="Search KPI title or code..."
+                value={nameFilter}
+                onChange={(e) => setNameFilter(e.target.value)}
+                className="h-9 text-xs pl-8"
+              />
+            </div>
+          </div>
         </div>
       </div>
 
       <ShortTermDashboardTab
         planId={planFilter !== "all" ? planFilter : undefined}
         sectorId={sectorFilter !== "all" ? sectorFilter : undefined}
+        nameFilter={nameFilter}
       />
     </div>
   );

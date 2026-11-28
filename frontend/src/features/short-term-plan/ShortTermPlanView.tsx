@@ -16,6 +16,7 @@ import { useGetGovernmentStructuresQuery } from "@/redux/api/governmentStructure
 import { useGetInternalStructuresQuery } from "@/redux/api/internalStructureApi";
 import { useGetUsersQuery } from "@/redux/api/userApi";
 import type {
+  ShortTermPlan,
   ShortTermKpi,
   ShortTermFrequency,
   ShortTermEvaluationMode,
@@ -64,6 +65,9 @@ import {
   Layers,
   CheckCircle2,
   TrendingUp,
+  LayoutList,
+  LayoutGrid,
+  Search,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -84,6 +88,8 @@ export function ShortTermPlanView() {
   const [viewMode, setViewMode] = useState<"directory" | "workspace">(
     initialPlanId ? "workspace" : "directory"
   );
+  const [displayFormat, setDisplayFormat] = useState<"table" | "cards">("table");
+  const [planSearch, setPlanSearch] = useState<string>("");
   const [activeTab, setActiveTab] = useState<"kpis" | "analytics" | "config">("kpis");
 
   const [sectorFilter, setSectorFilter] = useState<string>("all");
@@ -466,6 +472,128 @@ export function ShortTermPlanView() {
     },
   ];
 
+  const planColumns: ColumnDef<ShortTermPlan>[] = useMemo(
+    () => [
+      {
+        accessorKey: "title",
+        header: "Plan Name",
+        cell: ({ row }) => {
+          const p = row.original;
+          return (
+            <div className="max-w-md">
+              <span
+                className="font-bold text-xs text-primary hover:underline cursor-pointer block leading-snug"
+                onClick={() => {
+                  setSelectedPlanId(p.short_term_plan_id);
+                  setViewMode("workspace");
+                }}
+              >
+                {p.title}
+              </span>
+              <span className="text-[11px] text-muted-foreground block mt-0.5">
+                {p.duration_days || 100} Days Duration • {p.configuration?.title || "100-Day Standard Configuration"}
+              </span>
+            </div>
+          );
+        },
+      },
+      {
+        id: "date_range",
+        header: "Date Range & Duration",
+        cell: ({ row }) => {
+          const p = row.original;
+          return (
+            <div className="text-xs">
+              <span className="font-semibold text-foreground">
+                {p.start_date} – {p.end_date}
+              </span>
+              <span className="text-muted-foreground block text-[11px]">
+                ({p.calendar_system}) • {p.duration_days || 100} Days
+              </span>
+            </div>
+          );
+        },
+      },
+      {
+        id: "mother_sector",
+        header: "Mother Sector",
+        cell: ({ row }) => {
+          const p = row.original;
+          return (
+            <div className="flex items-center gap-1.5 text-xs font-medium text-foreground">
+              <Building2 className="h-3.5 w-3.5 text-primary shrink-0" />
+              <span>{p.sector?.name || "Ministry of Mines"}</span>
+            </div>
+          );
+        },
+      },
+      {
+        id: "total_kpis",
+        header: "Total KPIs",
+        cell: ({ row }) => {
+          const p = row.original;
+          return (
+            <Badge variant="outline" className="font-mono text-xs">
+              {p.stats?.kpi_count || 0} KPIs
+            </Badge>
+          );
+        },
+      },
+      {
+        accessorKey: "status",
+        header: "Status",
+        cell: ({ row }) => {
+          const p = row.original;
+          return (
+            <Badge
+              variant={p.status === "active" ? "default" : "secondary"}
+              className="capitalize text-xs font-semibold"
+            >
+              {p.status || "active"}
+            </Badge>
+          );
+        },
+      },
+      {
+        id: "actions",
+        header: () => <div className="text-right">Actions</div>,
+        cell: ({ row }) => {
+          const p = row.original;
+          return (
+            <div className="flex items-center justify-end gap-1.5">
+              <Button
+                size="sm"
+                variant="default"
+                className="h-8 gap-1.5 text-xs font-semibold"
+                onClick={() => {
+                  setSelectedPlanId(p.short_term_plan_id);
+                  setViewMode("workspace");
+                }}
+              >
+                <Eye className="h-3.5 w-3.5" />
+                <span>Open Plan</span>
+              </Button>
+            </div>
+          );
+        },
+      },
+    ],
+    []
+  );
+
+  const filteredPlans = useMemo(() => {
+    let list = plans;
+    if (planSearch.trim()) {
+      const q = planSearch.trim().toLowerCase();
+      list = list.filter(
+        (p) =>
+          p.title.toLowerCase().includes(q) ||
+          (p.sector?.name || "").toLowerCase().includes(q)
+      );
+    }
+    return list;
+  }, [plans, planSearch]);
+
   // Directory Overview Metrics
   const directoryMetrics = useMemo(() => {
     let totalKpis = 0;
@@ -593,34 +721,75 @@ export function ShortTermPlanView() {
             </div>
           </div>
 
-          {/* Sector Filter Bar */}
-          <div className="flex items-center justify-between gap-4 p-3 rounded-xl bg-card border border-border/60">
-            <div className="flex items-center gap-2">
-              <span className="text-xs font-semibold text-muted-foreground">Filter by Sector:</span>
-              <Select value={sectorFilter} onValueChange={setSectorFilter}>
-                <SelectTrigger className="w-[260px] h-8 text-xs">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Sectors</SelectItem>
-                  {sectors.map((s) => (
-                    <SelectItem key={s.government_structure_id} value={s.government_structure_id}>
-                      {s.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+          {/* Filter Bar with Search, Sector and Table/Grid Toggle */}
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3 rounded-xl bg-card border border-border/60">
+            <div className="flex flex-wrap items-center gap-3">
+              <div className="relative w-64">
+                <Search className="absolute left-2.5 top-2.5 h-3.5 w-3.5 text-muted-foreground" />
+                <Input
+                  value={planSearch}
+                  onChange={(e) => setPlanSearch(e.target.value)}
+                  placeholder="Search plan by name or sector..."
+                  className="pl-8 h-8 text-xs"
+                />
+              </div>
+
+              <div className="flex items-center gap-2">
+                <span className="text-xs font-semibold text-muted-foreground">Sector:</span>
+                <Select value={sectorFilter} onValueChange={setSectorFilter}>
+                  <SelectTrigger className="w-[200px] h-8 text-xs">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Sectors</SelectItem>
+                    {sectors.map((s) => (
+                      <SelectItem key={s.government_structure_id} value={s.government_structure_id}>
+                        {s.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
 
-            <span className="text-xs text-muted-foreground">
-              Showing {plans.length} plan(s)
-            </span>
+            <div className="flex items-center gap-2 self-end sm:self-auto">
+              <span className="text-xs text-muted-foreground mr-1">
+                {filteredPlans.length} plan draft(s)
+              </span>
+
+              <div className="inline-flex items-center rounded-lg border border-border p-0.5 bg-slate-50 dark:bg-slate-900">
+                <button
+                  type="button"
+                  title="Tabular Table View"
+                  onClick={() => setDisplayFormat("table")}
+                  className={`p-1.5 rounded-md text-xs transition-all ${
+                    displayFormat === "table"
+                      ? "bg-primary text-primary-foreground shadow-sm"
+                      : "text-muted-foreground hover:text-foreground"
+                  }`}
+                >
+                  <LayoutList className="h-4 w-4" />
+                </button>
+                <button
+                  type="button"
+                  title="Card Grid View"
+                  onClick={() => setDisplayFormat("cards")}
+                  className={`p-1.5 rounded-md text-xs transition-all ${
+                    displayFormat === "cards"
+                      ? "bg-primary text-primary-foreground shadow-sm"
+                      : "text-muted-foreground hover:text-foreground"
+                  }`}
+                >
+                  <LayoutGrid className="h-4 w-4" />
+                </button>
+              </div>
+            </div>
           </div>
 
-          {/* Plans Grid */}
+          {/* Tabular Table or Cards Display */}
           {isLoadingPlans ? (
             <div className="p-12 text-center text-xs text-muted-foreground">Loading short-term plans...</div>
-          ) : plans.length === 0 ? (
+          ) : filteredPlans.length === 0 ? (
             <div className="p-12 text-center rounded-2xl border border-dashed border-border bg-card">
               <Layers className="h-8 w-8 text-muted-foreground mx-auto mb-2 opacity-50" />
               <p className="text-sm font-semibold text-foreground">No short-term plans found</p>
@@ -634,9 +803,22 @@ export function ShortTermPlanView() {
                 </Button>
               )}
             </div>
+          ) : displayFormat === "table" ? (
+            /* Tabular Option (Parity with Plan Management Plan Draft Table) */
+            <div className="rounded-xl border border-border/80 bg-card overflow-hidden shadow-sm">
+              <DataTable
+                columns={planColumns}
+                data={filteredPlans}
+                isLoading={isLoadingPlans}
+                errorMessage="Failed to load plan drafts."
+                onRetry={() => {}}
+                defaultPageSize={10}
+              />
+            </div>
           ) : (
+            /* Cards Option */
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
-              {plans.map((p) => {
+              {filteredPlans.map((p) => {
                 const achievementVal = p.stats?.avg_achievement_percent || 0;
                 return (
                   <div
